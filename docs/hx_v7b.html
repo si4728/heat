@@ -1,0 +1,520 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:var(--font-sans)}
+.tn{display:flex;align-items:center;background:#08111a;border-bottom:1px solid #1a2b38;padding:0 12px;height:38px;gap:2px;position:sticky;top:0;z-index:10}
+.lg{font-size:13px;font-weight:500;color:#3ecfb0;margin-right:12px;display:flex;align-items:center;gap:5px}
+.tb{padding:0 12px;height:38px;display:flex;align-items:center;font-size:12px;color:#6a8494;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s}
+.tb.a{color:#3ecfb0;border-bottom:2px solid #3ecfb0}
+.tb:hover{color:#b0c8d4}
+.pg{display:none;background:#060e15;min-height:calc(100vh - 38px)}
+.pg.a{display:block}
+.tc2{display:flex;min-height:calc(100vh - 38px)}
+.lp{width:190px;background:#08111a;border-right:1px solid #1a2b38;display:flex;flex-direction:column;flex-shrink:0}
+.lf{padding:6px;border-bottom:1px solid #1a2b38}
+.lf select,.ls input{width:100%;background:#060e15;border:1px solid #1a2b38;border-radius:3px;color:#b0c8d4;font-size:11px;padding:4px 7px;outline:none}
+.lf select option{background:#0c1820}
+.ls{padding:6px;border-bottom:1px solid #1a2b38}
+.ls input::placeholder{color:#3a4f5e}
+.ll{overflow-y:auto;flex:1}
+.ei{padding:5px 10px;font-size:11px;color:#6a8494;cursor:pointer;border-left:2px solid transparent;display:flex;justify-content:space-between;align-items:center;gap:4px}
+.ei:hover{background:#0c1820;color:#b0c8d4}
+.ei.ac{background:#0c1820;color:#ddeef8;border-left:2px solid #3ecfb0}
+.eb{font-size:9px;padding:1px 4px;border-radius:2px;font-weight:500;flex-shrink:0}
+.eg{background:rgba(62,207,176,0.15);color:#3ecfb0}.ey{background:rgba(212,160,48,0.15);color:#d4a030}.er{background:rgba(212,80,80,0.15);color:#d45050}
+.rc{flex:1;overflow:auto}
+.dw{padding:1rem}
+.pt{font-size:14px;font-weight:500;color:#ddeef8;margin-bottom:1rem}
+.st{border-collapse:collapse;font-size:12px}
+.st th{background:#0c1820;color:#6a8494;font-weight:400;padding:7px 16px;border:1px solid #1a2b38;text-align:center;white-space:nowrap}
+.st th.pl{text-align:left}
+.st td{padding:7px 16px;border:1px solid #1a2b38;text-align:center;color:#b0c8d4;background:#08111a}
+.st td.pn{text-align:left;font-weight:500;color:#ddeef8;background:#0c1820}
+.st tfoot td{background:#0c1820;font-weight:500;color:#ddeef8}
+.nb{cursor:pointer;padding:2px 10px;border-radius:3px;display:inline-block;min-width:28px;font-size:12px;transition:opacity 0.15s}
+.nb:hover{opacity:0.75}
+.ng{color:#3ecfb0;background:rgba(62,207,176,0.1)}.ny{color:#d4a030;background:rgba(212,160,48,0.1)}.nr{color:#d45050;background:rgba(212,80,80,0.1)}.nt{color:#b0c8d4;background:rgba(176,200,212,0.07)}.nz{color:#253545;cursor:default}
+.rs{display:none}
+.rh{display:flex;align-items:center;justify-content:space-between;margin:1rem 0 .6rem}
+.rtt{font-size:13px;font-weight:500;color:#b0c8d4}
+.rbg{font-size:10px;padding:2px 8px;border-radius:8px}
+.rg{background:rgba(62,207,176,0.15);color:#3ecfb0}.ry{background:rgba(212,160,48,0.15);color:#d4a030}.rr{background:rgba(212,80,80,0.15);color:#d45050}.ra{background:rgba(176,200,212,0.1);color:#b0c8d4}
+.dv{border:none;border-top:1px solid #1a2b38;margin:.75rem 0}
+.lt{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}
+.lt th{background:#0c1820;color:#6a8494;font-weight:400;padding:6px 10px;border:1px solid #1a2b38;text-align:left}
+.lt td{padding:6px 10px;border:1px solid #1a2b38;color:#b0c8d4;background:#08111a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lt tr:hover td{background:#0c1820;cursor:pointer}
+.lt td.cd{color:#ddeef8;font-weight:500}
+.rp{font-size:10px;padding:2px 8px;border-radius:10px;display:inline-block}
+.rpg{background:rgba(62,207,176,0.15);color:#3ecfb0}.rpy{background:rgba(212,160,48,0.15);color:#d4a030}.rpr{background:rgba(212,80,80,0.15);color:#d45050}
+.mf{padding:1.25rem}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fc{background:#08111a;border:1px solid #1a2b38;border-radius:8px;padding:1rem 1.25rem}
+.fct{font-size:12px;font-weight:500;color:#b0c8d4;margin-bottom:1rem;display:flex;align-items:center;gap:6px;padding-bottom:8px;border-bottom:1px solid #1a2b38}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fi2{display:flex;flex-direction:column;gap:4px}
+.fi2.s2{grid-column:span 2}
+label{font-size:10px;color:#6a8494}
+.rq{color:#d45050;margin-left:2px}
+input[type=text],input[type=number],select.si,textarea{background:#060e15;border:1px solid #1a2b38;border-radius:4px;color:#b0c8d4;font-size:11px;padding:6px 8px;outline:none;width:100%}
+input:focus,select.si:focus,textarea:focus{border-color:#3ecfb0}
+input::placeholder,textarea::placeholder{color:#3a4f5e}
+select.si option{background:#0c1820}
+textarea{resize:vertical;min-height:60px;line-height:1.5}
+.cb{display:flex;align-items:flex-start;gap:10px;background:#0c1820;border:1px solid #1a2b38;border-radius:6px;padding:10px 12px;cursor:pointer}
+.cb.ck{border-color:#d45050;background:rgba(212,80,80,0.05)}
+.cx{width:16px;height:16px;border-radius:3px;border:1.5px solid #253545;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;background:#060e15}
+.cx.on{background:#d45050;border-color:#d45050}
+.od{margin-top:10px;background:#0c1820;border:1px solid #1a2b38;border-radius:6px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between}
+.fdv{border:none;border-top:1px solid #1a2b38;margin:8px 0;grid-column:span 2}
+.ac2{display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem}
+.bc{font-size:12px;color:#6a8494;cursor:pointer;border:1px solid #1a2b38;padding:6px 16px;border-radius:4px;background:#0c1820}
+.bs{font-size:12px;color:#060e15;cursor:pointer;border:none;padding:6px 18px;border-radius:4px;background:#3ecfb0;font-weight:500}
+.un{font-size:10px;color:#4a6070;margin-left:3px}
+.ib{display:grid;grid-template-columns:repeat(8,1fr);border-bottom:1px solid #1a2b38}
+.ic{padding:7px 10px;border-right:1px solid #1a2b38;min-width:0}
+.ic:last-child{border-right:none}
+.il{font-size:9px;color:#6a8494;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iv{font-size:11px;font-weight:500;color:#ddeef8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ivy{color:#d4a030}.ivr{color:#d45050}
+.mg{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #1a2b38}
+.p2{border-right:1px solid #1a2b38;padding:10px}
+.p2:last-child{border-right:none}
+.p2t{font-size:11px;color:#6a8494;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.ml{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.mli{display:flex;align-items:center;gap:3px;font-size:9px;color:#6a8494}
+.mld{width:8px;height:8px;border-radius:50%}
+.dt{width:100%;border-collapse:collapse;font-size:10px}
+.dt th{color:#6a8494;font-weight:400;padding:4px 5px;border-bottom:1px solid #1a2b38;text-align:left;white-space:nowrap}
+.dt td{padding:4px 5px;color:#b0c8d4;border-bottom:1px solid #0c1820}
+.dt tr:hover td{background:#0c1820;cursor:pointer}
+.db{height:7px;border-radius:2px;display:inline-block;vertical-align:middle}
+.sp{font-size:10px;color:#6a8494;padding:6px 10px;border-bottom:1px solid #1a2b38;border-top:1px solid #1a2b38;background:#08111a}
+.tp{padding:10px}
+.tg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tc{background:#08111a;border:1px solid #1a2b38;border-radius:5px;padding:8px}
+.tt{font-size:10px;color:#6a8494;margin-bottom:6px}
+.tr{display:flex;align-items:center;gap:5px;margin-bottom:3px;font-size:10px}
+.ty{width:32px;color:#6a8494}
+.bg{flex:1;height:8px;background:#1a2b38;border-radius:2px;overflow:hidden}
+.bf{height:100%;border-radius:2px}
+.tv{width:44px;color:#b0c8d4;text-align:right;font-size:10px}
+.cr{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #0c1820;font-size:10px}
+.cr:last-child{border-bottom:none}
+.crb{font-size:9px;padding:1px 5px;border-radius:2px}
+.cg{background:rgba(62,207,176,0.12);color:#3ecfb0}.cy{background:rgba(212,160,48,0.12);color:#d4a030}.cx2{background:rgba(212,80,80,0.12);color:#d45050}
+.rb{background:#08111a;border:1px solid #1a2b38;border-radius:5px;padding:8px}
+.re{font-size:10px;color:#6a8494;line-height:1.8}
+.re b{color:#b0c8d4;font-weight:500}
+.rf{font-size:10px;color:#3ecfb0;background:#060e15;border:1px solid #1a2b38;border-radius:4px;padding:5px 8px;margin:3px 0;font-family:var(--font-mono)}
+</style>
+<div class="tn">
+  <div class="lg"><i class="ti ti-settings-2" aria-hidden="true"></i> HX-Manager</div>
+  <div class="tb a" id="t-d" onclick="sw('d',this)">대시보드</div>
+  <div class="tb" id="t-m" onclick="sw('m',this)">설비 마스터</div>
+  <div class="tb" id="t-a" onclick="sw('a',this)">정밀 분석</div>
+</div>
+<div class="pg a" id="p-d">
+  <div class="dw">
+    <div class="pt">운영 대시보드</div>
+    <table class="st">
+      <thead><tr><th class="pl">공정</th><th style="color:#3ecfb0">15년↑</th><th style="color:#d4a030">5~15년</th><th style="color:#d45050">5년↓</th><th>합계</th></tr></thead>
+      <tbody id="sBody"></tbody>
+      <tfoot id="sFoot"></tfoot>
+    </table>
+    <div class="rs" id="rSec">
+      <hr class="dv">
+      <div class="rh"><div class="rtt" id="rTitle"></div><span class="rbg" id="rBadge"></span></div>
+      <table class="lt">
+        <thead><tr><th style="width:110px">Item No.</th><th style="width:160px">설비명</th><th style="width:92px">최근 검사일</th><th style="width:76px">최대 감육률</th><th style="width:76px">잔여수명</th><th style="width:50px"></th></tr></thead>
+        <tbody id="lBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div class="pg" id="p-m">
+  <div class="tc2">
+    <div class="lp">
+      <div class="lf"><select onchange="fM(this.value)"><option value="">전체 공정</option><option>VCM1</option><option>VCM2</option><option>VCM3</option><option>VCM4</option><option>여수</option></select></div>
+      <div class="ls"><input placeholder="설비 검색..." oninput="fMs(this.value)" id="mSrch"></div>
+      <div class="ll" id="mList"></div>
+    </div>
+    <div class="rc">
+      <div class="mf">
+        <div style="font-size:14px;font-weight:500;color:#ddeef8;margin-bottom:4px">설비 수정</div>
+        <div style="font-size:11px;color:#6a8494;margin-bottom:1.25rem">자산 관리 마스터 및 기술 사양을 입력합니다.</div>
+        <div class="fg2">
+          <div class="fc">
+            <div class="fct"><i class="ti ti-building-factory-2" aria-hidden="true"></i> 기본 마스터 정보</div>
+            <div class="fg">
+              <div class="fi2"><label>공정<span class="rq">*</span></label><select class="si"><option>VCM1</option><option>VCM2</option><option>VCM3</option><option>VCM4</option><option>여수</option></select></div>
+              <div class="fi2"><label>설비 코드<span class="rq">*</span></label><input type="text" id="mCode" value="E-111"></div>
+              <div class="fi2"><label>설비명<span class="rq">*</span></label><input type="text" value="VCM1 Condenser A"></div>
+              <div class="fi2"><label>설비 유형</label><select class="si"><option>Shell &amp; Tube</option><option>Air Cooler</option><option>Plate</option></select></div>
+              <hr class="fdv">
+              <div class="fi2 s2">
+                <label>공정 중요도</label>
+                <div class="cb" id="cbx" onclick="tC()"><div class="cx" id="cxi"></div><div><div style="font-size:11px;font-weight:500;color:#b0c8d4">Critical 설비로 지정</div><div style="font-size:10px;color:#6a8494">체크 시 허용 Plugging 한도 10% 적용 (기본: 20%)</div></div></div>
+                <div class="od"><div style="font-size:10px;color:#6a8494">Over-design Factor (허용 Plugging 한도)</div><div><span style="font-size:14px;font-weight:500;color:#3ecfb0" id="ov">20%</span><span style="font-size:10px;color:#6a8494;margin-left:6px" id="on2">— 일반 설비</span></div></div>
+              </div>
+              <hr class="fdv">
+              <div class="fi2"><label>Shell 측 유체</label><input type="text" placeholder="예) 냉각수"></div>
+              <div class="fi2"><label>Tube 측 유체</label><input type="text" placeholder="예) VCM, EDC"></div>
+              <div class="fi2 s2"><label>비고</label><textarea placeholder="특이사항 등"></textarea></div>
+            </div>
+          </div>
+          <div class="fc">
+            <div class="fct"><i class="ti ti-adjustments-horizontal" aria-hidden="true"></i> 기술 사양</div>
+            <div class="fg">
+              <div class="fi2"><label>설계 압력 <span class="un">(kg/cm²g)</span></label><input type="number" placeholder="10.5"></div>
+              <div class="fi2"><label>설계 온도 <span class="un">(°C)</span></label><input type="number" placeholder="150"></div>
+              <div class="fi2"><label>운전 압력 <span class="un">(kg/cm²g)</span></label><input type="number" placeholder="8.2"></div>
+              <div class="fi2"><label>운전 온도 <span class="un">(°C)</span></label><input type="number" placeholder="120"></div>
+              <hr class="fdv">
+              <div class="fi2"><label>Shell 재질</label><input type="text" value="Carbon Steel"></div>
+              <div class="fi2"><label>Tube 재질</label><input type="text" value="Stainless Steel 316"></div>
+              <div class="fi2"><label>Tube 공칭 두께 <span class="un">(mm)</span></label><input type="number" placeholder="2.77"></div>
+              <div class="fi2"><label>Tube 총 수량 <span class="un">(개)</span></label><input type="number" placeholder="450"></div>
+              <div class="fi2"><label>Tube 외경 <span class="un">(mm)</span></label><input type="number" placeholder="19.05"></div>
+              <div class="fi2"><label>Tube 길이 <span class="un">(mm)</span></label><input type="number" placeholder="6000"></div>
+              <hr class="fdv">
+              <div class="fi2"><label>제작 연도</label><input type="number" placeholder="2005"></div>
+              <div class="fi2"><label>최초 가동 연도</label><input type="number" placeholder="2006"></div>
+              <div class="fi2"><label>T/A 주기 <span class="un">(년)</span></label><select class="si"><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+              <div class="fi2"><label>최근 T/A 연도</label><input type="number" placeholder="2023"></div>
+            </div>
+          </div>
+        </div>
+        <div class="ac2"><div class="bc">✕ 취소</div><div class="bs">✔ 최종 저장</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="pg" id="p-a">
+  <div class="tc2">
+    <div class="lp">
+      <div class="lf"><select onchange="fA(this.value)"><option value="">전체 공정</option><option>VCM1</option><option>VCM2</option><option>VCM3</option><option>VCM4</option><option>여수</option></select></div>
+      <div class="ls"><input placeholder="설비 검색..." oninput="fE(this.value)" id="aSrch"></div>
+      <div class="ll" id="eList"></div>
+    </div>
+    <div class="rc">
+      <div class="ib">
+        <div class="ic"><div class="il">설비코드</div><div class="iv" id="iCd">-</div></div>
+        <div class="ic"><div class="il">공정</div><div class="iv" id="iPl">-</div></div>
+        <div class="ic"><div class="il">검사일</div><div class="iv" id="iDt">-</div></div>
+        <div class="ic"><div class="il">검사수량 / 총수량</div><div class="iv" id="iTb">-</div></div>
+        <div class="ic"><div class="il">Shell 유체</div><div class="iv" id="iSh">-</div></div>
+        <div class="ic"><div class="il">Tube 유체</div><div class="iv" id="iTf">-</div></div>
+        <div class="ic"><div class="il">Tube 재질</div><div class="iv" id="iTm">-</div></div>
+        <div class="ic"><div class="il">부식속도 (mm/yr)</div><div class="iv ivy" id="iCr">-</div></div>
+      </div>
+      <div class="mg">
+        <div class="p2">
+          <div class="p2t"><i class="ti ti-grid-dots" aria-hidden="true"></i> Tube Sheet Map</div>
+          <canvas id="tmc"></canvas>
+          <div class="ml">
+            <div class="mli"><div class="mld" style="background:#1e3040"></div>미검사</div>
+            <div class="mli"><div class="mld" style="background:#3ecfb0"></div>OK (0~15%)</div>
+            <div class="mli"><div class="mld" style="background:#d4a030"></div>Medium (15~25%)</div>
+            <div class="mli"><div class="mld" style="background:#b06020"></div>High (25~40%)</div>
+            <div class="mli"><div class="mld" style="background:#d45050"></div>Plugging (40%↑)</div>
+          </div>
+        </div>
+        <div class="p2">
+          <div class="p2t"><i class="ti ti-list" aria-hidden="true"></i> 결함 목록 <span style="color:#3a4f5e;font-weight:400;margin-left:3px" id="dCnt"></span></div>
+          <div style="overflow-y:auto;max-height:260px">
+            <table class="dt">
+              <thead><tr><th>#</th><th>Row</th><th>Col</th><th>감육률</th><th>두께(mm)</th><th>부식속도</th><th>Plugging 예상</th></tr></thead>
+              <tbody id="dBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="sp">선택 튜브 — 두께 이력 / 부식속도 / 잔여수명 분석</div>
+      <div class="tp">
+        <div class="tg">
+          <div class="tc"><div class="tt" id="tTitle">튜브를 클릭하면 이력이 표시됩니다</div><div id="tBars"></div></div>
+          <div class="tc"><div class="tt">부식속도 분석</div><div id="cAnal"></div></div>
+          <div class="tc" style="grid-column:span 2">
+            <div class="tt">설비 잔여수명 — 연도별 Plugging 누적 예측</div>
+            <div id="rSum" style="display:flex;gap:20px;margin-bottom:8px;flex-wrap:wrap;font-size:10px"></div>
+            <div style="position:relative;width:100%;height:160px">
+              <canvas id="rChart" role="img" aria-label="연도별 누적 Plugging 수량 예측 막대그래프">연도별 Plugging 누적 예측</canvas>
+            </div>
+          </div>
+          <div class="rb" style="grid-column:span 2">
+            <div class="tt" style="margin-bottom:8px">잔여수명 계산 방법</div>
+            <div class="re">
+              <b>① 튜브별 Plugging 도달 연도</b>
+              <div class="rf">Plugging 연도 = 현재연도 + (공칭두께×0.4 − 현재감육량) ÷ 부식속도</div>
+              <b>② 연도별 누적 Plugging 집계</b> — 각 튜브의 도달 연도 기준 누적 합산<br>
+              <b>③ 허용 한도 초과 시점 = 수명 도달</b>
+              <div class="rf">허용 Plugging 수 = 총 튜브 수 × 한도율 (일반 20% / Critical 10%)</div>
+              <b>④ 잔여수명</b>
+              <div class="rf">잔여수명(년) = 수명 도달 연도 − 2025</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const CY=2025,NOM=2.77,PLG=0.40;
+let rCI=null,isCrit=false;
+
+const EQ=[
+  {code:'C-160E3',name:'VCM1 Condenser',plant:'VCM1',date:'2025-07-09',total:176,inspected:124,shell:'냉각수',tf:'VCM',tm:'Carbon Steel',crit:false,
+   tubes:[{r:2,c:3,loss:8,cr:0.030},{r:3,c:7,loss:12,cr:0.035},{r:4,c:2,loss:6,cr:0.025},{r:5,c:11,loss:18,cr:0.045},{r:6,c:4,loss:22,cr:0.050},{r:1,c:9,loss:5,cr:0.018},{r:7,c:6,loss:15,cr:0.038},{r:8,c:1,loss:9,cr:0.028},{r:3,c:13,loss:28,cr:0.060},{r:9,c:5,loss:3,cr:0.015},{r:2,c:15,loss:35,cr:0.070},{r:10,c:8,loss:7,cr:0.022},{r:5,c:3,loss:11,cr:0.032},{r:7,c:12,loss:4,cr:0.016}]},
+  {code:'C-170E 1A',name:'VCM1 EDC Cooler A',plant:'VCM1',date:'2025-03-15',total:96,inspected:96,shell:'냉각수',tf:'EDC',tm:'Carbon Steel',crit:true,
+   tubes:[{r:1,c:2,loss:32,cr:0.080},{r:2,c:5,loss:28,cr:0.065},{r:3,c:1,loss:41,cr:0.095},{r:4,c:8,loss:15,cr:0.040},{r:5,c:3,loss:22,cr:0.055},{r:6,c:6,loss:38,cr:0.085},{r:7,c:4,loss:10,cr:0.030},{r:2,c:9,loss:45,cr:0.100},{r:8,c:2,loss:19,cr:0.048},{r:3,c:11,loss:26,cr:0.062},{r:9,c:7,loss:8,cr:0.025},{r:1,c:13,loss:33,cr:0.078}]},
+  {code:'C-190E 1A',name:'VCM2 HCl Cooler A',plant:'VCM2',date:'2025-07-01',total:80,inspected:60,shell:'냉각수',tf:'HCl',tm:'Titanium',crit:true,
+   tubes:[{r:3,c:4,loss:6,cr:0.020},{r:5,c:2,loss:9,cr:0.025},{r:1,c:7,loss:4,cr:0.015},{r:7,c:5,loss:12,cr:0.030},{r:4,c:9,loss:7,cr:0.022}]},
+  {code:'E-152B',name:'VCM3 Process Cooler',plant:'VCM3',date:'2024-11-10',total:60,inspected:60,shell:'냉각수',tf:'Process',tm:'Carbon Steel',crit:false,
+   tubes:[{r:1,c:3,loss:38,cr:0.088},{r:3,c:6,loss:25,cr:0.062},{r:2,c:9,loss:42,cr:0.095},{r:5,c:2,loss:18,cr:0.045},{r:4,c:7,loss:31,cr:0.075},{r:6,c:4,loss:12,cr:0.033}]},
+  {code:'E-3171',name:'VCM4 NaOH HX',plant:'VCM4',date:'2024-10-01',total:200,inspected:168,shell:'냉각수',tf:'NaOH',tm:'SS 304',crit:false,
+   tubes:[{r:2,c:5,loss:20,cr:0.048},{r:4,c:10,loss:15,cr:0.038},{r:6,c:3,loss:25,cr:0.058},{r:8,c:7,loss:10,cr:0.028},{r:3,c:14,loss:30,cr:0.068},{r:5,c:1,loss:8,cr:0.024},{r:7,c:9,loss:18,cr:0.044},{r:9,c:6,loss:22,cr:0.052}]},
+  {code:'PE3 E-401',name:'Yeosu Feed HX',plant:'Yeosu',date:'2024-05-30',total:150,inspected:132,shell:'냉각수',tf:'Process',tm:'Carbon Steel',crit:true,
+   tubes:[{r:1,c:4,loss:35,cr:0.082},{r:3,c:8,loss:28,cr:0.065},{r:5,c:2,loss:42,cr:0.096},{r:2,c:12,loss:18,cr:0.044},{r:6,c:6,loss:22,cr:0.054},{r:4,c:10,loss:38,cr:0.088}]},
+];
+
+function calcRUL(eq){
+  const lim=eq.crit?0.10:0.20;
+  const allow=Math.floor(eq.total*lim);
+  const py=eq.tubes.map(t=>{
+    if(t.loss>=40) return CY;
+    const rem=(NOM*PLG)-(NOM*t.loss/100);
+    return t.cr>0?CY+Math.ceil(rem/t.cr):CY+99;
+  });
+  const cur=Math.round(py.filter(y=>y<=CY).length/eq.tubes.length*eq.total);
+  const tl=[];
+  for(let yr=CY;yr<=CY+25;yr++){
+    const cnt=Math.round(py.filter(y=>y<=yr).length/eq.tubes.length*eq.total);
+    tl.push({yr,cnt});
+  }
+  let rul='>25',ly=null;
+  for(const t of tl){if(t.cnt>=allow&&t.yr>CY){rul=t.yr-CY;ly=t.yr;break;}}
+  return {rul,ly,cur,allow,lim,tl};
+}
+function rc2(v){return(v==='>25'||v>15)?'g':v>5?'y':'r';}
+
+const DD={
+  VCM1:[{code:'E-111',name:'VCM1 Condenser A',date:'2025-03-15',ml:12,rul:18},{code:'E-281B',name:'VCM1 Reboiler',date:'2023-10-01',ml:24,rul:9},{code:'E-330B',name:'VCM1 Cooler B',date:'2025-03-15',ml:9,rul:22},{code:'E-400A',name:'VCM1 HX-400A',date:'2023-10-01',ml:38,rul:3},{code:'E-400B',name:'VCM1 HX-400B',date:'2023-10-01',ml:27,rul:11},{code:'E-801',name:'VCM1 Feed Heater',date:'2021-09-01',ml:42,rul:2},{code:'E-802',name:'VCM1 Trim Cooler',date:'2025-03-15',ml:8,rul:19},{code:'E-803',name:'VCM1 Product Cooler',date:'2025-03-15',ml:6,rul:24}],
+  VCM2:[{code:'E-211',name:'VCM2 Condenser',date:'2023-09-15',ml:21,rul:8},{code:'E-212',name:'VCM2 Reboiler',date:'2025-04-01',ml:7,rul:20},{code:'E-281',name:'VCM2 HX-281',date:'2025-04-01',ml:5,rul:25},{code:'E-401',name:'VCM2 Feed HX',date:'2023-09-15',ml:19,rul:13}],
+  VCM3:[{code:'E-111',name:'VCM3 Condenser',date:'2024-11-10',ml:4,rul:26},{code:'E-281',name:'VCM3 HX-281',date:'2024-11-10',ml:11,rul:21},{code:'E-330',name:'VCM3 Cooler',date:'2022-10-01',ml:22,rul:10},{code:'E-401',name:'VCM3 Feed HX',date:'2024-11-10',ml:3,rul:28}],
+  VCM4:[{code:'DS-E1305B',name:'DS Cooler B',date:'2024-10-01',ml:6,rul:23},{code:'DS-E1350C-1',name:'DS HX C-1',date:'2022-09-01',ml:23,rul:12},{code:'DS-E1500A-1',name:'DS HX A-1',date:'2024-10-01',ml:9,rul:20},{code:'DS-E1570A',name:'DS HX 1570A',date:'2022-09-01',ml:18,rul:14}],
+  Yeosu:[{code:'Y-E101',name:'Yeosu Condenser',date:'2024-05-30',ml:5,rul:25},{code:'Y-E201',name:'Yeosu Cooler',date:'2022-04-01',ml:20,rul:7},{code:'Y-E301',name:'Yeosu HX-301',date:'2024-05-30',ml:8,rul:22},{code:'Y-E302',name:'Yeosu Feed HX',date:'2022-04-01',ml:26,rul:11}]
+};
+const PL={VCM1:'VCM1',VCM2:'VCM2',VCM3:'VCM3',VCM4:'VCM4',Yeosu:'여수'};
+function grc(v){return v>15?'g':v>5?'y':'r';}
+function grl(v){return v>25?'>25년':v+'년';}
+function cnt(p,t){return DD[p].filter(e=>t==='g'?e.rul>15:t==='y'?(e.rul>5&&e.rul<=15):e.rul<=5).length;}
+
+function sw(n,el){
+  document.querySelectorAll('.tb').forEach(t=>t.classList.remove('a'));
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('a'));
+  el.classList.add('a');
+  document.getElementById('p-'+n).classList.add('a');
+  window.scrollTo(0,0);
+}
+function gta(code){const eq=EQ.find(e=>e.code===code);if(eq)sEq(code);sw('a',document.getElementById('t-a'));}
+
+function rTbl(){
+  let tG=0,tY=0,tR=0;
+  document.getElementById('sBody').innerHTML=Object.keys(DD).map(p=>{
+    const g=cnt(p,'g'),y=cnt(p,'y'),r=cnt(p,'r'),tot=DD[p].length;
+    tG+=g;tY+=y;tR+=r;
+    const nb=(v,cls,t)=>v>0?`<span class="nb ${cls}" onclick="sLst('${p}','${t}')">${v}</span>`:`<span class="nz">0</span>`;
+    return `<tr><td class="pn">${PL[p]}</td><td>${nb(g,'ng','g')}</td><td>${nb(y,'ny','y')}</td><td>${nb(r,'nr','r')}</td><td><span class="nb nt" onclick="sLst('${p}','a')">${tot}</span></td></tr>`;
+  }).join('');
+  document.getElementById('sFoot').innerHTML=`<tr><td class="pn">합계</td><td><span class="nb ng" onclick="sLst('ALL','g')">${tG}</span></td><td><span class="nb ny" onclick="sLst('ALL','y')">${tY}</span></td><td><span class="nb nr" onclick="sLst('ALL','r')">${tR}</span></td><td><span class="nb nt" onclick="sLst('ALL','a')">${tG+tY+tR}</span></td></tr>`;
+}
+
+function sLst(plant,type){
+  const plants=plant==='ALL'?Object.keys(DD):[plant];
+  const items=plants.flatMap(p=>DD[p].filter(e=>type==='a'?true:type==='g'?e.rul>15:type==='y'?(e.rul>5&&e.rul<=15):e.rul<=5).map(e=>({...e,plant:p})));
+  const tn=type==='a'?'전체':type==='g'?'15년↑':type==='y'?'5~15년':'5년↓';
+  document.getElementById('rTitle').textContent=`${plant==='ALL'?'전체':PL[plant]} — ${tn} (${items.length}대)`;
+  const bg=document.getElementById('rBadge');
+  bg.textContent=tn;bg.className=`rbg ${type==='g'?'rg':type==='y'?'ry':type==='r'?'rr':'ra'}`;
+  const hd=code=>!!EQ.find(e=>e.code===code);
+  document.getElementById('lBody').innerHTML=items.map(eq=>{
+    const cls=grc(eq.rul);
+    const lc=eq.ml>=40?'#d45050':eq.ml>=25?'#b06020':eq.ml>=15?'#d4a030':'#3ecfb0';
+    return `<tr onclick="${hd(eq.code)?`gta('${eq.code}')`:''}" style="${hd(eq.code)?'cursor:pointer':''}">
+      <td class="cd">${eq.code}</td><td>${eq.name}</td><td>${eq.date}</td>
+      <td style="color:${lc}">${eq.ml}%</td>
+      <td><span class="rp rp${cls}">${grl(eq.rul)}</span></td>
+      <td style="color:#3a4f5e;font-size:10px">${hd(eq.code)?'분석 →':''}</td>
+    </tr>`;
+  }).join('');
+  const sec=document.getElementById('rSec');sec.style.display='block';
+  sec.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+let mPF='',mSF='';
+function fM(v){mPF=v;rML();}
+function fMs(v){mSF=v;rML();}
+function rML(){
+  const all=Object.entries(DD).flatMap(([p,it])=>it.map(e=>({...e,plant:p})));
+  document.getElementById('mList').innerHTML=all.filter(e=>(mPF===''||e.plant===mPF)&&e.code.toLowerCase().includes(mSF.toLowerCase()))
+    .map(e=>`<div class="ei" onclick="selM('${e.code}')"><span>${e.code}</span><span style="font-size:9px;color:#6a8494">${PL[e.plant]}</span></div>`).join('');
+}
+function selM(code){
+  document.getElementById('mCode').value=code;
+  document.querySelectorAll('#mList .ei').forEach(el=>el.classList.toggle('ac',el.querySelector('span').textContent===code));
+}
+function tC(){
+  isCrit=!isCrit;
+  const bx=document.getElementById('cbx'),ci=document.getElementById('cxi');
+  if(isCrit){bx.classList.add('ck');ci.classList.add('on');ci.innerHTML='<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>';document.getElementById('ov').textContent='10%';document.getElementById('ov').style.color='#d45050';document.getElementById('on2').textContent='— Critical 설비';}
+  else{bx.classList.remove('ck');ci.classList.remove('on');ci.innerHTML='';document.getElementById('ov').textContent='20%';document.getElementById('ov').style.color='#3ecfb0';document.getElementById('on2').textContent='— 일반 설비';}
+}
+
+let selEq=EQ[0],aPF='';
+function fA(v){aPF=v;rEL('');}
+function fE(v){rEL(v);}
+function rEL(f=''){
+  document.getElementById('eList').innerHTML=EQ.filter(e=>(aPF===''||e.plant===aPF)&&e.code.toLowerCase().includes(f.toLowerCase()))
+    .map(e=>{
+      const rul=calcRUL(e),cls=rc2(rul.rul);
+      const lbl=rul.rul==='>25'||rul.rul>15?'15년↑':rul.rul>5?'5~15년':'5년↓';
+      return `<div class="ei ${e.code===selEq.code?'ac':''}" onclick="sEq('${e.code}')"><span>${e.code}</span><span class="eb e${cls}">${lbl}</span></div>`;
+    }).join('');
+}
+function sEq(code){
+  selEq=EQ.find(e=>e.code===code)||selEq;
+  const avgCr=+(selEq.tubes.reduce((s,t)=>s+t.cr,0)/selEq.tubes.length).toFixed(3);
+  document.getElementById('iCd').textContent=selEq.code;
+  document.getElementById('iPl').textContent=selEq.plant;
+  document.getElementById('iDt').textContent=selEq.date;
+  document.getElementById('iTb').textContent=selEq.inspected+' / '+selEq.total;
+  document.getElementById('iSh').textContent=selEq.shell;
+  document.getElementById('iTf').textContent=selEq.tf;
+  document.getElementById('iTm').textContent=selEq.tm;
+  document.getElementById('iCr').textContent=avgCr;
+  rEL(document.getElementById('aSrch').value);
+  rMap();rDef();rRUL();
+}
+
+function rMap(){
+  const cv=document.getElementById('tmc');
+  const COLS=17,ROWS=12,R=7,G=5,PX=24,PY=16;
+  const W=PX*2+COLS*(R*2+G)-G,H=PY*2+ROWS*(R*2+G)-G;
+  cv.width=W;cv.height=H;cv.style.width=W+'px';cv.style.height=H+'px';
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  const total=COLS*ROWS,insp=Math.min(selEq.inspected,total);
+  const seed=selEq.code.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+  const perm=Array.from({length:total},(_,i)=>i);
+  for(let i=perm.length-1;i>0;i--){const j=(seed*31+i*17)%(i+1);[perm[i],perm[j]]=[perm[j],perm[i]];}
+  const iSet=new Set(perm.slice(0,insp));
+  const tubes=selEq.tubes;let ti=0;
+  for(let row=0;row<ROWS;row++){
+    for(let col=0;col<COLS;col++){
+      const idx=row*COLS+col;
+      const cx=PX+col*(R*2+G)+R,cy=PY+row*(R*2+G)+R;
+      ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);
+      if(!iSet.has(idx)){ctx.fillStyle='#1e3040';}
+      else{
+        const t=tubes[ti%tubes.length];ti++;
+        ctx.fillStyle=t.loss>=40?'#d45050':t.loss>=25?'#b06020':t.loss>=15?'#d4a030':'#3ecfb0';
+      }
+      ctx.fill();
+    }
+  }
+  cv.onclick=function(e){
+    const rect=cv.getBoundingClientRect();
+    const mx=(e.clientX-rect.left)*(W/rect.width),my=(e.clientY-rect.top)*(H/rect.height);
+    let ti2=0;
+    for(let row=0;row<ROWS;row++){
+      for(let col=0;col<COLS;col++){
+        const idx=row*COLS+col;
+        const cx=PX+col*(R*2+G)+R,cy=PY+row*(R*2+G)+R;
+        if(Math.hypot(mx-cx,my-cy)<R+2){
+          if(iSet.has(idx)){
+            const inspIdx=perm.slice(0,insp).indexOf(idx);
+            const t=tubes[inspIdx%tubes.length];
+            sTube(t.loss,t.cr,row+1,col+1);
+          }
+          return;
+        }
+        if(iSet.has(idx)) ti2++;
+      }
+    }
+  };
+}
+
+function rDef(){
+  const def=[...selEq.tubes].filter(t=>t.loss>0).sort((a,b)=>b.loss-a.loss).slice(0,20);
+  document.getElementById('dCnt').textContent=`(${def.length}개)`;
+  document.getElementById('dBody').innerHTML=def.map((d,i)=>{
+    const bc=d.loss>=40?'#d45050':d.loss>=25?'#b06020':d.loss>=15?'#d4a030':'#3ecfb0';
+    const rem=(NOM*PLG)-(NOM*d.loss/100);
+    const py=d.loss>=40?'완료':d.cr>0?CY+Math.ceil(rem/d.cr)+'년':'-';
+    const ps=d.loss>=40?'color:#d45050':parseInt(py)<=CY+5?'color:#d45050':parseInt(py)<=CY+15?'color:#d4a030':'color:#3ecfb0';
+    return `<tr onclick="sTube(${d.loss},${d.cr},${d.r},${d.c})"><td style="color:#3a4f5e">${i+1}</td>
+      <td>${d.r}</td><td>${d.c}</td>
+      <td><div style="display:flex;align-items:center;gap:5px"><div class="db" style="width:${Math.min(d.loss*1.2,70)}px;background:${bc}"></div><span>${d.loss}%</span></div></td>
+      <td>${(NOM*(1-d.loss/100)).toFixed(2)}</td><td>${d.cr}</td>
+      <td style="${ps}">${py}</td></tr>`;
+  }).join('');
+}
+
+function rRUL(){
+  const rul=calcRUL(selEq);
+  const cls=rc2(rul.rul);
+  const clr=cls==='g'?'#3ecfb0':cls==='y'?'#d4a030':'#d45050';
+  document.getElementById('rSum').innerHTML=
+    `<span style="color:#6a8494">허용 한도 <b style="color:#b0c8d4">${Math.round(rul.lim*100)}% (${rul.allow}개)</b></span>`+
+    `<span style="color:#6a8494">현재 Plugging <b style="color:#b0c8d4">${rul.cur}개</b></span>`+
+    `<span style="color:#6a8494">잔여수명 <b style="font-size:14px;color:${clr}">${rul.rul==='>25'?'>25년':rul.rul+'년'}</b>${rul.ly?`<span style="color:#6a8494;font-size:9px;margin-left:3px">(${rul.ly}년 도달)</span>`:''}</span>`;
+  const labels=rul.tl.map(t=>String(t.yr));
+  const counts=rul.tl.map(t=>t.cnt);
+  const limitLine=rul.tl.map(()=>rul.allow);
+  if(rCI){rCI.destroy();rCI=null;}
+  rCI=new Chart(document.getElementById('rChart'),{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {label:'누적 Plugging',data:counts,
+         backgroundColor:counts.map(v=>v>=rul.allow?'rgba(212,80,80,0.75)':v>rul.allow*0.7?'rgba(212,160,48,0.75)':'rgba(62,207,176,0.5)'),
+         borderColor:counts.map(v=>v>=rul.allow?'#d45050':v>rul.allow*0.7?'#d4a030':'#3ecfb0'),
+         borderWidth:1,barPercentage:0.7},
+        {label:'허용 한도',data:limitLine,type:'line',borderColor:'#d45050',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false,tension:0}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+'개'}}},
+      scales:{
+        x:{ticks:{color:'#6a8494',font:{size:9},maxRotation:0},grid:{color:'rgba(255,255,255,0.03)'}},
+        y:{ticks:{color:'#6a8494',font:{size:9}},grid:{color:'rgba(255,255,255,0.05)'},beginAtZero:true}
+      }
+    }
+  });
+}
+
+function sTube(loss,cr,row,col){
+  document.getElementById('tTitle').textContent=`두께 이력 — Row ${row}, Col ${col}`;
+  const yrs=[2019,2021,2023,2025];
+  const vals=yrs.map((y,i)=>+(NOM*(1-(loss/100)*((i+1)/yrs.length)*0.85)).toFixed(2));
+  document.getElementById('tBars').innerHTML=yrs.map((y,i)=>{
+    const p=+(vals[i]/NOM*100).toFixed(0);
+    const c=p>90?'#3ecfb0':p>75?'#d4a030':'#d45050';
+    return `<div class="tr"><div class="ty">${y}</div><div class="bg"><div class="bf" style="width:${p}%;background:${c}"></div></div><div class="tv">${vals[i]}mm</div></div>`;
+  }).join('');
+  const rem=(NOM*PLG)-(NOM*loss/100);
+  const py=cr>0?CY+Math.ceil(rem/cr):CY+99;
+  document.getElementById('cAnal').innerHTML=[
+    {l:'2019→2021',v:+((vals[0]-vals[1])/2).toFixed(3)+' mm/yr',c:(vals[0]-vals[1])/2<0.04?'cg':'cy'},
+    {l:'2021→2023',v:+((vals[1]-vals[2])/2).toFixed(3)+' mm/yr',c:(vals[1]-vals[2])/2<0.06?'cy':'cx2'},
+    {l:'2023→2025',v:+((vals[2]-vals[3])/2).toFixed(3)+' mm/yr',c:(vals[2]-vals[3])/2<0.06?'cy':'cx2'},
+    {l:'평균 부식속도',v:cr+' mm/yr',c:cr<0.04?'cg':cr<0.08?'cy':'cx2'},
+    {l:'Plugging 예상',v:loss>=40?'완료':(py>CY+25?'>25년 후':py+'년'),c:loss>=40?'cx2':py-CY>15?'cg':py-CY>5?'cy':'cx2'},
+  ].map(r=>`<div class="cr"><span style="color:#6a8494">${r.l}</span><span class="crb ${r.c}">${r.v}</span></div>`).join('');
+}
+
+rTbl();rML();rEL('');sEq('C-160E3');
+</script>

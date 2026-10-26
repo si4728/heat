@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}DB 상태 점검{% endblock %}
+{% block heading %}DB 상태 점검{% endblock %}
+{% block actions %}<a class="button primary" href="{{ url_for('database_monitor') }}">지금 다시 점검</a>{% endblock %}
+{% block content %}
+{% set healthy = monitor.health.integrity_check == 'ok' and monitor.health.foreign_key_issue_count == 0 %}
+<section class="metrics">
+  <article class="{{ '' if healthy else 'warning' }}"><span>종합 상태</span><strong>{{ '정상' if healthy else '확인 필요' }}</strong><small>{{ monitor.checked_at }}</small></article>
+  <article><span>참조 관계 검사</span><strong>{{ monitor.health.integrity_check }}</strong><small>MariaDB 외래키 관계 점검</small></article>
+  <article><span>외래키 이상</span><strong>{{ monitor.health.foreign_key_issue_count|comma }}</strong><small>고아 참조 검사</small></article>
+  <article class="{{ 'warning' if monitor.locks.last_24_hours else '' }}"><span>잠금 오류 · 24시간</span><strong>{{ monitor.locks.last_24_hours|comma }}</strong><small>7일 {{ monitor.locks.last_7_days|comma }}건</small></article>
+  <article><span>MariaDB 저장 엔진</span><strong>{{ monitor.journal_mode }}</strong><small>잠금 대기 {{ monitor.busy_timeout_ms // 1000 }}초</small></article>
+</section>
+
+<div class="grid two">
+  <article class="panel">
+    <header class="panel-head"><h2>데이터베이스 정보</h2></header>
+    <dl class="details">
+      <dt>DB 연결</dt><dd>{{ monitor.database_connection }}</dd>
+      <dt>스키마 버전</dt><dd>{{ monitor.health.schema_version }}</dd>
+      <dt>Storage engine</dt><dd>{{ monitor.journal_mode }}</dd>
+      <dt>Lock wait timeout</dt><dd>{{ '{:,}'.format(monitor.busy_timeout_ms) }} ms</dd>
+      <dt>점검 시각</dt><dd>{{ monitor.checked_at }}</dd>
+    </dl>
+  </article>
+  <article class="panel">
+    <header class="panel-head"><h2>잠금 오류 요약</h2></header>
+    <dl class="details">
+      <dt>최근 24시간</dt><dd>{{ monitor.locks.last_24_hours|comma }}건</dd>
+      <dt>최근 7일</dt><dd>{{ monitor.locks.last_7_days|comma }}건</dd>
+      <dt>누적 기록</dt><dd>{{ monitor.locks.total|comma }}건</dd>
+      <dt>최근 발생</dt><dd>{{ monitor.locks.latest_at or '발생 기록 없음' }}</dd>
+      <dt>기록 파일</dt><dd class="path" title="{{ monitor.locks.log_path }}">{{ monitor.locks.log_path }}</dd>
+    </dl>
+  </article>
+</div>
+
+<article class="panel" style="margin-top:18px">
+  <header class="panel-head"><h2>최근 잠금 오류</h2><span>최대 100건</span></header>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>발생 시각</th><th>DB 작업</th><th>프로세스</th><th>오류 내용</th></tr></thead>
+      <tbody>
+      {% for event in monitor.locks.events %}
+        <tr><td>{{ event.occurred_at }}</td><td>{{ event.operation or '-' }}</td><td>{{ event.process_id }}</td><td>{{ event.message }}</td></tr>
+      {% else %}
+        <tr><td class="empty" colspan="4">기록된 MariaDB 트랜잭션 잠금 충돌이 없습니다.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</article>
+{% endblock %}

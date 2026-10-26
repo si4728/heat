@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% macro val(name, current='') %}{{ request.form.get(name, current if current is not none else '') }}{% endmacro %}
+{% block title %}{{ '열교환기 수정' if editing else '열교환기 등록' }}{% endblock %}
+{% block heading %}{{ '열교환기 정보 수정' if editing else '신규 열교환기 등록' }}{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('organization_codes') }}">조직 코드 관리</a><a class="button" href="{{ url_for('exchanger_detail', exchanger_id=hx.heat_exchanger_id) if editing else url_for('exchangers') }}">취소</a>{% endblock %}
+{% block content %}
+<form method="post" class="master-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% if equipment %}<input type="hidden" name="expected_updated_at" value="{{ equipment.updated_at.isoformat() if equipment.updated_at else '' }}">{% endif %}
+  <article class="panel form-section">
+    <div class="panel-head"><div><p class="eyebrow">Asset master</p><h2>기본 마스터 정보</h2></div><small>* 필수 입력</small></div>
+    <div class="field-grid">
+      <label>생산공장 · 기존 검사 분류 *<select name="unit_id" required><option value="">선택해 주세요</option>{% set selected_unit=request.form.get('unit_id', unit.unit_id if unit else '')|string %}{% for item,item_plant in units %}<option value="{{ item.unit_id }}" {{ 'selected' if selected_unit == item.unit_id|string else '' }}>{{ item_plant.plant_code|plant_display }} · {{ item.unit_code }} — {{ item.unit_name }}</option>{% endfor %}</select><small>검사 이력 연결에 사용하는 기존 분류입니다.</small></label>
+      <label class="wide">조직 공정<select name="organization_process_id" id="organization-process"><option value="">미등록</option>{% for entry in organization_choices if entry.node.kind == 'PROCESS' %}{% set selected_process = request.form.get('organization_process_id', '')|string == entry.node.organization_code_id|string or (not request.form and equipment and plant and entry.plant_code == plant.plant_code and entry.team_code == equipment.production_team_code and entry.node.code == equipment.process_code) %}<option value="{{ entry.node.organization_code_id }}" data-unconnected="{{ 'false' if entry.equipment_count else 'true' }}" {{ 'selected' if selected_process else '' }} {{ 'hidden disabled' if not entry.equipment_count and not selected_process else '' }}>{{ entry.parent_label }} / {{ entry.node.label }}{{ ' (설비 미연결)' if not entry.equipment_count else '' }}</option>{% endfor %}</select><small>공장 · 생산팀 · 공정의 Label로 표시합니다. 새 공정은 아래 표시 옵션을 켜서 선택하세요.</small></label>
+      <label class="wide organization-choice-toggle"><span><input type="checkbox" id="show-unconnected-processes" aria-controls="organization-process"> 설비 미연결 공정 표시</span></label>
+      <label>자산번호 *<input name="equipment_code" value="{{ val('equipment_code', equipment.equipment_code if equipment else '') }}" placeholder="예: 1102163" required></label>
+      <label>설비태그 *<input name="equipment_tag" value="{{ val('equipment_tag', equipment.equipment_tag if equipment else '') }}" placeholder="예: US-VC-E-331A" required></label>
+      <label>열교환기번호 *<input name="exchanger_code" value="{{ val('exchanger_code', spec.exchanger_code if spec else '') }}" placeholder="E-331A" required><small>현재 사양 Revision의 Item No.입니다.</small></label>
+      <label>설비명 *<input name="equipment_name" value="{{ val('equipment_name', equipment.equipment_name if equipment else '') }}" required></label>
+      <label>현재 운전상태 *<select name="status" required>{% set selected_status=request.form.get('status', equipment.status if equipment else 'OPERATING') %}{% for item in ['OPERATING','STANDBY','SHUTDOWN','OUT_OF_SERVICE'] %}<option {{ 'selected' if selected_status == item else '' }}>{{ item }}</option>{% endfor %}</select></label>
+      <label>설비 중요도 등급 (A/B/C)<select name="criticality_grade"><option value="">미지정</option>{% set grade=request.form.get('criticality_grade', equipment.criticality_grade if equipment else '') %}{% for item in ['A','B','C'] %}<option {{ 'selected' if grade == item else '' }}>{{ item }}</option>{% endfor %}</select></label>
+      <label>열교환기 형식 *<select name="exchanger_type_code" required>{% set ex_type_code=request.form.get('exchanger_type_code', hx.exchanger_type_code if hx else '') %}<option value="" {{ 'selected' if not ex_type_code else '' }}>선택해 주세요</option>{% for code,name in [('ST','Shell & Tube'),('PL','Plate'),('FT','Finned Tube'),('ETC','기타')] %}<option value="{{ code }}" {{ 'selected' if ex_type_code == code else '' }}>{{ code }} · {{ name }}</option>{% endfor %}</select></label>
+      <label>열교환기 형식 원본값<input name="exchanger_type_raw" value="{{ val('exchanger_type_raw', (hx.exchanger_type_raw or hx.exchanger_type) if hx else '') }}"><small>FTS 등 의미가 확정되지 않은 원본은 임의 변환하지 않습니다.</small></label>
+      <label>서비스명 *<input name="service_name" value="{{ val('service_name', hx.service_name if hx else '') }}" required></label>
+      <label>설치 위치<input name="location_desc" value="{{ val('location_desc', equipment.location_desc if equipment else '') }}"></label>
+      <label>제조사<input name="manufacturer" value="{{ val('manufacturer', equipment.manufacturer if equipment else '') }}"></label>
+      <label>모델 번호<input name="model_no" value="{{ val('model_no', equipment.model_no if equipment else '') }}"></label>
+      <label>제작 번호<input name="serial_no" value="{{ val('serial_no', equipment.serial_no if equipment else '') }}"></label>
+      <label>열교환기 제작일자<input type="date" id="manufacturing-date-derived" value="{{ equipment.manufacturing_date.strftime('%Y-%m-%d') if equipment and equipment.manufacturing_date else '' }}" readonly><small>설치일 3일 전으로 자동 저장됩니다.</small></label>
+      <label>열교환기 설치일자 *<input type="date" id="install-date" name="install_date" value="{{ val('install_date', equipment.install_date.strftime('%Y-%m-%d') if equipment and equipment.install_date else '') }}" required></label>
+      <label>운전개시일자<input type="date" id="commissioning-date-derived" value="{{ equipment.commissioning_date.strftime('%Y-%m-%d') if equipment and equipment.commissioning_date else '' }}" readonly><small>설치일과 같은 날짜로 자동 저장됩니다.</small></label>
+      <label>담당 부서<input name="owner_department" value="{{ val('owner_department', equipment.owner_department if equipment else '') }}"></label>
+      <label>담당자<input name="owner_name" value="{{ val('owner_name', equipment.owner_name if equipment else '') }}"></label>
+      <label>IRIS 적용 여부<select name="iris_applicability">{% set applicability=request.form.get('iris_applicability', hx.iris_applicability if hx else 'UNKNOWN') %}{% for item in ['UNKNOWN','REQUIRED','OPTIONAL','NOT_APPLICABLE'] %}<option {{ 'selected' if applicability == item else '' }}>{{ item }}</option>{% endfor %}</select></label>
+      <label>검사 생애주기 상태<select name="inspection_lifecycle_status">{% set inspection_status=request.form.get('inspection_lifecycle_status', hx.inspection_lifecycle_status if hx else 'NEVER_INSPECTED') %}{% for item in ['NEVER_INSPECTED','PLANNED','INSPECTED','OVERDUE','NOT_APPLICABLE','UNKNOWN'] %}<option {{ 'selected' if inspection_status == item else '' }}>{{ item }}</option>{% endfor %}</select></label>
+      <label>공정 중요도{% set process_criticality=request.form.get('process_criticality', 'CRITICAL' if equipment and equipment.is_critical else 'NORMAL') %}<select name="process_criticality" required><option value="NORMAL" {{ 'selected' if process_criticality == 'NORMAL' else '' }}>일반</option><option value="CRITICAL" {{ 'selected' if process_criticality == 'CRITICAL' else '' }}>Critical</option></select><small>허용 Plugging 한도와 별도로 관리됩니다.</small></label>
+      <label class="wide">비고<textarea name="remarks" rows="3">{{ val('remarks', equipment.remarks if equipment else '') }}</textarea></label>
+    </div>
+  </article>
+
+  <article class="panel form-section">
+    <div class="panel-head"><div><p class="eyebrow">Specification revision</p><h2>기술 사양{% if spec %} · 현재 Rev.{{ spec.revision_no }}{% endif %}</h2></div><small>{{ '변경 시 새 revision 생성' if editing else '유체·재질을 포함한 최초 Rev.1 등록' }}</small></div>
+    <div class="field-grid">
+      <label>대표 설계 압력 (MPa, 호환용)<input type="number" step="0.01" name="design_pressure" value="{{ val('design_pressure', spec.design_pressure if spec else '') }}"><small>상세 기준값은 측별 사양에서 관리합니다.</small></label>
+      <label>설계 온도 (°C)<input type="number" step="0.1" name="design_temperature" value="{{ val('design_temperature', spec.design_temperature if spec else '') }}"></label>
+      <label>대표 운전 압력 (MPa, 호환용)<input type="number" step="0.01" name="operation_pressure" value="{{ val('operation_pressure', spec.operation_pressure if spec else '') }}"><small>상세 기준값은 측별 사양에서 관리합니다.</small></label>
+      <label>운전 온도 (°C)<input type="number" step="0.1" name="operation_temperature" value="{{ val('operation_temperature', spec.operation_temperature if spec else '') }}"></label>
+      <label>Shell측 유체 *<input name="shell_fluid" maxlength="200" value="{{ val('shell_fluid', spec.shell_fluid if spec else '') }}" placeholder="예: 냉각수" required></label>
+      <label>Head측 유체 *<input name="head_fluid" maxlength="200" value="{{ val('head_fluid', head_side.fluid if head_side else '') }}" required></label>
+      <label>Tube측 유체 *<input name="tube_fluid" maxlength="200" value="{{ val('tube_fluid', spec.tube_fluid if spec else '') }}" placeholder="예: EDC" required></label>
+      <label>Shell 재질 *<input name="shell_material" value="{{ val('shell_material', spec.shell_material if spec else '') }}" required></label>
+      <label>Head 재질 *<input name="head_material" value="{{ val('head_material', head_side.material if head_side else '') }}" required></label>
+      <label>Tube 재질 *<input name="tube_material" maxlength="100" value="{{ val('tube_material', spec.tube_material if spec else '') }}" placeholder="예: Carbon Steel" required></label>
+      <label>총튜브수량 *<input type="number" min="1" name="tube_count" value="{{ val('tube_count', spec.tube_count if spec else (bundle.expected_tube_count if bundle else '')) }}" required><small>현재 사양 Revision의 원천 수량입니다.</small></label>
+      <label>Tube 외경 (mm) *<input type="number" min="0.001" step="0.001" name="tube_outer_diameter_mm" value="{{ val('tube_outer_diameter_mm', spec.tube_outer_diameter_mm if spec else '') }}" required></label>
+      <label>Tube 공칭두께 (mm) *<input type="number" min="0.001" step="0.001" name="tube_nominal_thickness_mm" value="{{ val('tube_nominal_thickness_mm', spec.tube_nominal_thickness_mm if spec else '') }}" required></label>
+      <label>Tube 길이 (mm) *<input type="number" min="0.1" step="0.1" name="tube_length_mm" value="{{ val('tube_length_mm', spec.tube_length_mm if spec else '') }}" required></label>
+      <label>Pass 수 *<input type="number" min="1" name="pass_count" value="{{ val('pass_count', spec.pass_count if spec else '') }}" required></label>
+      <label>Tube Pitch (mm) *<input type="number" min="0.001" step="0.001" name="tube_pitch_mm" value="{{ val('tube_pitch_mm', spec.tube_pitch_mm if spec else '') }}" required></label>
+      <label>Shell Gasket 재질{% set shell_gasket=request.form.get('shell_gasket_material', shell_side.gasket_material if shell_side and shell_side.gasket_material else '') %}<input name="shell_gasket_material" value="{{ shell_gasket }}"><small>Gasket 재질은 측별 값 중 1개 이상 필수 *</small></label>
+      <label>Head Gasket 재질<input name="head_gasket_material" value="{{ val('head_gasket_material', head_side.gasket_material if head_side else '') }}"></label>
+      <label>Tube Gasket 재질<input name="tube_gasket_material" value="{{ val('tube_gasket_material', tube_side.gasket_material if tube_side else '') }}"></label>
+      <label>Shell 유체 농도 (wt%){% set shell_concentration=request.form.get('shell_concentration_wt_percent', shell_side.concentration_wt_percent if shell_side and shell_side.concentration_wt_percent is not none else '') %}<input type="number" min="0" max="100" step="0.001" name="shell_concentration_wt_percent" value="{{ shell_concentration }}"><small>유체 농도는 측별 값 중 1개 이상 필수 *</small></label>
+      <label>Head 유체 농도 (wt%)<input type="number" min="0" max="100" step="0.001" name="head_concentration_wt_percent" value="{{ val('head_concentration_wt_percent', head_side.concentration_wt_percent if head_side else '') }}"></label>
+      <label>Tube 유체 농도 (wt%)<input type="number" min="0" max="100" step="0.001" name="tube_concentration_wt_percent" value="{{ val('tube_concentration_wt_percent', tube_side.concentration_wt_percent if tube_side else '') }}"></label>
+      <label>Shell 유체 상태<input name="shell_material_state" value="{{ val('shell_material_state', shell_side.material_state if shell_side else '') }}"><small>유체 상태는 측별 값 중 1개 이상 필수 *</small></label>
+      <label>Head 유체 상태<input name="head_material_state" value="{{ val('head_material_state', head_side.material_state if head_side else '') }}"></label>
+      <label>Tube 유체 상태<input name="tube_material_state" value="{{ val('tube_material_state', tube_side.material_state if tube_side else '') }}"></label>
+      <label>Bundle 유형<input name="bundle_type" value="{{ val('bundle_type', spec.bundle_type if spec else '') }}"></label>
+      <label>Bundle 방향<input name="bundle_orientation" value="{{ val('bundle_orientation', bundle.orientation if bundle else '') }}"></label>
+      <label>전열 면적 (m²)<input type="number" step="0.01" name="heat_transfer_area_m2" value="{{ val('heat_transfer_area_m2', spec.heat_transfer_area_m2 if spec else '') }}"></label>
+      <label>도면 번호<input name="drawing_no" value="{{ val('drawing_no', spec.drawing_no if spec else '') }}"></label>
+      <label>Data Sheet 번호<input name="datasheet_no" value="{{ val('datasheet_no', spec.datasheet_no if spec else '') }}"></label>
+    </div>
+    <div class="field-grid">
+      <label>DB등록튜브수량<input type="number" value="{{ tube_status_counts.db }}" readonly><small>등록 Tube에서 자동 집계</small></label>
+      <label>사용중튜브수량<input type="number" value="{{ tube_status_counts.in_service }}" readonly><small>IN_SERVICE/ACTIVE 자동 집계</small></label>
+      <label>막힘튜브수량<input type="number" value="{{ tube_status_counts.plugged }}" readonly><small>PLUGGED 자동 집계</small></label>
+    </div>
+  </article>
+
+  <article class="panel form-section">
+    <div class="panel-head"><div><p class="eyebrow">Management criteria</p><h2>검사·감육 관리 기준</h2></div></div>
+    <div class="field-grid">
+      {% set plugging_limit=request.form.get('allowable_plugging_percent', criteria.allowable_plugging_percent if criteria and criteria.allowable_plugging_percent is not none else 20)|string %}
+      <label class="plugging-limit-range"><span class="range-heading"><span>허용 Plugging 한도</span><output for="management-plugging-limit-range">{{ plugging_limit|float|int }}%</output></span><input id="management-plugging-limit-range" type="range" name="allowable_plugging_percent" min="1" max="20" step="1" value="{{ plugging_limit|float|int }}" data-plugging-limit-range required><span class="range-scale"><span>1%</span><span>5%</span><span>10%</span><span>15%</span><span>20%</span></span><small>열교환기별 잔여수명 계산에 적용됩니다.</small></label>
+      <label>최소 허용 두께 (mm)<input type="number" min="0" step="0.001" name="minimum_wall_thickness_mm" value="{{ val('minimum_wall_thickness_mm', criteria.minimum_wall_thickness_mm if criteria else '') }}"></label>
+      <label>주의 감육률 (%)<input type="number" min="0" max="100" step="0.1" name="warning_wall_loss_percent" value="{{ val('warning_wall_loss_percent', criteria.warning_wall_loss_percent if criteria and criteria.warning_wall_loss_percent is not none else 20) }}"></label>
+      <label>위험 감육률 (%)<input type="number" min="0" max="100" step="0.1" name="critical_wall_loss_percent" value="{{ val('critical_wall_loss_percent', criteria.critical_wall_loss_percent if criteria and criteria.critical_wall_loss_percent is not none else 40) }}"></label>
+      <label>검사 주기 (개월)<input type="number" min="1" name="inspection_cycle_months" value="{{ val('inspection_cycle_months', criteria.inspection_cycle_months if criteria else '') }}"></label>
+      <label>T/A 주기 (년)<input type="number" min="1" name="turnaround_cycle_years" value="{{ val('turnaround_cycle_years', criteria.turnaround_cycle_years if criteria else '') }}"></label>
+      <label>최근 T/A 연도<input type="number" min="1900" max="2200" name="last_turnaround_year" value="{{ val('last_turnaround_year', criteria.last_turnaround_year if criteria else '') }}"></label>
+      <label>다음 T/A 예정 연도<input type="number" min="1900" max="2200" name="next_turnaround_year" value="{{ val('next_turnaround_year', criteria.next_turnaround_year if criteria else '') }}"></label>
+      <label class="wide">관리 기준 메모<textarea name="criteria_note" rows="4">{{ val('criteria_note', criteria.criteria_note if criteria else '') }}</textarea></label>
+    </div>
+  </article>
+  <div class="master-form-actions"><a class="button ghost" href="{{ url_for('exchanger_detail', exchanger_id=hx.heat_exchanger_id) if editing else url_for('exchangers') }}">취소</a><button class="button primary" type="submit">{{ '변경사항 저장' if editing else '열교환기 등록' }}</button></div>
+</form>
+<script src="{{ url_for('static', filename='exchanger-form.js') }}"></script>
+{% endblock %}

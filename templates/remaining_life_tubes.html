@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Tube Plugging 예측 대상 조회{% endblock %}
+{% block heading %}Tube Plugging 예측 대상 조회{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('exchangers') }}">열교환기 목록</a>{% endblock %}
+{% block content %}
+<form class="life-search-filters" method="get">
+  <label>Plugging 예상 연도<input type="number" name="target_year" min="{{ base_year }}" max="2200" value="{{ target_year }}" required></label>
+  <label>공정<select name="unit_code"><option value="">전체 공정</option>{% for unit in units %}<option value="{{ unit }}" {{ 'selected' if unit_code == unit else '' }}>{{ unit }}</option>{% endfor %}</select></label>
+  <label>열교환기 검색<input name="search" value="{{ search }}" placeholder="공정, 열교환기 코드 또는 열교환기명"></label>
+  <button class="button primary" type="submit">조회</button>
+</form>
+
+<section class="life-search-summary">
+  <div><span>대상 연도</span><strong>{{ target_year }}년</strong><small>{{ base_year }}년 기준 잔여 {{ target_year - base_year }}년</small></div>
+  <div><span>해당 튜브</span><strong>{{ rows|length|comma }}개</strong></div>
+  <div><span>해당 열교환기</span><strong>{{ matched_exchanger_count|comma }}대</strong><small>검색 {{ searched_exchanger_count|comma }}대</small></div>
+</section>
+
+<article class="panel life-search-panel">
+  <div class="panel-head"><div><p class="eyebrow">Tube life forecast</p><h2>{{ target_year }}년 Plugging 예상 튜브</h2></div><small>튜브별 공칭두께의 {{ plugging_wall_loss_percent|round(1) }}% 감육 기준</small></div>
+  <div class="table-wrap life-search-results">
+    <table>
+      <thead><tr><th>#</th><th>공정</th><th>열교환기 코드</th><th>열교환기명</th><th>공정 중요도</th><th>Tube</th><th>Row</th><th>Col</th><th>감육률</th><th>현재 두께(mm)</th><th>단기 CR</th><th>장기 CR</th><th>적용 CR</th><th>검사일</th><th>예상 연도</th><th>잔여수명</th></tr></thead>
+      <tbody>{% for row in rows %}<tr>
+        <td>{{ loop.index }}</td><td><span class="tag">{{ row.unit_code }}</span></td>
+        <td><a class="strong-link" href="{{ url_for('exchanger_detail', exchanger_id=row.heat_exchanger_id) }}">{{ row.exchanger_code or row.equipment_code }}</a></td>
+        <td>{{ row.equipment_name }}</td>
+        <td><span class="process-criticality {{ 'critical' if row.is_critical else 'normal' }}">{{ 'Critical' if row.is_critical else '일반' }}</span></td>
+        <td><a class="strong-link" href="{{ url_for('tube_detail', tube_id=row.tube_id) }}">{{ row.tube_no }}</a></td>
+        <td>{{ row.row_no or '-' }}</td><td>{{ row.column_no or '-' }}</td>
+        <td><strong class="life-loss {{ 'critical' if row.wall_loss_percent is not none and row.wall_loss_percent >= 40 else '' }}">{{ '%.1f%%'|format(row.wall_loss_percent) if row.wall_loss_percent is not none else '-' }}</strong></td>
+        <td>{{ '%.3f'|format(row.minimum_wall_thickness_mm) if row.minimum_wall_thickness_mm is not none else '-' }}</td>
+        <td>{{ '%.4f'|format(row.short_term_corrosion_rate_mm_per_year) if row.short_term_corrosion_rate_mm_per_year is not none else '-' }}</td><td>{{ '%.4f'|format(row.long_term_corrosion_rate_mm_per_year) if row.long_term_corrosion_rate_mm_per_year is not none else '-' }}</td><td>{{ '%.4f'|format(row.corrosion_rate_mm_per_year) if row.corrosion_rate_mm_per_year is not none else '-' }}</td>
+        <td>{{ row.measurement_date or '-' }}</td><td><strong class="forecast-year">{{ row.plugging_year }}년</strong></td><td>{{ row.remaining_life_years }}년</td>
+      </tr>{% else %}<tr><td colspan="16" class="empty">선택한 연도에 Plugging이 예상되는 튜브가 없습니다.</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</article>
+<p class="life-search-note">예상 연도는 현재 등록된 감육률·공칭두께·부식속도를 기준으로 계산합니다. 부식속도가 없거나 0 이하인 튜브는 임의 예측하지 않아 결과에서 제외됩니다.</p>
+{% endblock %}

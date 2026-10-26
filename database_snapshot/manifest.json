@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-26",
+  "schemas": [
+    "iris2",
+    "iris2_llm",
+    "iris2_ml",
+    "iris2_pdf"
+  ],
+  "uncompressed_bytes": 46362352,
+  "compressed_bytes": 3086392,
+  "sha256": "4ff06a7f8e2bb10146ac49ff5fe31f3bb9ef675847081a7e5ffe0f7fe21a22a4",
+  "password_hashes_disabled": 3,
+  "includes_database_accounts": false,
+  "restore_tested": false
+}

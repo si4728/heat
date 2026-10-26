@@ -1,0 +1,12 @@
+{
+  "status": "CREATED_AND_CONNECTION_VERIFIED",
+  "version": "11.4.12-MariaDB",
+  "port": 3307,
+  "host": "127.0.0.1",
+  "database": "iris2",
+  "account": "iris2_app@localhost",
+  "data_directory": "C:\\access\\heat\\iris2\\data\\mariadb\\",
+  "business_tables": 0,
+  "business_data_migrated": false,
+  "existing_3306_service_modified": false
+}

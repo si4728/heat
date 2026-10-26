@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Tube Layout Revision{% endblock %}
+{% block heading %}Tube Layout Revision 관리{% endblock %}
+{% block content %}
+<div class="metrics compact-metrics">
+  {% for key,label in [('APPROVED','승인'),('REVIEWED','검토'),('DRAFT','초안'),('REJECTED','반려')] %}
+  <article><span>{{ label }}</span><strong>{{ status_counts.get(key,0)|comma }}</strong></article>
+  {% endfor %}
+</div>
+<form class="filters" method="get">
+  <input name="equipment" value="{{ equipment_search }}" placeholder="설비번호">
+  <select name="status"><option value="">전체 상태</option>{% for key in allowed_statuses %}<option value="{{ key }}" {{ 'selected' if status_filter==key else '' }}>{{ key }}</option>{% endfor %}</select>
+  <button class="button">조회</button>
+</form>
+<div class="alert info">원천 좌표 검토 상태를 조회하는 읽기 전용 화면입니다. 승인·반려 및 DB 반영은 대상과 건수를 별도 확인한 뒤 수행합니다.</div>
+<article class="panel"><div class="table-wrap tall"><table>
+  <thead><tr><th>설비</th><th>Revision</th><th>상태</th><th>Count 기준</th><th>Physical / Layout</th><th>좌표 검증</th><th>Tube 연결</th><th>방향·Section</th><th>원천</th></tr></thead>
+  <tbody>{% for row in rows %}{% set r=row.revision %}<tr>
+    <td><strong>{{ row.unit_code }} {{ row.equipment_tag or row.equipment_code }}</strong><br><small>{{ row.equipment_code }} · {{ row.bundle_code }}</small></td>
+    <td>#{{ r.layout_revision_id }}</td><td><span class="status-badge">{{ r.revision_status }}</span></td>
+    <td>{{ r.layout_count_basis }}<br><small>{{ r.coverage_status }}</small></td>
+    <td>{{ r.physical_tube_count if r.physical_tube_count is not none else '-' }} / {{ r.layout_point_count if r.layout_point_count is not none else row.point_count }}</td>
+    <td>V {{ row.verified_count }} · P {{ row.pending_count }} · R {{ row.rejected_count }}</td><td>{{ row.linked_count }} / {{ row.point_count }}</td>
+    <td>{{ r.normalized_view_direction or '-' }}<br><small>{{ r.source_section_name or '-' }}</small></td><td title="{{ r.source_path }}"><small>{{ r.source_path }}</small></td>
+  </tr>{% else %}<tr><td colspan="9" class="empty">조건에 맞는 Layout Revision이 없습니다.</td></tr>{% endfor %}</tbody>
+</table></div></article>
+{% endblock %}

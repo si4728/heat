@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}공간 부식 Hotspot{% endblock %}
+{% block heading %}공간 부식 Hotspot 검토{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('ml_review_targets') }}">ML 검토대상</a><a class="button" href="{{ url_for('tube_inspection_history') }}">튜브 검사이력</a>{% endblock %}
+{% block content %}
+<div class="notice {{ 'success' if enabled else 'warning' }}" role="status"><strong>{{ '공간분석 활성' if enabled else '공간분석 비활성' }}</strong><span>{{ message }}</span></div>
+<section class="metrics compact-metrics">
+  <article><span>분석 Tube·연도</span><strong>{{ total_spatial_rows|default(0)|comma }}</strong><small>승인·검증 좌표만 사용</small></article>
+  <article><span>승인 Layout</span><strong>{{ layout_revision_count|default(0)|comma }}</strong><small>최신 승인 Revision</small></article>
+  <article><span>대상 열교환기</span><strong>{{ equipment_count|default(0)|comma }}</strong><small>확정 위험등급 {{ '활성' if confirmed_risk_grade_enabled else '비활성' }}</small></article>
+  <article><span>PDF·IRIS 근거검토</span><strong>{{ expert_confirmed_count|default(0) }} / 30</strong><small>60% Gate {{ '통과' if expert_confirmation_gate_passed else '미통과' }}</small></article>
+  <article><span>DB 확정 반영</span><strong>{{ stored_hotspot_confirmation_count|default(0) }}</strong><small>원시자료 직접 일치만 반영</small></article>
+</section>
+<form class="filters" method="get" aria-label="공간 Hotspot 조회 조건">
+  <select name="unit_code" aria-label="생산라인"><option value="">전체 생산라인</option><option value="VCM1" {{ 'selected' if unit_code == 'VCM1' else '' }}>VCM1</option><option value="VCM2" {{ 'selected' if unit_code == 'VCM2' else '' }}>VCM2</option></select>
+  <select name="inspection_year" aria-label="검사연도"><option value="">전체 연도</option>{% for year in years|default([]) %}<option value="{{ year }}" {{ 'selected' if inspection_year == year else '' }}>{{ year }}년</option>{% endfor %}</select>
+  <input name="equipment_code" value="{{ equipment_code }}" placeholder="열교환기 코드" aria-label="열교환기 코드">
+  <button class="button primary" type="submit">조회</button><a class="button ghost" href="{{ url_for('ml_spatial_hotspots') }}">초기화</a>
+</form>
+<article class="panel">
+  <div class="panel-head"><div><p class="eyebrow">Approved layout · review support only</p><h2>Top-30 공간 Hotspot 후보</h2></div><small>Run {{ run_id|default('-') }} · {{ model_version|default('-') }}</small></div>
+  <p class="muted">PDF·IRIS 근거검토는 측정값과 공간 후보의 유효성을 확인한 것이며, 결함기구·사용적합성 또는 확정 위험등급을 자동 판정하지 않습니다.</p>
+  <div class="table-wrap tall"><table>
+    <thead><tr><th>#</th><th>라인/열교환기</th><th>연도/Tube</th><th>좌표</th><th>감육률</th><th>인접 중앙값</th><th>공간 잔차</th><th>Hotspot 점수</th><th>변화상태</th><th>근거검토</th><th>근거 Tube</th><th>원본</th></tr></thead>
+    <tbody>{% for row in rows %}<tr>
+      <td>{{ loop.index }}</td><td>{{ row.unit_code }}/{{ row.equipment_code }}<br><a href="{{ url_for('exchanger_tube_map', exchanger_id=row.heat_exchanger_id) }}">Tube Map</a></td>
+      <td>{{ row.inspection_year }}년<br><a class="strong-link" href="{{ url_for('tube_detail', tube_id=row.tube_id) }}">{{ row.tube_no }}</a></td>
+      <td>{{ '%.2f'|format(row.canonical_x) }}, {{ '%.2f'|format(row.canonical_y) }}</td>
+      <td><strong>{{ '%.2f%%'|format(row.wall_loss_percent) }}</strong></td><td>{{ '%.2f%%'|format(row.neighbor_weighted_median) }}</td><td>{{ '%+.2f%%p'|format(row.spatial_residual_pp) }}</td><td><strong>{{ '%.3f'|format(row.hotspot_score) }}</strong></td>
+      <td><span class="status {{ 'warning' if row.change_state in ['NEW','PERSISTING'] else 'muted' }}">{{ row.change_state }}</span></td>
+      <td>{% if row.stored_hotspot_confirmation %}<span class="status success">DB 확정</span><br><small>HIGH · PDF p.{{ row.expert_review.source_page }}</small>{% elif row.expert_review %}<span class="status warning">조건부 확인</span><br><small>{{ row.expert_review.confidence }} · PDF p.{{ row.expert_review.source_page }}</small>{% else %}<span class="status muted">미검토</span>{% endif %}</td>
+      <td>{% for evidence in row.evidence_tubes[:3] %}<a href="{{ url_for('tube_detail', tube_id=evidence.tube_id) }}">{{ evidence.tube_no }}</a> {{ '%.1f%%'|format(evidence.wall_loss_percent) }}{% if not loop.last %}, {% endif %}{% endfor %}<br><small>총 {{ row.neighbor_count }}개 인접관</small></td>
+      <td><a class="strong-link" href="{{ url_for('inspection_detail', inspection_id=row.iris_inspection_id) }}">검사 #{{ row.iris_inspection_id }}</a><br><small>결과 #{{ row.iris_tube_result_id }}</small></td>
+    </tr>{% else %}<tr><td colspan="12" class="empty">{{ '선택한 조건에 맞는 Hotspot 후보가 없습니다.' if enabled else message }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</article>
+{% endblock %}

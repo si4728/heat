@@ -1,0 +1,18 @@
+{
+  "default_model_key": "iris_report_local",
+  "models": [
+    {
+      "key": "iris_report_local",
+      "label": "IRIS Local Report Model",
+      "provider": "llama_cpp",
+      "model_name": "replace-with-approved-gguf-model",
+      "model_path": "%IRIS2_MODEL_DIR%\\approved-report-model.gguf",
+      "llama_n_ctx": 8192
+    }
+  ],
+  "local_llm_cache": {
+    "mode": "keep_loaded",
+    "max_loaded_models": 1,
+    "serialize_requests": true
+  }
+}

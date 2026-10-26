@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}JSON 적재{% endblock %}{% block heading %}IRIS JSON 적재{% endblock %}
+{% block content %}
+<div class="grid two"><article class="panel form-panel"><div class="panel-head"><div><p class="eyebrow">Continuous load</p><h2>신규 보고서 추가</h2></div></div>
+<form method="post" enctype="multipart/form-data" class="upload-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label><span>1. 생산공장 선택 *</span><select id="import-plant-code" name="plant_code" required><option value="">생산공장을 선택해 주세요</option>{% for plant in plants %}<option value="{{ plant.plant_code }}" {{ 'selected' if selected_plant_code == plant.plant_code else '' }}>{{ plant.plant_code|plant_display }} · {{ plant.plant_name }}</option>{% endfor %}</select><small>적재 대상 생산공장을 선택합니다.</small></label><label><span>2. 생산라인 선택 *</span><select id="import-unit-code" name="unit_code" required><option value="">생산라인을 선택해 주세요</option>{% for unit in production_lines|default([]) %}<option value="{{ unit.unit_code }}" data-plant="{{ unit.plant_code }}" {{ 'selected' if selected_unit_code == unit.unit_code and selected_plant_code == unit.plant_code else '' }}>{{ unit.unit_code }}{% if unit.unit_name and unit.unit_name != unit.unit_code %} · {{ unit.unit_name }}{% endif %}</option>{% endfor %}</select><small>선택한 공장에 등록된 생산라인만 표시됩니다. JSON 및 파일명 자동 추정보다 이 선택값을 우선 적용합니다.</small></label><label class="file-box"><span>3. JSON 원본 선택</span><input type="file" name="json_file" accept="application/json,.json" required><small>Master에 등록된 공장+공정+열교환기만 검사 이력을 저장하며, 미등록 열교환기는 제외 메시지를 출력합니다.</small></label><label class="check"><input type="checkbox" name="dry_run" value="1"> 검증만 수행하고 DB는 변경하지 않음</label><button class="button primary">검증 및 처리</button></form></article>
+<article class="panel"><div class="panel-head"><h2>처리 순서</h2></div><ol class="steps"><li><strong>구조 검증</strong><span>필드 변형, 수량, 계산값 검사</span></li><li><strong>품질 보고</strong><span>오류와 경고를 별도 파일 및 누적 보고서에 기록</span></li><li><strong>트랜잭션 적재</strong><span>열교환기·튜브·검사 이력을 원자적으로 저장</span></li><li><strong>감육 재계산</strong><span>동일 물리 튜브의 다년 추세 갱신</span></li></ol></article></div>
+{% if outcome %}<article class="panel result-panel"><div class="panel-head"><div><p class="eyebrow">Result</p><h2>{{ outcome.status }}</h2></div></div><div class="result-grid">{% for key in ['source_file','plant_code','unit_code','total_exchanger_count','new_exchanger_count','existing_exchanger_count','report_count','loaded_report_count','tube_result_count','error_count','warning_count','degradation_assessment_count'] %}<div><span>{{ key }}</span><strong>{{ outcome.get(key, '-') }}</strong></div>{% endfor %}</div><pre>{{ outcome|tojson(indent=2) }}</pre></article>{% endif %}
+{% if outcome %}
+<div id="load-result-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="load-result-title" data-auto-open="true">
+  <section class="load-modal {{ 'failed' if outcome.status in ['FAILED','REJECTED_VALIDATION_ERROR'] else 'success' }}">
+    <header class="modal-header">
+      <div class="modal-icon">{{ '!' if outcome.status in ['FAILED','REJECTED_VALIDATION_ERROR'] else '✓' }}</div>
+      <div><p class="eyebrow">DATABASE LOAD RESULT</p><h2 id="load-result-title">
+        {% if outcome.status == 'SKIPPED_DUPLICATE' %}중복 파일 확인 완료
+        {% elif outcome.status == 'VALIDATED' %}JSON 검증 완료
+        {% elif outcome.status in ['FAILED','REJECTED_VALIDATION_ERROR'] %}DB 적재 실패
+        {% else %}DB 적재 완료{% endif %}
+      </h2><p>{{ outcome.get('source_file', '-') }}</p></div>
+      <button type="button" class="modal-close" data-modal-close aria-label="닫기">×</button>
+    </header>
+    <div class="modal-status-line"><span>최종 상태</span><strong>{{ outcome.status }}</strong></div>
+    <div class="modal-stages">
+      <div><span class="stage-dot {{ 'error' if outcome.get('error_count', 0) else 'done' }}"></span><p><strong>1. JSON 검증</strong><small>오류 {{ outcome.get('error_count', 0)|comma }} · 경고 {{ outcome.get('warning_count', 0)|comma }}</small></p></div>
+      <div><span class="stage-dot {{ 'done' if outcome.status not in ['FAILED','REJECTED_VALIDATION_ERROR'] else 'blocked' }}"></span><p><strong>2. DB 적재</strong><small>{% if outcome.status == 'SKIPPED_DUPLICATE' %}동일 SHA-256 파일로 적재 생략{% elif outcome.status == 'VALIDATED' %}Dry-run 설정으로 DB 변경 없음{% else %}검사 객체 {{ outcome.get('loaded_report_count', 0)|comma }}건 저장{% endif %}</small></p></div>
+      <div><span class="stage-dot {{ 'done' if outcome.get('degradation_assessment_count') is not none else 'blocked' }}"></span><p><strong>3. 이력·감육 갱신</strong><small>{{ outcome.get('degradation_assessment_count', 0)|comma }}건 평가</small></p></div>
+    </div>
+    <div class="modal-metrics">
+      <div><span>전체 열교환기</span><strong>{{ outcome.get('total_exchanger_count', 0)|comma }}</strong></div>
+      <div><span>Master 미존재</span><strong>{{ outcome.get('missing_master_exchanger_count', outcome.get('new_exchanger_count', 0))|comma }}</strong></div>
+      <div><span>기존 열교환기</span><strong>{{ outcome.get('existing_exchanger_count', 0)|comma }}</strong></div>
+      <div><span>보고서 객체</span><strong>{{ outcome.get('report_count', 0)|comma }}</strong></div>
+      <div><span>신규 적재</span><strong>{{ outcome.get('loaded_report_count', 0)|comma }}</strong></div>
+      <div><span>튜브 결과</span><strong>{{ outcome.get('tube_result_count', 0)|comma }}</strong></div>
+      <div><span>품질 경고</span><strong>{{ outcome.get('warning_count', 0)|comma }}</strong></div>
+    </div>
+    {% if outcome.get('message') %}<p class="modal-message">{{ outcome.message }}</p>{% endif %}
+    {% if outcome.get('missing_equipment_messages') %}<div class="modal-message"><strong>적재 제외 내역</strong>{% for message in outcome.missing_equipment_messages %}<div>{{ message }}</div>{% endfor %}</div>{% endif %}
+    <footer class="modal-footer"><button type="button" class="button primary" data-modal-close>확인</button></footer>
+  </section>
+</div>
+<script src="{{ url_for('static', filename='load-modal.js') }}"></script>
+{% endif %}
+<script src="{{ url_for('static', filename='import-location.js') }}"></script>
+{% endblock %}

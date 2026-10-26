@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Wall Loss 색상 관리{% endblock %}
+{% block heading %}Wall Loss 색상 관리{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('exchangers') }}">열교환기 목록</a>{% endblock %}
+{% block content %}
+<article class="panel color-guide">
+  <div class="panel-head"><div><p class="eyebrow">2D / 3D Tube Map</p><h2>Wall Loss 색상표</h2></div></div>
+  <div class="color-guide-copy">
+    <p>기본색상은 Tube Map과 정밀 분석 Map의 공통 기준색입니다. 저장한 색상은 모든 열교환기의 2D·3D Tube Map, 정밀 분석 Map과 범례에 함께 적용됩니다.</p>
+    <p>색상표 저장 또는 초기화 후 같은 브라우저의 다른 탭에 열려 있는 Map은 자동 갱신됩니다. 다른 PC에서는 Map 화면을 새로고침하면 변경된 색상이 반영됩니다.</p>
+    <p>정상 시작 → 주의 → 위험은 열교환기별 Wall Loss 주의·위험 임계값 사이를 연속 색상으로 표시합니다.</p>
+    <div class="color-gradient-preview" style="--normal:{{ colors.NORMAL }};--warning:{{ colors.WARNING }};--critical:{{ colors.CRITICAL }}">
+      <span>0% · 정상</span><span>주의 임계값</span><span>위험 임계값 이상</span>
+    </div>
+  </div>
+</article>
+
+<form method="post" class="color-settings-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <article class="panel">
+    <div class="table-wrap">
+      <table class="color-settings-table">
+        <thead><tr><th>구분</th><th>설명</th><th>기본 색상</th><th>현재 적용 색상</th><th>상태</th></tr></thead>
+        <tbody>
+        {% for setting in settings %}
+          <tr>
+            <td><strong>{{ setting.label }}</strong><small>{{ setting.color_key }}</small></td>
+            <td>{{ setting.description }}</td>
+            <td><span class="color-value"><i style="background:{{ setting.default_color }}"></i><code>{{ setting.default_color }}</code></span></td>
+            <td><label class="color-picker"><input type="color" name="{{ setting.color_key }}" value="{{ setting.current_color }}" aria-label="{{ setting.label }} 색상"><code>{{ setting.current_color }}</code></label></td>
+            <td><span class="status {{ 'muted' if setting.is_default else '' }}">{{ '기본값' if setting.is_default else '사용자 설정' }}</span></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </article>
+  <div class="color-actions"><button class="button primary" type="submit">색상표 저장</button></div>
+</form>
+
+<form method="post" action="{{ url_for('wall_loss_colors_reset') }}" class="color-reset-form" onsubmit="return confirm('모든 Wall Loss 색상을 기본값으로 초기화하시겠습니까?')"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <button class="button" type="submit">기본값으로 초기화</button>
+  <small>사용자 설정 색상을 모두 삭제하고 고정된 기본 팔레트로 되돌립니다.</small>
+</form>
+
+<script id="wall-loss-saved-colors" type="application/json">{{ colors|tojson }}</script>
+<script>
+document.querySelectorAll('.color-picker input[type=color]').forEach((input) => {
+  input.addEventListener('input', () => { input.nextElementSibling.textContent = input.value; });
+});
+</script>
+{% endblock %}

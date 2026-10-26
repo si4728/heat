@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}PDF·OCR 검토{% endblock %}{% block heading %}PDF·OCR 적재 검토 및 승인{% endblock %}
+{% block content %}
+<div class="result-grid">
+  <div><span>원본 PDF</span><strong>{{ totals.documents|default(0)|comma }}</strong></div>
+  <div><span>전체 페이지</span><strong>{{ totals.pages|default(0)|comma }}</strong></div>
+  <div><span>구조화 페이지</span><strong>{{ totals.structured|default(0)|comma }}</strong></div>
+  <div><span>신호 이미지 보존</span><strong>{{ totals.visual|default(0)|comma }}</strong></div>
+  <div><span>OCR 필요</span><strong>{{ totals.ocr_required|default(0)|comma }}</strong></div>
+  <div><span>승인 완료</span><strong>{{ totals.approved|default(0)|comma }}</strong></div>
+</div>
+<article class="panel">
+  <div class="panel-head"><div><p class="eyebrow">Stage 5 Gate</p><h2>문서별 검토 상태</h2></div></div>
+  <p>텍스트·표 페이지는 구조화 검증, IRIS 신호 화면은 원본 시각자료 보존으로 관리합니다. 근거 없는 빈 페이지만 OCR 필요 상태로 차단됩니다.</p>
+  <div class="table-wrap"><table><thead><tr><th>원본 PDF</th><th>페이지</th><th>구조화</th><th>시각자료</th><th>OCR 필요</th><th>해시/페이지</th><th>Gate</th><th>승인</th><th>작업</th></tr></thead><tbody>
+  {% for row in documents %}<tr>
+    <td><a href="{{ url_for('pdf_ocr_source', source_document_id=row.source_document_id) }}" target="_blank" rel="noopener">{{ row.pdf_file }}</a><br><small>{{ row.source_file }}</small></td>
+    <td>{{ row.expected_page_count|comma }}</td><td>{{ row.structured_page_count|comma }}</td><td>{{ row.visual_evidence_page_count|comma }}</td><td>{{ row.ocr_required_page_count|comma }}</td>
+    <td><span class="status-pill {{ 'ok' if row.pdf_hash_status == 'MATCH' and row.page_count_status == 'MATCH' else 'danger' }}">{{ row.pdf_hash_status }} / {{ row.page_count_status }}</span></td>
+    <td>{{ row.gate_status }}</td><td>{{ row.approval_status }}{% if row.approved_by %}<br><small>{{ row.approved_by }} · {{ row.approved_at }}</small>{% endif %}</td>
+    <td>{% if row.approval_status != 'APPROVED' and row.gate_status == 'READY_FOR_APPROVAL' %}<form method="post" action="{{ url_for('pdf_ocr_approve', source_document_id=row.source_document_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="note" value="PDF 해시·페이지 수·적재 완결성 및 시각 증거 보존 확인"><button class="button primary" type="submit">승인</button></form>{% else %}-{% endif %}</td>
+  </tr>{% else %}<tr><td colspan="9">검토 큐가 없습니다. 생성 도구를 먼저 실행하세요.</td></tr>{% endfor %}
+  </tbody></table></div>
+</article>
+{% endblock %}

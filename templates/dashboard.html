@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}대시보드{% endblock %}
+{% block heading %}운영 현황{% endblock %}
+{% block actions %}{% endblock %}
+{% block content %}
+<article class="panel" id="missing-tube-count-panel" style="margin-bottom:18px">
+  <div class="panel-head"><div><p class="eyebrow">현재 등록 열교환기 전체 점검</p><h2>Tube 수량 미등록 열교환기 <strong>{{ counts.tube_count_unspecified_exchangers|comma }}대</strong></h2></div><small>전체 {{ counts.exchangers|comma }}대 중 · 현재 사양 기준</small></div>
+  <p class="coverage-basis">수량 입력 {{ counts.tube_count_specified_exchangers|comma }}대 / 전체 {{ counts.exchangers|comma }}대 ({{ '%.1f'|format(counts.tube_count_specified_exchangers * 100 / counts.exchangers) if counts.exchangers else '0.0' }}%). 아래 설비의 Tube 수량은 미확인 상태이며 사양 Tube 합계에 포함되지 않습니다.</p>
+  <p class="coverage-basis">{% for unit, number in data_entry_coverage.missing_tube_count_by_unit.items() %}<span class="tag">{{ unit }} {{ number }}대</span> {% endfor %}</p>
+  <details><summary>미등록 열교환기 전체 목록 {{ counts.tube_count_unspecified_exchangers|comma }}대 보기</summary>
+    <label for="missing-tube-count-search">공정·설비코드·Tag·설비명 검색</label>
+    <input id="missing-tube-count-search" type="search" placeholder="예: VCM1 또는 설비코드" style="width:min(100%,420px);margin:8px 0" aria-controls="missing-tube-count-table">
+    <p id="missing-tube-count-visible" class="coverage-basis" aria-live="polite"></p>
+    <div class="table-wrap" style="max-height:320px;overflow:auto"><table id="missing-tube-count-table"><thead><tr><th>공정</th><th>설비코드</th><th>설비 Tag</th><th>설비명</th><th>형식</th><th>Tube 수량</th></tr></thead><tbody>
+    {% for row in data_entry_coverage.missing_tube_count_exchangers %}<tr><td>{{ row.unit_code }}</td><td><a href="{{ url_for('exchanger_detail', exchanger_id=row.heat_exchanger_id) }}">{{ row.equipment_code }}</a></td><td>{{ row.equipment_tag or '-' }}</td><td>{{ row.equipment_name or '-' }}</td><td>{{ row.exchanger_type_code or '-' }}</td><td>미등록</td></tr>
+    {% else %}<tr><td colspan="6">모든 등록 열교환기에 Tube 수량이 입력되어 있습니다.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </details>
+  <p class="coverage-basis">개별 Tube 등록 설비 {{ counts.exchangers_with_registered_tubes|comma }}대 / {{ counts.exchangers|comma }}대 · 개별 Tube 미등록 설비 {{ counts.exchangers_without_registered_tubes|comma }}대. 아래 Tube 정보 완성도는 이 중 등록된 Tube {{ counts.registered_tubes|comma }}개의 입력 현황입니다.</p>
+</article>
+<script defer src="{{ url_for('static', filename='dashboard-tube-count-search.js') }}"></script>
+<p class="coverage-basis"><strong>집계 기준: 현재 등록 열교환기 {{ counts.exchangers|comma }}대</strong> · 해당 설비에 연결된 Tube·검사이력·검사결과·검사계획을 집계합니다. 열교환기 수는 대, Tube 수는 개, 이력·계획은 건으로 구분합니다. 사양 수량은 현재 사양만 사용합니다.</p>
+<div class="metrics">
+  <article><span>열교환기</span><button class="metric-number" type="button" aria-haspopup="dialog" data-metric-title="열교환기" data-metric-value="{{ counts.exchangers|comma }}" data-metric-definition="열교환기 마스터에 등록된 열교환기 객체의 전체 수입니다." data-metric-basis="heat_exchanger 테이블 전체 행을 집계하며 운전상태와 관계없이 포함합니다." data-metric-formula="COUNT(heat_exchanger) = {{ counts.exchangers|comma }}" data-metric-note="미검사는 검사 생애주기 상태가 NEVER_INSPECTED인 열교환기 {{ counts.never_inspected|comma }}건입니다." data-metric-link="{{ url_for('exchangers') }}" data-metric-link-label="열교환기 목록 보기"><strong>{{ counts.exchangers|comma }}</strong></button><small>미검사 {{ counts.never_inspected|comma }}</small></article>
+  <article class="warning"><span>Tube 미등록 열교환기</span><button class="metric-number" type="button" aria-haspopup="dialog" data-metric-title="Tube 미등록 열교환기" data-metric-value="{{ counts.exchangers_without_registered_tubes|comma }}" data-metric-definition="전체 열교환기 중 개별 물리 Tube가 한 건도 등록되지 않은 열교환기 수입니다." data-metric-basis="열교환기에 속한 tube_bundle과 heat_exchanger_tube 연결 행이 존재하지 않으면 Tube 미등록으로 판정합니다." data-metric-formula="전체 {{ counts.exchangers|comma }} - Tube 등록 {{ counts.exchangers_with_registered_tubes|comma }} = 미등록 {{ counts.exchangers_without_registered_tubes|comma }}개" data-metric-note="미등록 중 Tube 수 사양도 미확인인 열교환기는 {{ counts.tube_unspecified_without_registered_tubes|comma }}개이며, Tube 수 사양은 있으나 개별 Tube가 없는 열교환기는 {{ counts.tube_specified_without_registered_tubes|comma }}개입니다." data-metric-link="{{ url_for('exchangers') }}" data-metric-link-label="열교환기 목록 보기"><strong>{{ counts.exchangers_without_registered_tubes|comma }}</strong></button><small>전체 {{ counts.exchangers|comma }}개 중</small></article>
+  <article><span>검사 이력</span><button class="metric-number" type="button" aria-haspopup="dialog" data-metric-title="검사 이력" data-metric-value="{{ counts.inspections|comma }}" data-metric-definition="현재 등록된 열교환기에 연결된 검사 객체의 전체 수입니다." data-metric-basis="동일 열교환기라도 검사일·보고서·검사범위가 다르면 각각 별도 검사이력으로 계산합니다." data-metric-formula="등록 열교환기에 연결된 COUNT(iris_inspection) = {{ counts.inspections|comma }}" data-metric-note="열교환기 수가 아니라 다년간 누적된 검사 실시 건수입니다." data-metric-link="{{ url_for('inspections') }}" data-metric-link-label="검사 이력 보기"><strong>{{ counts.inspections|comma }}</strong></button><small>다년 검사 객체</small></article>
+  <article><span>전체 튜브</span><button class="metric-number" type="button" aria-haspopup="dialog" data-metric-title="전체 튜브" data-metric-value="{{ counts.tubes|comma }}" data-metric-definition="열교환기별 현재 사양에 등록된 Tube 수를 합산한 전체 Tube 수입니다." data-metric-basis="현재 승인 사양의 tube_count를 열교환기별 1회 합산합니다. 개별 튜브 행이나 검사결과 수를 합산하지 않습니다." data-metric-formula="Σ 현재 사양 tube_count ({{ counts.tube_count_specified_exchangers|comma }}개 열교환기) = {{ counts.tubes|comma }}개" data-metric-note="Tube 수 미확인 열교환기 {{ counts.tube_count_unspecified_exchangers|comma }}개는 합계에서 제외됩니다. 개별 등록 Tube는 {{ counts.registered_tubes|comma }}개입니다." data-metric-link="{{ url_for('tube_inspection_history') }}" data-metric-link-label="튜브 검사이력 보기"><strong>{{ counts.tubes|comma }}</strong></button><small>개별 등록 {{ counts.registered_tubes|comma }}</small></article>
+  <article><span>튜브 결과</span><button class="metric-number" type="button" aria-haspopup="dialog" data-metric-title="튜브 결과" data-metric-value="{{ counts.results|comma }}" data-metric-definition="검사별·튜브별로 구조화하여 저장한 IRIS 검사결과의 전체 수입니다." data-metric-basis="iris_tube_result의 정규화 결과 행을 집계하므로 한 튜브가 여러 해 검사되면 여러 결과로 계산됩니다." data-metric-formula="COUNT(iris_tube_result) = {{ counts.results|comma }}" data-metric-note="최소두께·감육률·결함정보 등 튜브별 측정값이 포함되며 물리 튜브 수와는 다른 지표입니다." data-metric-link="{{ url_for('tube_inspection_history') }}" data-metric-link-label="튜브 결과 보기"><strong>{{ counts.results|comma }}</strong></button><small>정규화 측정값</small></article>
+  <article class="warning"><span>열린 품질 이슈</span><button class="metric-number" type="button" aria-haspopup="dialog" data-metric-title="열린 품질 이슈" data-metric-value="{{ counts.open_issues|comma }}" data-metric-definition="검사 원문과 구조화 데이터의 불일치 등 아직 검토가 끝나지 않은 품질 이슈 수입니다." data-metric-basis="data_quality_issue에서 상태가 OPEN인 경고와 오류를 집계합니다." data-metric-formula="COUNT(data_quality_issue WHERE status='OPEN') = {{ counts.open_issues|comma }}" data-metric-note="튜브 결함 건수와 같은 의미가 아니며 원문은 자동으로 수정하지 않습니다." data-metric-link="{{ url_for('quality_issues', status='OPEN') }}" data-metric-link-label="열린 품질 이슈 보기"><strong>{{ counts.open_issues|comma }}</strong></button><small>원문 자동보정 없음</small></article>
+  <article><span>검사 계획</span><button class="metric-number" type="button" aria-haspopup="dialog" data-metric-title="검사 계획" data-metric-value="{{ counts.planned|comma }}" data-metric-definition="현재 종료되지 않고 진행 중인 검사계획 수입니다." data-metric-basis="SCHEDULED·APPROVED·IN_PROGRESS 상태의 열교환기 단위 계획을 집계합니다." data-metric-formula="COUNT(inspection_plan_v2 WHERE status IN 진행상태) = {{ counts.planned|comma }}" data-metric-note="지연은 예정일이 지났지만 완료 또는 취소되지 않은 계획 {{ counts.overdue_plans|comma }}건입니다." data-metric-link="{{ url_for('inspection_plans') }}" data-metric-link-label="검사 계획 보기"><strong>{{ counts.planned|comma }}</strong></button><small>지연 {{ counts.overdue_plans|comma }}</small></article>
+  {% if can_screen('EXCHANGERS') %}<article class="qr-search-card"><span>QR 검색</span><button class="qr-search-trigger" type="button" aria-haspopup="dialog" data-qr-scan-open><strong aria-hidden="true">⌗</strong><b>QR-code 읽기</b></button><small>현장 열교환기 즉시 조회</small></article>{% endif %}
+</div>
+<section class="data-coverage-grid" aria-label="주요 데이터 입력률">
+  <article class="panel data-coverage-panel">
+    <div class="panel-head">
+      <div><p class="eyebrow">Master data completeness</p><h2>열교환기 주요 데이터 입력률</h2></div>
+      <div class="coverage-headline"><strong>{{ data_entry_coverage.exchanger.rate }}%</strong><small>완전 입력 {{ data_entry_coverage.exchanger.complete_count|comma }} / {{ data_entry_coverage.exchanger.total_count|comma }}</small></div>
+    </div>
+    <p class="coverage-basis">{{ data_entry_coverage.exchanger.note }} · 입력된 항목 {{ data_entry_coverage.exchanger.populated_count|comma }} / {{ data_entry_coverage.exchanger.possible_count|comma }}</p>
+    <div class="coverage-list">
+      {% for row in data_entry_coverage.exchanger_groups %}
+      <div class="coverage-row">
+        <div class="coverage-label"><strong>{{ row.label }}</strong><small>{{ row.note }}</small></div>
+        <div class="coverage-progress"><i style="--coverage:{{ row.rate }}%"></i></div>
+        <div class="coverage-value"><button class="metric-number coverage-metric-trigger" type="button" aria-haspopup="dialog" data-metric-title="{{ row.label }}" data-metric-value="{{ row.rate }}%" data-metric-definition="{{ row.note }}" data-metric-basis="{{ row.field_count }}개 관리항목 × 전체 {{ row.total_count|comma }}건의 입력 슬롯을 기준으로 계산합니다." data-metric-formula="{{ row.populated_count|comma }} ÷ {{ row.possible_count|comma }} × 100 = {{ row.rate }}%" data-metric-note="모든 관리항목이 완전 입력된 대상은 {{ row.complete_count|comma }} / {{ row.total_count|comma }}건입니다."><strong>{{ row.rate }}%</strong></button><small>완전 {{ row.complete_count|comma }} / {{ row.total_count|comma }}</small></div>
+      </div>
+      {% endfor %}
+      {% set row=data_entry_coverage.exchanger_management %}
+      <div class="coverage-row management-row">
+        <div class="coverage-label"><strong>{{ row.label }} <span class="coverage-tag">별도 관리</span></strong><small>{{ row.note }}</small></div>
+        <div class="coverage-progress"><i style="--coverage:{{ row.rate }}%"></i></div>
+        <div class="coverage-value"><button class="metric-number coverage-metric-trigger" type="button" aria-haspopup="dialog" data-metric-title="{{ row.label }}" data-metric-value="{{ row.rate }}%" data-metric-definition="{{ row.note }}" data-metric-basis="{{ row.field_count }}개 관리항목 × 전체 {{ row.total_count|comma }}건의 입력 슬롯을 기준으로 계산합니다." data-metric-formula="{{ row.populated_count|comma }} ÷ {{ row.possible_count|comma }} × 100 = {{ row.rate }}%" data-metric-note="모든 관리항목이 완전 입력된 대상은 {{ row.complete_count|comma }} / {{ row.total_count|comma }}건입니다."><strong>{{ row.rate }}%</strong></button><small>완전 {{ row.complete_count|comma }} / {{ row.total_count|comma }}</small></div>
+      </div>
+    </div>
+  </article>
+
+  <article class="panel data-coverage-panel">
+    {% set registered = data_entry_coverage.registered_tube %}
+    {% set population = data_entry_coverage.tube_population %}
+    <div class="panel-head">
+      <div><p class="eyebrow">Registered Tube data completeness</p><h2>Tube 주요 데이터 입력률</h2></div>
+      <div class="coverage-headline"><strong>{{ registered.rate }}%</strong><small>{{ registered.field_count }}개 항목 모두 입력 {{ registered.complete_count|comma }} / {{ registered.total_count|comma }}개</small></div>
+    </div>
+    <p class="coverage-basis">{{ registered.note }} · 입력 {{ registered.populated_count|comma }} / {{ registered.possible_count|comma }}칸. 아래 비율의 분모는 개별 등록 Tube {{ registered.total_count|comma }}개입니다.</p>
+    {% set registration_rate = population.registered_count * 100 / population.total_count if population.total_count else 0 %}
+    <section class="tube-registration-highlight" aria-labelledby="tube-registration-heading">
+      <div class="tube-registration-heading"><h3 id="tube-registration-heading">사양 수량 대비 개별 Tube 등록 현황</h3><strong class="tube-registration-percent">{{ '%.1f'|format(registration_rate) }}%</strong></div>
+      <div class="tube-registration-numbers"><strong>{{ population.registered_count|comma }}개 등록</strong><span>/ 사양 수량 {{ population.total_count|comma }}개</span></div>
+      <div class="tube-registration-bar" role="progressbar" aria-label="사양 수량 대비 개별 Tube 등록률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ '%.1f'|format(registration_rate) }}" aria-valuetext="사양 {{ population.total_count|comma }}개 중 {{ population.registered_count|comma }}개 등록"><i style="width:{{ [registration_rate, 100]|min }}%"></i></div>
+      <div class="tube-registration-caption"><span>등록 {{ population.registered_count|comma }}개</span><span>미등록 {{ [population.total_count-population.registered_count, 0]|max|comma }}개</span></div>
+      <p>사양 수량 확인 열교환기 {{ population.specified_exchanger_count|comma }}대 · 수량 미확인 {{ population.unspecified_exchanger_count|comma }}대. 미확인 설비의 수량은 합계에서 제외됩니다.</p>
+    </section>
+    <div class="coverage-list">
+      {% for row in registered.groups %}
+      <div class="coverage-row">
+        <div class="coverage-label"><strong>{{ row.label }}</strong><small>{{ row.note }}</small></div>
+        <div class="coverage-progress"><i style="--coverage:{{ row.rate }}%"></i></div>
+        <div class="coverage-value"><button class="metric-number coverage-metric-trigger" type="button" aria-haspopup="dialog" data-metric-title="{{ row.label }}" data-metric-value="{{ row.rate }}%" data-metric-definition="{{ row.note }}" data-metric-basis="등록 Tube {{ row.total_count|comma }}개 × {{ row.field_count }}개 입력 항목 기준입니다. 사양 Tube 수를 분모로 사용하지 않습니다." data-metric-formula="{{ row.populated_count|comma }} ÷ {{ row.possible_count|comma }} × 100 = {{ row.rate }}%" data-metric-note="해당 항목을 모두 입력한 Tube {{ row.complete_count|comma }}개 · 미충족 {{ (row.total_count-row.complete_count)|comma }}개"><strong>{{ row.rate }}%</strong></button><small>{{ row.complete_count|comma }} / {{ row.total_count|comma }}</small></div>
+      </div>
+      {% endfor %}
+    </div>
+    <details class="coverage-basis"><summary>데이터 검토 필요 항목</summary><ul>
+      <li>행·열에 0 이하 값: {{ registered.quality.grid_needs_review|comma }}개 Tube — 원본 번호 체계 확인 필요</li>
+      <li>미래 설치일: {{ registered.quality.future_installation|comma }}개 Tube</li>
+      <li>0 이하 최소두께 이력: {{ registered.quality.thickness_needs_review|comma }}개 Tube — 원본 확인 필요, 유효 두께 이력에는 양수만 포함</li>
+    </ul><p>입력 완료는 실측·원본 검증 완료를 뜻하지 않습니다. 근거 없는 값은 자동 보충하지 않습니다.</p></details>
+    <p class="coverage-basis">설치일 이전 검사이력을 보유한 Tube {{ registered.historical_only_tubes|comma }}개: 정상적인 과거 조회 자료로 보존하며, 현재 설치분의 감육 판정·잔여수명 계산에는 사용하지 않습니다.</p>
+    {% for row in data_entry_coverage.tube_groups if row.label == '동일 위치 재검사' %}
+    <p class="coverage-basis"><strong>동일 위치 재검사 (별도 지표): {{ row.rate }}%</strong> · 비교쌍 {{ row.complete_count|comma }} / {{ row.total_count|comma }}건. {{ row.note }}. Tube 입력률과 종합 완성도에는 포함하지 않습니다.</p>
+    {% endfor %}
+  </article>
+</section>
+<article class="panel" style="margin-bottom:18px">
+  <div class="panel-head"><div><p class="eyebrow">Annual inspection coverage</p><h2>생산라인별·연도별 검사 현황</h2></div><small>VCM1·VCM2는 생산라인 코드 · 검사 캠페인 연도 기준</small></div>
+  <div class="table-wrap"><table><thead><tr><th>연도</th><th>생산라인</th><th>검사 객체 수</th><th>검사 열교환기 수</th><th>튜브 결과 수</th><th>PDF Report</th></tr></thead><tbody>
+  {% for unit,year,inspection_count,exchanger_count,tube_result_count,pdf_available in yearly_rows %}<tr>
+    <td><strong>{{ year }}</strong></td><td><span class="tag">{{ unit }}</span></td>
+    <td>{{ inspection_count|comma }}</td><td>{{ exchanger_count|comma }}</td><td>{{ tube_result_count|comma }}</td>
+    <td>{% if pdf_available %}<a class="button report-view" href="{{ url_for('pdf_report_view', year=year, unit_code=unit) }}" target="_blank" rel="noopener">Report View</a>{% else %}<span class="status muted">PDF 없음</span>{% endif %}</td>
+  </tr>{% else %}<tr><td colspan="6" class="empty">연도별 검사 데이터가 없습니다.</td></tr>{% endfor %}
+  </tbody></table></div>
+</article>
+<div class="grid two-thirds">
+  <article class="panel">
+    <div class="panel-head"><div><p class="eyebrow">History</p><h2>최근 검사</h2></div><a href="{{ url_for('exchangers') }}">전체 열교환기 →</a></div>
+    <div class="table-wrap"><table><thead><tr><th>검사일</th><th>설비</th><th>범위</th><th>결과 수</th><th>상태</th></tr></thead><tbody>
+    {% for inspection,equipment,scope in recent %}<tr>
+      <td>{{ inspection.report_date.strftime('%Y-%m-%d') if inspection.report_date else '-' }}</td>
+      <td><a class="strong-link" href="{{ url_for('inspection_detail', inspection_id=inspection.iris_inspection_id) }}">{{ equipment.equipment_name }}</a></td>
+      <td><span class="tag">{{ scope.scope_code if scope else 'ALL' }}</span></td>
+      <td>{{ inspection.extracted_tube_result_count }}</td><td><span class="status">{{ inspection.report_status }}</span></td>
+    </tr>{% else %}<tr><td colspan="5" class="empty">검사 이력이 없습니다.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </article>
+  <div class="stack">
+    <article class="panel"><div class="panel-head"><div><p class="eyebrow">Coverage</p><h2>생산라인별 열교환기</h2></div></div>
+      <div class="unit-list">{% for unit,count in units %}<div><span>{{ unit }}</span><strong>{{ count }}</strong></div>{% endfor %}</div>
+    </article>
+    <article class="panel"><div class="panel-head"><div><p class="eyebrow">Load</p><h2>최근 적재</h2></div></div>
+      <div class="batch-list">{% for batch in batches %}<div><span>{{ batch.source_path.split('\\')[-1] }}</span><small>{{ batch.status }} · {{ batch.loaded_report_count }}건</small></div>{% else %}<p class="empty">적재 기록이 없습니다.</p>{% endfor %}</div>
+    </article>
+    <article class="panel"><div class="panel-head"><div><p class="eyebrow">Schedule</p><h2>예정 검사</h2></div><a href="{{ url_for('inspection_plans') }}">계획 관리 →</a></div><div class="batch-list">{% for plan,equipment in upcoming_plans %}<div><span>{{ plan.planned_date.strftime('%Y-%m-%d') }} · {{ equipment.equipment_name }}</span><small>{{ plan.status }} · {{ plan.inspection_method }}</small></div>{% else %}<div><small>등록된 예정 검사가 없습니다.</small></div>{% endfor %}</div></article>
+  </div>
+</div>
+<div id="dashboard-metric-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="dashboard-metric-title" hidden>
+  <section class="load-modal dashboard-metric-modal" tabindex="-1">
+    <header class="modal-header"><div class="modal-icon" aria-hidden="true">i</div><div><p class="eyebrow">Dashboard metric guide</p><h2 id="dashboard-metric-title"></h2><p>카드 숫자의 집계 기준과 의미</p></div><button type="button" class="modal-close" data-dashboard-metric-close aria-label="설명 닫기">×</button></header>
+    <div class="dashboard-metric-value"><span>현재 집계값</span><strong id="dashboard-metric-value"></strong></div>
+    <dl class="dashboard-metric-details"><dt>의미</dt><dd id="dashboard-metric-definition"></dd><dt>집계 기준</dt><dd id="dashboard-metric-basis"></dd><dt>계산 로직</dt><dd id="dashboard-metric-formula"></dd><dt>참고</dt><dd id="dashboard-metric-note"></dd></dl>
+    <footer class="modal-footer"><a id="dashboard-metric-link" class="button" href="#"></a><button type="button" class="button primary" data-dashboard-metric-close>확인</button></footer>
+  </section>
+</div>
+<div id="dashboard-qr-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="dashboard-qr-title" hidden>
+  <section class="load-modal dashboard-qr-modal" tabindex="-1">
+    <header class="modal-header"><div class="modal-icon qr-modal-icon" aria-hidden="true">⌗</div><div><p class="eyebrow">Equipment quick lookup</p><h2 id="dashboard-qr-title">열교환기 QR 검색</h2><p>열교환기 ID 숫자만 저장된 QR-code를 카메라로 읽어주세요.</p></div><button type="button" class="modal-close" data-qr-scan-close aria-label="QR 검색 닫기">×</button></header>
+    <div class="qr-scanner-body">
+      <div class="qr-camera-frame">
+        <video id="dashboard-qr-video" playsinline muted aria-label="QR-code 카메라 화면"></video>
+        <div class="qr-camera-guide" aria-hidden="true"></div>
+        <p id="dashboard-qr-placeholder">카메라 시작을 눌러 QR-code를 읽으세요.</p>
+      </div>
+      <p id="dashboard-qr-status" class="qr-scanner-status" role="status" aria-live="polite">대기 중</p>
+      <div class="qr-scanner-actions">
+        <button id="dashboard-qr-camera-start" class="button primary" type="button">카메라 시작</button>
+        <label class="button qr-image-button" for="dashboard-qr-image">사진에서 읽기</label>
+        <input id="dashboard-qr-image" type="file" accept="image/*" capture="environment" hidden>
+      </div>
+      <form id="dashboard-qr-manual" class="qr-manual-form">
+        <label for="dashboard-qr-value">카메라를 사용할 수 없으면 QR에 저장된 열교환기 ID를 입력하세요.</label>
+        <div><input id="dashboard-qr-value" inputmode="numeric" pattern="[1-9][0-9]*" autocomplete="off" placeholder="예: 176"><button class="button" type="submit">조회</button></div>
+      </form>
+    </div>
+  </section>
+</div>
+<script src="{{ url_for('static', filename='dashboard-metrics.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/jsqr/jsQR.js') }}"></script>
+<script src="{{ url_for('static', filename='dashboard-qr-scanner.js') }}"></script>
+{% endblock %}

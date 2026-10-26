@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}AI 보고서 검토{% endblock %}{% block heading %}로컬 LLM 보고서·근거 검증{% endblock %}
+{% block content %}
+<div class="result-grid">
+  <div><span>보고서 초안</span><strong>{{ totals.drafts|default(0)|comma }}</strong></div>
+  <div><span>근거 검증 통과</span><strong>{{ totals.passed|default(0)|comma }}</strong></div>
+  <div><span>보류</span><strong>{{ totals.holds|default(0)|comma }}</strong></div>
+  <div><span>현업 승인</span><strong>{{ totals.approved|default(0)|comma }}</strong></div>
+</div>
+<article class="panel"><div class="panel-head"><div><p class="eyebrow">Stage 6 Gate</p><h2>근거 고정형 보고서</h2></div></div>
+<p>모든 수치 주장은 DB 필드 또는 PDF 페이지 근거와 1:1로 연결됩니다. AI는 검사·정비 결정을 자동 승인할 수 없습니다.</p>
+{% for row in rows %}<section class="panel" style="margin-top:1rem">
+  <div class="panel-head"><div><h3>{{ row.equipment_code }}</h3><small>{{ row.report_id }} · {{ row.generation_mode }}</small></div><span class="status-pill {{ 'ok' if row.validation_status == 'PASS' else 'danger' }}">{{ row.validation_status }}</span></div>
+  <div class="result-grid"><div><span>최대 감육률</span><strong>{{ row.report.claims[3].value }}%</strong></div><div><span>최소 두께</span><strong>{{ row.report.claims[4].value }} mm</strong></div><div><span>대상 Tube</span><strong>{{ row.report.claims[5].value }}</strong></div><div><span>승인</span><strong>{{ row.approval_status }}</strong></div></div>
+  <p>{{ row.report.recommendations[0].text }}</p>
+  {% if row.evidence.pdf_reference and can_screen('PDF_OCR_REVIEW') %}<a class="button" target="_blank" rel="noopener" href="{{ url_for('pdf_ocr_source', source_document_id=row.evidence.pdf_reference.source_document_id) }}#page={{ row.evidence.pdf_reference.page }}">근거 PDF 확인</a>{% endif %}
+  {% if row.approval_status != 'APPROVED' and row.validation_status == 'PASS' %}<form method="post" action="{{ url_for('ai_report_approve', report_id=row.report_id) }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="note" value="DB 수치 및 PDF 근거 연결 확인"><button class="button primary" type="submit">현업 승인</button></form>{% endif %}
+</section>{% else %}<p>생성된 보고서 초안이 없습니다.</p>{% endfor %}
+</article>
+{% endblock %}

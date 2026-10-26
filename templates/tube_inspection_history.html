@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}튜브 검사이력{% endblock %}
+{% block heading %}열교환기·연도·튜브별 검사이력{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('inspections') }}">전체 검사 이력</a><a class="button" href="{{ url_for('inspection_plans') }}">검사계획 관리</a>{% endblock %}
+{% block content %}
+<form class="filters" method="get" aria-label="튜브 검사이력 조회 조건">
+  <select name="exchanger_id" aria-label="열교환기"><option value="">전체 열교환기</option>{% for exchanger in exchangers %}<option value="{{ exchanger.heat_exchanger_id }}" {{ 'selected' if selected_exchanger_id == exchanger.heat_exchanger_id else '' }}>{{ exchanger.label }} · {{ exchanger.equipment_name }}</option>{% endfor %}</select>
+  <select name="year" aria-label="검사연도"><option value="">전체 연도</option>{% for item in years %}<option value="{{ item }}" {{ 'selected' if selected_year == item else '' }}>{{ item }}년</option>{% endfor %}</select>
+  <input name="tube_no" value="{{ tube_no }}" placeholder="튜브번호 검색" aria-label="튜브번호">
+  <select name="sort_by" aria-label="정렬 기준"><option value="exchanger" {{ 'selected' if sort_by == 'exchanger' else '' }}>열교환기별 정렬</option><option value="tube" {{ 'selected' if sort_by == 'tube' else '' }}>튜브번호별 정렬</option></select>
+  <select name="sort_dir" aria-label="정렬 방향"><option value="asc" {{ 'selected' if sort_dir == 'asc' else '' }}>오름차순</option><option value="desc" {{ 'selected' if sort_dir == 'desc' else '' }}>내림차순</option></select>
+  <button class="button primary" type="submit">조회</button><a class="button ghost" href="{{ url_for('tube_inspection_history') }}">초기화</a>
+</form>
+<section class="metrics compact-metrics">
+  <article><span>조회 검사결과</span><strong>{{ total_count|comma }}</strong><small>Scope·보고서별 결과</small></article>
+  <article><span>현재 페이지</span><strong>{{ page|comma }} / {{ page_count|comma }}</strong><small>페이지당 {{ per_page|comma }}건</small></article>
+  <article><span>조회·정렬 기준</span><strong>{{ selected_year if selected_year else '전체' }}</strong><small>{{ '열교환기' if sort_by == 'exchanger' else '튜브번호' }} {{ '오름차순' if sort_dir == 'asc' else '내림차순' }} · {{ tube_no if tube_no else '전체 튜브번호' }}</small></article>
+</section>
+{% if selected_exchanger %}
+<section class="history-overview" aria-label="선택한 열교환기 검사 요약과 2D Tube Map">
+  <article class="panel">
+    <div class="panel-head"><div><p class="eyebrow">Inspection summary</p><h2>{{ selected_exchanger.label }} · {{ selected_exchanger.equipment_name }}</h2></div><small>현재 조회 페이지 기준</small></div>
+    <div class="history-summary-grid">
+      <div><span>전체 조회 결과</span><strong>{{ total_count|comma }}</strong><small>필터 적용 결과</small></div>
+      <div><span>표시 튜브</span><strong>{{ history_summary.visible_tube_count|comma }}</strong><small>현재 페이지 고유 튜브</small></div>
+      <div><span>유효 결과</span><strong>{{ history_summary.valid_result_count|comma }}</strong><small>현재 페이지 VALID</small></div>
+      <div><span>최대 감육률</span><strong>{{ '%.2f%%'|format(history_summary.maximum_wall_loss_percent) if history_summary.maximum_wall_loss_percent is not none else '-' }}</strong><small>{{ history_summary.visible_year_count|comma }}개 검사연도</small></div>
+    </div>
+  </article>
+  <article class="panel history-map-callout">
+    <p class="eyebrow">2D Tube Map</p>
+    <strong>배열 위치와 검사 결과를 2D로 확인</strong>
+    <p>튜브 위치, 감육률 색상, 검사 여부를 한 화면에서 조회합니다.</p>
+    <a class="button primary" href="{{ url_for('exchanger_tube_map', exchanger_id=selected_exchanger_id) }}">2D Tube Map 보기</a>
+  </article>
+</section>
+{% endif %}
+<article class="panel">
+  <div class="panel-head"><div><p class="eyebrow">Tube inspection history</p><h2>열교환기별 · 연도별 · 튜브번호별 목록</h2></div><small>동일 연도의 복수 Bundle/Scope 결과는 각각 표시합니다.</small></div>
+  <div class="table-wrap tall"><table>
+    <colgroup><col><col><col><col><col><col><col><col><col><col><col><col><col><col><col><col><col></colgroup>
+    <thead><tr><th>#</th><th>공장/라인</th><th>열교환기</th><th>검사연도</th><th>검사일</th><th>튜브번호</th><th>Row/Col</th><th>Bundle/Scope</th><th>최소두께</th><th>설계두께</th><th>감육률</th><th>보고깊이</th><th>감육깊이</th><th>결함 위치</th><th>결함/부식</th><th>품질상태</th><th>보고서</th></tr></thead>
+    <tbody>{% for row in rows %}<tr>
+      <td>{{ ((page - 1) * per_page + loop.index)|comma }}</td><td>{{ row.plant_code|plant_display }}/{{ row.unit_code }}</td>
+      <td><a class="strong-link" href="{{ url_for('exchanger_detail', exchanger_id=row.heat_exchanger_id) }}">{{ row.exchanger_code }}</a><br><small>{{ row.equipment_name }}</small></td>
+      <td><strong>{{ row.inspection_year }}</strong></td><td>{{ row.inspection_date.strftime('%Y-%m-%d') if row.inspection_date else '-' }}</td>
+      <td><a class="strong-link" href="{{ url_for('tube_detail', tube_id=row.tube.tube_id) }}">{{ row.tube.tube_no }}</a></td>
+      <td>{{ row.tube.row_no if row.tube.row_no is not none else (row.result.source_row if row.result.source_row is not none else '-') }}/{{ row.tube.column_no if row.tube.column_no is not none else (row.result.source_column if row.result.source_column is not none else '-') }}</td>
+      <td>{{ row.bundle_code }}/{{ row.scope_code }}</td>
+      <td>{{ '%.3f'|format(row.result.minimum_wall_thickness_mm) if row.result.minimum_wall_thickness_mm is not none else '-' }}</td><td>{{ '%.3f'|format(row.result.design_wall_thickness_mm) if row.result.design_wall_thickness_mm is not none else '-' }}</td>
+      <td>{{ '%.2f%%'|format(row.result.wall_loss_percent) if row.result.wall_loss_percent is not none else '-' }}</td><td>{{ '%.2f%%'|format(row.result.reported_depth_percent) if row.result.reported_depth_percent is not none else '-' }}</td><td>{{ '%.3f mm'|format(row.result.wall_loss_depth_mm) if row.result.wall_loss_depth_mm is not none else '-' }}</td>
+      <td>{{ '%.1f mm'|format(row.result.location_mm) if row.result.location_mm is not none else '-' }}</td>
+      <td>{{ row.result.defect_code or '-' }} / {{ row.result.corrosion_type or '-' }}</td><td><span class="status {{ 'muted' if row.result.quality_status != 'VALID' else '' }}">{{ row.result.result_status }}/{{ row.result.quality_status }}</span></td>
+      <td><a class="strong-link" href="{{ url_for('inspection_detail', inspection_id=row.inspection.iris_inspection_id) }}">{{ row.inspection.report_number or ('검사 ' ~ row.inspection.iris_inspection_id) }}</a>{% if row.result.source_page %}<br><a href="{{ url_for('inspection_pdf_view', inspection_id=row.inspection.iris_inspection_id, _anchor='page=' ~ row.result.source_page) }}" target="_blank" rel="noopener">PDF p.{{ row.result.source_page }}</a>{% endif %}</td>
+    </tr>{% else %}<tr><td colspan="17" class="empty">선택한 조건에 맞는 튜브 검사이력이 없습니다.</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% if page_count > 1 %}<nav class="history-pagination" aria-label="튜브 검사이력 페이지">{% if page > 1 %}<a class="button" href="{{ url_for('tube_inspection_history', exchanger_id=selected_exchanger_id or '', year=selected_year or '', tube_no=tube_no, sort_by=sort_by, sort_dir=sort_dir, page=page-1) }}">이전</a>{% endif %}<span>{{ page|comma }} / {{ page_count|comma }} 페이지</span>{% if page < page_count %}<a class="button" href="{{ url_for('tube_inspection_history', exchanger_id=selected_exchanger_id or '', year=selected_year or '', tube_no=tube_no, sort_by=sort_by, sort_dir=sort_dir, page=page+1) }}">다음</a>{% endif %}</nav>{% endif %}
+</article>
+{% endblock %}

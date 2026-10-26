@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% set hx=master[0] %}{% set equipment=master[1] %}{% set unit=master[2] %}{% set plant=master[3] %}
+{% block title %}{{ equipment.equipment_code }} 보고서{% endblock %}
+{% block heading %}열교환기 종합 보고서{% endblock %}
+{% block actions %}<button class="button primary" onclick="window.print()">인쇄</button>{% endblock %}
+{% block content %}
+<article class="panel printable">
+  <div class="report-title"><h2>{{ equipment.equipment_code }} · {{ equipment.equipment_name }}</h2><p>{{ plant.plant_code|plant_display }} / {{ (equipment.process_code|organization_label('PROCESS', plant.plant_code, equipment.production_team_code)) if equipment.process_code else unit.unit_name }} · 생성 {{ generated_at.strftime('%Y-%m-%d %H:%M') }}</p></div>
+  <div class="grid two"><dl class="details"><dt>서비스</dt><dd>{{ hx.service_name or '-' }}</dd><dt>제조사/모델</dt><dd>{{ equipment.manufacturer or '-' }} / {{ equipment.model_no or '-' }}</dd><dt>검사 상태</dt><dd>{{ hx.inspection_lifecycle_status }}</dd><dt>검사 횟수</dt><dd>{{ inspections|length }}</dd></dl><dl class="details"><dt>설계/예상 튜브</dt><dd>{{ remaining_life.total_tube_count|comma }}</dd><dt>등록 튜브</dt><dd>{{ tube_count|comma }}</dd><dt>등록 튜브 중 사용 중</dt><dd>{{ status_counts.get('IN_SERVICE',0)|comma }}</dd><dt>등록 튜브 중 폐쇄</dt><dd>{{ status_counts.get('PLUGGED',0)|comma }}</dd><dt>최대 감육률</dt><dd>{{ maximum_wall_loss if maximum_wall_loss is not none else '-' }}%</dd></dl></div>
+  <p>등록 튜브는 DB에 개별 등록된 물리 튜브 수입니다. 설계/예상 수량 및 Tube Map의 추정 표시 위치와 구분합니다.</p>
+  <h3>Tube Plugging 예측</h3>
+  <p>회사 관리기준 {{ remaining_life.plugging_wall_loss_percent }}% 감육 · 허용 Plugging {{ remaining_life.limit_percent|int }}% · 한도 도달 {{ remaining_life.life_reached_year or '예측기간 내 미도달' }}</p>
+  <h3>승인된 API 510 계산</h3>
+  <table><thead><tr><th>부품</th><th>t_actual / t_required</th><th>적용 CR</th><th>잔여수명</th><th>MAWP</th><th>다음 검사일</th><th>승인</th></tr></thead><tbody>{% for calc,component in approved_api510 %}<tr><td>{{ component.component_code }}</td><td>{{ '%.3f'|format(calc.actual_thickness_mm) }} / {{ '%.3f'|format(calc.required_thickness_mm) }} mm</td><td>{{ calc.selected_corrosion_rate_mm_per_year }} mm/yr</td><td>{{ '%.2f'|format(calc.remaining_life_years) }}년</td><td>{{ '%.3f'|format(calc.mawp_mpa) }} MPa</td><td>{{ calc.next_inspection_date.strftime('%Y-%m-%d') }}</td><td>{{ calc.reviewed_by }} / {{ calc.reviewed_at.strftime('%Y-%m-%d') if calc.reviewed_at else '-' }}</td></tr>{% else %}<tr><td colspan="7">승인된 API 510 계산서가 없습니다.</td></tr>{% endfor %}</tbody></table>
+  <h3>검사 이력</h3>
+  <table><thead><tr><th>검사일</th><th>보고서</th><th>범위</th><th>최대 감육률</th></tr></thead><tbody>{% for i,s in inspections %}<tr><td>{{ (i.inspection_date or i.report_date).strftime('%Y-%m-%d') if (i.inspection_date or i.report_date) else '-' }}</td><td>{{ i.report_number or i.iris_inspection_id }}</td><td>{{ s.scope_code if s else 'ALL' }}</td><td>{{ i.reported_maximum_wall_loss_percent if i.reported_maximum_wall_loss_percent is not none else '-' }}%</td></tr>{% endfor %}</tbody></table>
+</article>
+{% endblock %}

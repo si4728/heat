@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% set hx=master[0] %}{% set equipment=master[1] %}{% set unit=master[2] %}{% set plant=master[3] %}
+  {% set summary=remaining_life.equipment_summary %}
+  {% set latest=inspections[0][0] if inspections else none %}
+  {% set latest_pdf=inspection_pdf_links.get(latest.iris_inspection_id) if latest else none %}
+  {% set open_pdf_in_new_window=not current_user or current_user.pdf_open_mode != 'CURRENT' %}
+  <title>{{ equipment.equipment_code }} · QR 간편조회</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='qr-exchanger-lookup.css') }}">
+</head>
+<body>
+  <header class="qr-header">
+    <a class="brand" href="{{ url_for('dashboard') }}">지능형열교환시스템</a>
+    <form method="post" action="{{ url_for('logout') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit">로그아웃</button>
+    </form>
+  </header>
+
+  <main class="qr-main">
+    <section class="asset-hero">
+      <p>{{ plant.plant_code|plant_display }} / {{ (equipment.process_code|organization_label('PROCESS', plant.plant_code, equipment.production_team_code)) if equipment.process_code else unit.unit_name }}</p>
+      <h1>{{ equipment.equipment_code }}</h1>
+      <strong>{{ equipment.equipment_name }}</strong>
+      <span>{{ spec.exchanger_code if spec and spec.exchanger_code else '열교환기 코드 미등록' }} · {{ hx.service_name or '서비스 정보 미등록' }}</span>
+      <div class="badges">
+        <b class="{{ 'critical' if equipment.is_critical else '' }}">{{ 'Critical' if equipment.is_critical else '일반 설비' }}</b>
+        <b>{{ hx.inspection_lifecycle_status }}</b>
+      </div>
+    </section>
+
+    {% if latest_pdf and can_screen('INSPECTIONS') %}
+    <a class="latest-pdf-card" href="{{ url_for('inspection_pdf_view', inspection_id=latest.iris_inspection_id, _anchor=('page=' ~ latest_pdf.page if latest_pdf.page else none)) }}"{% if open_pdf_in_new_window %} target="_blank" rel="noopener"{% endif %}>
+      <span>최신 검사 PDF</span>
+      <strong>{{ latest.report_date.strftime('%Y-%m-%d') if latest.report_date else '검사일 미등록' }} · 바로보기</strong>
+      <small>{{ latest.report_number or ('Report ' ~ latest.report_sequence) }}{% if latest_pdf.page %} · {{ latest_pdf.page }}페이지부터{% endif %}</small>
+    </a>
+    {% endif %}
+
+    <section class="quick-grid" aria-label="열교환기 주요 현황">
+      <article><span>최근 검사일</span><strong>{{ summary.latest_inspection_date or '미등록' }}</strong></article>
+      <article><span>최대 감육률</span><strong>{{ '%.1f%%'|format(latest.reported_maximum_wall_loss_percent) if latest and latest.reported_maximum_wall_loss_percent is not none else '-' }}</strong></article>
+      <article><span>물리 Tube</span><strong>{{ tube_count|comma }}개</strong></article>
+      <article><span>현재 Plugging</span><strong>{{ remaining_life.current_plugging_count|comma }}개</strong></article>
+      <article><span>잔여수명</span><strong>{{ remaining_life.remaining_life_years if remaining_life.remaining_life_years is not none else '-' }}년</strong></article>
+      <article><span>검사 이력</span><strong>{{ inspections|length }}건</strong></article>
+    </section>
+
+    {% if inspection_priority.enabled %}
+    <section class="info-card">
+      <h2>검사 우선순위</h2>
+      <dl>
+        <div><dt>권고 우선도</dt><dd><strong>{{ inspection_priority.priority }}</strong></dd></div>
+        <div><dt>DB 확정 이력</dt><dd>{{ inspection_priority.confirmed_count }}건</dd></div>
+        <div><dt>우선검사 Tube</dt><dd>{{ inspection_priority.candidate_tube_count }}개</dd></div>
+        <div><dt>사용 중 대상</dt><dd>{{ inspection_priority.in_service_count }}개</dd></div>
+        <div><dt>최대 감육률</dt><dd>{{ '%.2f%%'|format(inspection_priority.maximum_wall_loss_percent) }}</dd></div>
+      </dl>
+      <div class="inspection-pdf-list">
+        {% for row in inspection_priority.rows[:5] %}
+        <div><span><strong>Tube {{ row.tube_no }}</strong><small>감육률 {{ '%.2f%%'|format(row.wall_loss_percent) }} · Hotspot {{ '%.2f'|format(row.hotspot_score) }}</small></span><a href="{{ url_for('tube_detail', tube_id=row.tube_id) }}">근거 확인</a></div>
+        {% endfor %}
+      </div>
+      {% if inspection_priority.in_service_count and can_screen('INSPECTIONS') %}<a class="latest-pdf-card" href="{{ url_for('inspection_plans', heat_exchanger_id=hx.heat_exchanger_id, priority_source='confirmed_hotspot') }}"><span>검사계획 연계</span><strong>확정 Hotspot Tube {{ inspection_priority.in_service_count }}개 선택</strong><small>계획 생성과 승인은 사용자가 최종 결정합니다.</small></a>{% endif %}
+    </section>
+    {% endif %}
+
+    {% if ai_summary %}
+    <section class="info-card">
+      <h2>AI 근거 요약 <small>{{ ai_summary.validation_status }} · {{ ai_summary.approval_status }}</small></h2>
+      <p>{{ ai_summary.text }}</p>
+      <p><small>로컬 LLM 파일럿 결과이며 현업 승인 전에는 참고 정보로만 사용합니다.</small></p>
+      {% if ai_summary.pdf_reference and can_screen('PDF_OCR_REVIEW') %}<a href="{{ url_for('pdf_ocr_source', source_document_id=ai_summary.pdf_reference.source_document_id) }}#page={{ ai_summary.pdf_reference.page }}" target="_blank" rel="noopener">원본 PDF 근거 확인</a>{% endif %}
+    </section>
+    {% endif %}
+
+    <section class="info-card">
+      <h2>현장 정보</h2>
+      <dl>
+        <div><dt>Shell 유체</dt><dd>{{ summary.shell_fluid or '-' }}</dd></div>
+        <div><dt>Tube 유체</dt><dd>{{ summary.tube_fluid or '-' }}</dd></div>
+        <div><dt>Tube 재질</dt><dd>{{ summary.tube_material or '-' }}</dd></div>
+        <div><dt>부식속도</dt><dd>{{ '%.3f mm/yr'|format(summary.representative_corrosion_rate_mm_per_year) if summary.representative_corrosion_rate_mm_per_year is not none else '-' }}</dd></div>
+      </dl>
+    </section>
+
+    {% if inspections %}
+    <section class="info-card inspection-pdf-card">
+      <h2>검사 이력·PDF</h2>
+      <div class="inspection-pdf-list">
+        {% for inspection,scope in inspections %}
+        {% set pdf=inspection_pdf_links.get(inspection.iris_inspection_id) %}
+        <div>
+          <span><strong>{{ inspection.report_date.strftime('%Y-%m-%d') if inspection.report_date else '검사일 미등록' }}</strong><small>{{ inspection.report_number or ('Report ' ~ inspection.report_sequence) }} · {{ scope.scope_code if scope else 'ALL' }}</small></span>
+          {% if pdf and can_screen('INSPECTIONS') %}<a href="{{ url_for('inspection_pdf_view', inspection_id=inspection.iris_inspection_id, _anchor=('page=' ~ pdf.page if pdf.page else none)) }}"{% if open_pdf_in_new_window %} target="_blank" rel="noopener"{% endif %}>PDF 보기</a>{% elif pdf %}<em>조회 권한 없음</em>{% else %}<em>PDF 없음</em>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <nav class="quick-actions" aria-label="바로가기">
+      <a class="primary" href="{{ url_for('exchanger_tube_map', exchanger_id=hx.heat_exchanger_id) }}">2D/3D Tube Map</a>
+      <a href="{{ url_for('exchanger_detail', exchanger_id=hx.heat_exchanger_id) }}">전체 상세정보</a>
+      {% if can_screen('REMAINING_LIFE') %}<a href="{{ url_for('remaining_life_simulation', exchanger_id=hx.heat_exchanger_id) }}">Tube Plugging 예측</a>{% endif %}
+      {% if latest and can_screen('INSPECTIONS') %}<a href="{{ url_for('inspection_detail', inspection_id=latest.iris_inspection_id) }}">최근 검사결과</a>{% endif %}
+      {% if can_screen('INSPECTIONS') %}<a href="{{ url_for('ai_natural_query', q=equipment.equipment_code ~ ' 최근 검사') }}">자연어 조회</a>{% endif %}
+    </nav>
+
+    <p class="qr-note">로그인 사용자에게만 표시되는 QR 전용 간편조회 화면입니다.</p>
+  </main>
+</body>
+</html>

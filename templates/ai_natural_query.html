@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}자연어 조회{% endblock %}{% block heading %}검사 데이터 자연어 조회{% endblock %}
+{% block content %}
+<article class="panel form-panel"><form method="get" class="form-grid">
+  <label class="full"><span>조회 문장</span><input name="q" value="{{ query }}" maxlength="200" placeholder="예: 감육률 30% 이상 열교환기 또는 1104421 최근 검사"></label>
+  <button class="button primary" type="submit">조회</button>
+</form><p><small>허용된 읽기 전용 조건으로만 변환되며 자연어가 SQL로 직접 실행되지 않습니다.</small></p></article>
+{% if result %}<article class="panel"><div class="panel-head"><div><p class="eyebrow">Interpreted query</p><h2>{{ result.description }}</h2></div><strong>{{ result.result_count|comma }}건</strong></div>
+<div class="table-wrap"><table><thead><tr><th>공장/라인</th><th>설비코드</th><th>설비명</th><th>최근 검사</th><th>검사 수</th><th>최대 감육률</th><th>조회</th></tr></thead><tbody>
+{% for row in result.rows %}<tr><td>{{ row.plant_code|plant_display }}/{{ row.unit_code }}</td><td>{{ row.equipment_code }}</td><td>{{ row.equipment_name }}</td><td>{{ row.latest_inspection_date or '-' }}</td><td>{{ row.inspection_count|comma }}</td><td>{{ '%.2f%%'|format(row.maximum_wall_loss_percent) if row.maximum_wall_loss_percent is not none else '-' }}</td><td><a href="{{ url_for('qr_exchanger_lookup', exchanger_id=row.heat_exchanger_id) }}">QR 요약</a></td></tr>
+{% else %}<tr><td colspan="7">조건에 맞는 열교환기가 없습니다.</td></tr>{% endfor %}</tbody></table></div></article>{% endif %}
+{% endblock %}

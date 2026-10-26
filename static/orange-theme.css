@@ -1,0 +1,113 @@
+/* Corporate light theme. Loaded only for the persisted ORANGE preset. */
+:root {
+  color-scheme: light;
+  /* Palette from the reference image's bottom color guide. */
+  --corporate-orange: #f58220;
+  --corporate-header: #3b3b3b;
+  --corporate-background: #f4f4f4;
+  --corporate-surface: #ffffff;
+  --corporate-table-header: #eeeeee;
+  --corporate-border: #d6d6d6;
+  --bg: var(--corporate-background);
+  --ink: #262626;
+  --line: var(--corporate-border);
+  --panel: var(--corporate-surface);
+  --nav: var(--corporate-surface);
+  --accent: var(--corporate-orange);
+  --accent-light: #a94700;
+  --accent2: #fff0e4;
+  --shadow: none;
+}
+body { font-family: "Malgun Gothic", "맑은 고딕", sans-serif; font-size: 14px; line-height: 1.6; }
+.sidebar { overflow-y: auto; }
+.sidebar nav a, .sidebar-group-menu summary { color: var(--ink); font-size: 14px; padding: 10px 11px; }
+.sidebar nav .sidebar-submenu a { font-size: 13px; padding: 9px 10px; }
+.sidebar nav a:hover, .sidebar nav a.active,
+.sidebar-group-menu summary:hover, .sidebar-group-menu summary.active {
+  background: var(--accent2); color: var(--accent-light);
+}
+.brand strong { font-size: 15px; white-space: normal; color: var(--ink); }
+.brand small { font-size: 10px; white-space: normal; }
+.db-state, .db-state small { color: var(--muted); border-color: var(--line); }
+.sidebar-toggle { background: #fff; color: var(--accent-light); }
+.sidebar-toggle:hover { background: var(--accent2); }
+.topbar { background: var(--corporate-header); color: #fff; padding: 16px; gap: 16px; }
+.topbar h1 { font-size: 18px; font-weight: 700; }
+.topbar .eyebrow { color: #ffb575; }
+.eyebrow { font-size: 12px; color: var(--accent-light); }
+.button, .top-analysis-tab { background: #fff; color: var(--ink); font-size: 14px; min-height: 38px; border-color: var(--line); }
+.button.primary { background: var(--accent); border-color: var(--accent); color: #29221b; font-weight: 700; }
+.button.primary:hover { background: #e97412; color: #211a14; }
+.button:hover, .top-analysis-tab:hover, .top-analysis-tab.active { color: var(--accent-light); border-color: var(--accent); }
+.filters, .summary-card, .history-map-callout, .history-summary-grid > div,
+.result-grid div, .modal-metrics div, .modal-status-line, .modal-close,
+.master-form-actions, .checkbox-field, .file-box { background: #fff; color: var(--ink); border-color: var(--line); }
+.summary-card h2, .summary-stats strong { color: var(--ink); }
+.summary-card p, .summary-stats span { color: var(--muted); }
+input:not([type=color]):not([type=radio]):not([type=checkbox]), select, textarea,
+.filters input, .filters select, .form-grid input, .form-grid select, .form-grid textarea,
+.field-grid input, .field-grid select, .field-grid textarea, .tube-map-toolbar select,
+.move-reason input, .batch-bar input, .batch-bar select, .inline-position input {
+  background: var(--corporate-surface); color: var(--ink); border-color: var(--line); font-family: inherit; font-size: 14px; min-height: 38px;
+}
+option { background: #fff; color: var(--ink); }
+input::placeholder, textarea::placeholder { color: #707070; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, .button:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.panel-head { min-height: 62px; }
+.panel-head h2 { font-size: 18px; font-weight: 700; }
+.panel-head small, .metrics span, .metrics small, .history-summary-grid span,
+.history-summary-grid small, .history-map-callout p { font-size: 13px; }
+.metrics strong { font-size: 29px; }
+.panel:hover, .metrics article:hover { border-color: #bcbcbc; }
+table, .analysis-defect-table { font-size: 14px; }
+th, .analysis-defect-table th { background: var(--corporate-table-header); color: #444; font-size: 13px; font-weight: 700; padding: 10px 12px; }
+td, .analysis-defect-table td { color: var(--ink); padding: 10px 12px; border-color: var(--line); }
+tbody tr:hover, .analysis-defect-table tbody tr:hover, .analysis-defect-table tbody tr.selected { background: #fff4eb; }
+.strong-link, .panel-head a { color: var(--accent-light); }
+.tag { background: var(--accent2); color: var(--accent-light); }
+.tag, .status, .severity { font-size: 12px; }
+.coverage-progress { background: var(--corporate-table-header); }
+.coverage-progress i { background: var(--corporate-orange); }
+.coverage-label small, .coverage-value small, .coverage-basis { font-size: 13px; }
+.coverage-row { border-color: var(--line); }
+.modal-backdrop { background: rgba(0,0,0,.45); }
+.modal-icon { background: var(--accent2); color: var(--accent-light); }
+.theme-intro-copy p { font-size: 14px; }
+.analysis-equipment-panel, .analysis-card, .analysis-section-title { background: #fff; border-color: var(--line); }
+.analysis-equipment-item { color: var(--muted); }
+.analysis-equipment-item:hover, .analysis-equipment-item.active { background: var(--accent2); color: var(--ink); border-left-color: var(--accent); }
+.analysis-equipment-item strong, .analysis-info-bar strong { font-size: 13px; color: var(--ink); }
+.analysis-equipment-item small, .analysis-info-bar span, .analysis-legend, .analysis-quality-note,
+.analysis-metric, .history-caption, .formula-copy, .analysis-detail-link { font-size: 12px; color: var(--muted); }
+.analysis-main-grid h2, .analysis-card h3, .analysis-section-title { color: var(--ink); font-size: 16px; }
+.analysis-metric b, .formula-copy strong { color: var(--ink); }
+.formula-copy code, .analysis-search-row button { background: #fff; color: var(--accent-light); border-color: var(--line); font-size: 13px; }
+.analysis-info-bar, .analysis-info-bar > div, .analysis-main-grid, .analysis-map-panel,
+.analysis-metric, .precision-analysis-shell { border-color: var(--line); }
+/* Preserve diagnostic palettes independently of the orange navigation accent. */
+.map-legend { --accent: #3ecfb0; --warn: #d4a030; --danger: #d45050; --blue: #58a6d8; }
+.legend-normal { background: #3ecfb0; }
+.map-legend .loss-gradient i { background: linear-gradient(90deg, #3ecfb0, #d4a030, #d45050); }
+.status:not(.muted), .tube-status-in_service, .grade-a, .alert { background: #e3f5ef; color: #176849; }
+.status.muted, .tube-status-plugged { background: #edf0f2; color: #52606a; }
+.severity, .grade-c { background: #fff0df; color: #8a4a00; }
+.tube-status-unused, .grade-b { background: #e8f0ff; color: #245daf; }
+.grade-d, .alert.error { background: #fee8e7; color: #9c241b; }
+.current-user-id { color: var(--ink); font-size: 14px; }
+.current-user-role { color: var(--accent-light); background: var(--accent2); border-color: var(--accent); font-size: 13px; }
+.current-user-role:hover, .current-user-role:focus-visible { background: #ffe1c8; border-color: var(--accent-light); }
+.permission-head { background: var(--corporate-table-header); font-size: 13px; }
+.user-list > a:hover, .user-list > a.active { background: var(--accent2); }
+.analysis-no-selection strong { color: var(--ink); }
+.analysis-filter { border-color: var(--line); }
+.precision-tube-map { background: #08111a; }
+.analysis-info-bar strong { white-space: normal; overflow-wrap: anywhere; }
+.analysis-metric { flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .topbar { padding: 14px; }
+  .topbar h1 { font-size: 18px; }
+  .topbar-right { gap: 8px; }
+  .button { white-space: normal; }
+}

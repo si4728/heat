@@ -1,0 +1,36 @@
+.map-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+}
+
+.legend-unused {
+  background: #7c3aed;
+}
+
+.tube-status-panel {
+  margin-bottom: 18px;
+}
+
+.tube-status-form {
+  grid-template-columns: minmax(220px, 0.55fr) minmax(320px, 1.45fr);
+}
+
+.tube-status-in_service {
+  background: #d9f2ef;
+  color: #006663;
+}
+
+.tube-status-plugged {
+  background: #e4e8ea;
+  color: #27353c;
+}
+
+.tube-status-unused {
+  background: #efe8ff;
+  color: #6425b8;
+}
+
+@media (max-width: 760px) {
+  .tube-status-form {
+    grid-template-columns: 1fr;
+  }
+}

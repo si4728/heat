@@ -1,0 +1,22 @@
+name: iris2
+services:
+  mariadb:
+    image: mariadb:11.4
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3307:3306"
+    environment:
+      MARIADB_DATABASE: iris2
+      MARIADB_USER: iris2_app
+      MARIADB_PASSWORD: ${IRIS2_DB_PASSWORD:?Set IRIS2_DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${IRIS2_DB_ROOT_PASSWORD:?Set IRIS2_DB_ROOT_PASSWORD}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_bin"]
+    volumes:
+      - iris2_mariadb:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+volumes:
+  iris2_mariadb:

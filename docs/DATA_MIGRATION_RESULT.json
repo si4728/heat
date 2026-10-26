@@ -1,0 +1,45 @@
+{
+  "verified_at_kst": "2026-10-17T08:26:47.801279+09:00",
+  "snapshot_directory": "C:\\access\\heat\\iris2\\data\\import\\20261017_082409",
+  "schemas": [
+    {
+      "schema": "iris2",
+      "tables": 57,
+      "rows": 75626
+    },
+    {
+      "schema": "iris2_llm",
+      "tables": 1,
+      "rows": 17
+    },
+    {
+      "schema": "iris2_ml",
+      "tables": 2,
+      "rows": 10
+    },
+    {
+      "schema": "iris2_pdf",
+      "tables": 2,
+      "rows": 2467
+    }
+  ],
+  "total_tables": 62,
+  "total_rows": 78120,
+  "all_values_match_after_datetime_normalization": true,
+  "foreign_key_errors": 0,
+  "major_counts": {
+    "heat_exchanger": 902,
+    "iris_inspection": 435,
+    "iris_tube_result": 6084,
+    "heat_exchanger_tube": 2253
+  },
+  "views": 1,
+  "triggers": 2,
+  "original_database_modified_by_migration": false,
+  "source_backups_and_archived_db_files": "EXCLUDED_NOT_ACTIVE_DATABASES",
+  "linked_files_migrated": false,
+  "application_cutover": false,
+  "backup_restoration_tested": false,
+  "concurrent_revision_uat": "PENDING",
+  "tests_passed": 10
+}

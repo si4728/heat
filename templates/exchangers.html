@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}열교환기 관리{% endblock %}
+{% block heading %}열교환기 관리{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('imports') }}">JSON 적재</a> <a class="button primary" href="{{ url_for('exchanger_new') }}">열교환기 등록</a>{% endblock %}
+{% block content %}
+<form class="filters exchanger-filters" method="get">
+  <input name="search" value="{{ filters.search }}" placeholder="열교환기코드 또는 설비명 검색">
+  <select name="team" aria-label="생산팀"><option value="">전체 생산팀</option>{% for entry in organization_choices if entry.node.kind == 'TEAM' and (entry.equipment_count or filters.team_code == entry.node.code) %}<option value="{{ entry.node.code }}" {{ 'selected' if filters.team_code == entry.node.code else '' }}>{{ entry.node.label }} · {{ entry.parent_label }}</option>{% endfor %}</select>
+  <select name="process" aria-label="공정"><option value="">전체 공정</option>{% for entry in organization_choices if entry.node.kind == 'PROCESS' and (entry.equipment_count or filters.process_code == entry.node.code) %}<option value="{{ entry.node.code }}" {{ 'selected' if filters.process_code == entry.node.code else '' }}>{{ entry.node.label }} · {{ entry.parent_label }}</option>{% endfor %}</select>
+  <select name="unit"><option value="">기존 검사 분류</option>{% for unit in units %}<option {{ 'selected' if filters.unit_code == unit else '' }}>{{ unit }}</option>{% endfor %}</select>
+  <select name="status"><option value="">전체 검사 상태</option>{% for value in ['INSPECTED','NEVER_INSPECTED','PLANNED','OVERDUE','NOT_APPLICABLE'] %}<option {{ 'selected' if filters.status == value else '' }}>{{ value }}</option>{% endfor %}</select>
+  <select name="sort_by" aria-label="정렬 기준">
+    <option value="plant" {{ 'selected' if sort_by == 'plant' else '' }}>생산공장 정렬</option>
+    <option value="unit" {{ 'selected' if sort_by == 'unit' else '' }}>생산라인 정렬</option>
+    <option value="equipment" {{ 'selected' if sort_by == 'equipment' else '' }}>열교환기 정렬</option>
+  </select>
+  <select name="sort_dir" aria-label="정렬 방향">
+    <option value="asc" {{ 'selected' if sort_dir == 'asc' else '' }}>오름차순</option>
+    <option value="desc" {{ 'selected' if sort_dir == 'desc' else '' }}>내림차순</option>
+  </select>
+  <button class="button" type="submit">조회</button><a class="button ghost" href="{{ url_for('exchangers') }}">초기화</a>
+</form>
+<article class="panel"><div class="panel-head"><div><p class="eyebrow">Asset master</p><h2>{{ rows|length }}개 열교환기</h2></div><small>설비번호는 상세 조회에서만 표시됩니다.</small></div>
+<div class="table-wrap"><table><thead><tr><th>생산공장</th><th>생산팀</th><th>공정</th><th>열교환기코드</th><th>설비명</th><th>공정 중요도</th><th>IRIS 적용</th><th>검사 상태</th><th>검사 횟수</th><th>검사 Sheet</th><th>튜브 마스터</th></tr></thead><tbody>
+{% for hx,equipment,unit,plant in rows %}{% set pdf=inspection_pdf_links.get(hx.heat_exchanger_id) %}{% set open_pdf_in_new_window=not current_user or current_user.pdf_open_mode != 'CURRENT' %}<tr><td>{{ plant.plant_code|plant_display }}</td><td>{{ equipment.production_team_code|organization_label('TEAM', plant.plant_code) }}</td><td>{{ equipment.process_code|organization_label('PROCESS', plant.plant_code, equipment.production_team_code) }}</td><td><a class="strong-link" href="{{ url_for('exchanger_detail', exchanger_id=hx.heat_exchanger_id) }}">{{ exchanger_codes.get(hx.heat_exchanger_id) or '상세 보기' }}</a></td><td>{{ equipment.equipment_name }}</td><td><span class="process-criticality {{ 'critical' if equipment.is_critical else 'normal' }}">{{ 'Critical' if equipment.is_critical else '일반' }}</span></td><td>{{ hx.iris_applicability }}</td><td><span class="status {{ 'muted' if hx.inspection_lifecycle_status == 'NEVER_INSPECTED' else '' }}">{{ hx.inspection_lifecycle_status }}</span></td><td>{{ inspection_counts.get(hx.heat_exchanger_id, 0) }}</td><td>{% if pdf %}<a class="button report-view" href="{{ url_for('inspection_pdf_view', inspection_id=pdf.inspection_id, _anchor=('page=' ~ pdf.page if pdf.page else none)) }}"{% if open_pdf_in_new_window %} target="_blank" rel="noopener"{% endif %}>PDF 보기</a>{% elif inspection_counts.get(hx.heat_exchanger_id, 0) %}<span class="status muted">PDF 없음</span>{% else %}-{% endif %}</td><td>{{ hx.tube_master_status }}</td></tr>
+{% else %}<tr><td colspan="11" class="empty">조건에 맞는 열교환기가 없습니다.</td></tr>{% endfor %}
+</tbody></table></div></article>
+{% endblock %}

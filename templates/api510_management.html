@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% set hx=master[0] %}{% set equipment=master[1] %}{% set unit=master[2] %}{% set plant=master[3] %}
+{% block title %}{{ equipment.equipment_code }} API 510 계산 관리{% endblock %}
+{% block heading %}{{ equipment.equipment_code }} API 510 계산 관리{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('remaining_life_simulation', exchanger_id=hx.heat_exchanger_id) }}">Tube Plugging 예측</a> <a class="button" href="{{ url_for('exchanger_detail', exchanger_id=hx.heat_exchanger_id) }}">열교환기 상세</a>{% endblock %}
+{% block content %}
+<div class="simulation-caution"><strong>계산 통제</strong><span>허용응력·용접효율·필요두께의 설계근거를 확인한 뒤 계산서를 생성하십시오. DRAFT/SUBMITTED 결과는 운영 승인값이 아니며 APPROVED 계산서만 보고서 승인 결과로 사용됩니다.</span></div>
+<article class="panel">
+  <div class="panel-head"><div><p class="eyebrow">Pressure Boundary Master</p><h2>압력경계 부품 등록</h2></div><small>Shell/Head별 설계근거와 실제두께 출처 관리</small></div>
+  <form class="simulation-parameter-form" method="post" action="{{ url_for('pressure_component_save', exchanger_id=hx.heat_exchanger_id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>부품코드<input name="component_code" required placeholder="SHELL-1"></label>
+    <label>형상<select name="component_type" required>{% for value in supported_component_types %}<option value="{{ value }}">{{ value }}</option>{% endfor %}</select></label>
+    <label>측 구분<select name="side_code"><option>SHELL</option><option>TUBE</option><option>HEAD</option></select></label>
+    <label>설명<input name="description"></label>
+    <label>내경(mm)<input type="number" step="0.001" min="0.001" name="inside_diameter_mm" required></label>
+    <label>설계압력(MPa)<input type="number" step="0.000001" min="0.000001" name="design_pressure_mpa" required></label>
+    <label>정수두(MPa)<input type="number" step="0.000001" min="0" name="static_head_mpa" value="0"></label>
+    <label>설계온도(℃)<input type="number" step="0.01" name="design_temperature_c"></label>
+    <label>재질<input name="material"></label>
+    <label>허용응력(MPa)<input type="number" step="0.000001" min="0.000001" name="allowable_stress_mpa" required></label>
+    <label>용접효율 E<input type="number" step="0.001" min="0.001" max="1" name="joint_efficiency" required></label>
+    <label>추가 필요두께(mm)<input type="number" step="0.001" min="0" name="supplemental_thickness_mm" value="0"></label>
+    <label>원 설계 부식여유(mm)<input type="number" step="0.001" min="0" name="original_corrosion_allowance_mm"></label>
+    <label>실제두께(mm)<input type="number" step="0.001" min="0.001" name="actual_thickness_mm"></label>
+    <label>실제두께 측정일<input type="date" name="actual_thickness_date"></label>
+    <label>두께 데이터 출처<input name="thickness_source" placeholder="검사보고서/CML 번호"></label>
+    <label>설계근거 출처<input name="design_basis_source" required placeholder="승인 Datasheet/계산서 번호·Rev"></label>
+    <label>적용 코드 판본<input name="code_edition" value="{{ api510_defaults.code_edition }}" required></label>
+    <div class="simulation-form-actions"><button class="button primary" type="submit">부품 Master 저장</button></div>
+  </form>
+</article>
+{% for component in pressure_components %}
+<article class="panel">
+  <div class="panel-head"><div><p class="eyebrow">{{ component.component_type }}</p><h2>{{ component.component_code }} · {{ component.description or component.side_code }}</h2></div><span class="status">{{ '사용' if component.is_active else '중지' }}</span></div>
+  <div class="life-metrics"><div><span>내경</span><strong>{{ component.inside_diameter_mm }} mm</strong></div><div><span>설계압력+정수두</span><strong>{{ component.design_pressure_mpa + component.static_head_mpa }} MPa</strong></div><div><span>허용응력</span><strong>{{ component.allowable_stress_mpa }} MPa</strong></div><div><span>용접효율</span><strong>{{ component.joint_efficiency }}</strong></div><div><span>실제두께</span><strong>{{ component.actual_thickness_mm or '-' }} mm</strong></div><div><span>설계근거</span><strong>{{ component.design_basis_source }}</strong></div></div>
+  <form class="simulation-parameter-form" method="post" action="{{ url_for('api510_calculation_create', component_id=component.pressure_component_id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="exchanger_id" value="{{ hx.heat_exchanger_id }}">
+    <label>두께 데이터 출처<input name="thickness_source" value="{{ component.thickness_source or '' }}" required placeholder="검사보고서/CML 번호"></label>
+    <label>검사 유형<select name="inspection_type"><option value="INTERNAL_ON_STREAM">내부/가동중 검사</option><option value="EXTERNAL">외부검사</option></select></label>
+    <label>실제두께(mm)<input type="number" step="0.001" min="0.001" name="actual_thickness_mm" value="{{ component.actual_thickness_mm or '' }}" required></label>
+    <label>최근 검사일<input type="date" name="last_inspection_date" value="{{ component.actual_thickness_date.strftime('%Y-%m-%d') if component.actual_thickness_date else '' }}" required></label>
+    <label>단기 부식속도(mm/yr)<input type="number" step="0.000001" min="0" name="short_term_corrosion_rate_mm_per_year"></label>
+    <label>장기 부식속도(mm/yr)<input type="number" step="0.000001" min="0" name="long_term_corrosion_rate_mm_per_year"></label>
+    <label>적용 부식속도(mm/yr)<input type="number" step="0.000001" min="0.000001" name="selected_corrosion_rate_mm_per_year"><small>비워두면 장·단기 중 큰 값 적용</small></label>
+    <label>속도 선정 근거<input name="corrosion_rate_selection_basis" required placeholder="단기 지배/장기 지배/검사자 지정 사유"></label>
+    <div class="simulation-form-actions"><button class="button primary" type="submit">ASME VIII + API 510 계산서 생성</button></div>
+  </form>
+</article>
+{% else %}<article class="panel"><p class="empty">등록된 압력경계 부품이 없습니다.</p></article>{% endfor %}
+<article class="panel">
+  <div class="panel-head"><div><p class="eyebrow">Review Workflow</p><h2>API 510 계산 이력</h2></div><small>DRAFT → SUBMITTED → APPROVED/REJECTED</small></div>
+  <div class="table-wrap"><table><thead><tr><th>ID</th><th>부품</th><th>상태</th><th>t_actual / t_required</th><th>단기 / 장기 / 적용 CR</th><th>잔여수명</th><th>MAWP</th><th>다음 검사일</th><th>처리</th></tr></thead><tbody>
+  {% for calc,component in api510_calculations %}<tr><td>{{ calc.api510_calculation_id }}</td><td>{{ component.component_code }}</td><td><span class="status">{{ calc.status }}</span></td><td>{{ '%.3f'|format(calc.actual_thickness_mm) }} / {{ '%.3f'|format(calc.required_thickness_mm) }}</td><td>{{ calc.short_term_corrosion_rate_mm_per_year or '-' }} / {{ calc.long_term_corrosion_rate_mm_per_year or '-' }} / <strong>{{ calc.selected_corrosion_rate_mm_per_year }}</strong></td><td>{{ '%.2f'|format(calc.remaining_life_years) }}년</td><td>{{ '%.3f'|format(calc.mawp_mpa) }} MPa</td><td>{{ calc.next_inspection_date.strftime('%Y-%m-%d') }}</td><td><form method="post" action="{{ url_for('api510_calculation_transition', calculation_id=calc.api510_calculation_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="exchanger_id" value="{{ hx.heat_exchanger_id }}">{% if calc.status in ['DRAFT','REJECTED'] %}<button class="button" name="status" value="SUBMITTED">검토 요청</button>{% elif calc.status == 'SUBMITTED' %}<input name="review_note" placeholder="검토 의견"><button class="button primary" name="status" value="APPROVED">승인</button><button class="button" name="status" value="REJECTED">반려</button>{% else %}{{ calc.reviewed_by or '-' }}{% endif %}</form></td></tr>{% else %}<tr><td colspan="9" class="empty">생성된 계산서가 없습니다.</td></tr>{% endfor %}
+  </tbody></table></div>
+</article>
+{% endblock %}

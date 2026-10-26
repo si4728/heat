@@ -1,0 +1,10 @@
+{
+  "status": "INTERNAL_FORMULA_REGRESSION",
+  "approval_required": true,
+  "cases": [
+    {"case_id":"CYL-001","component_type":"CYLINDRICAL_SHELL","inside_diameter_mm":1000,"design_pressure_mpa":1,"allowable_stress_mpa":100,"joint_efficiency":1,"actual_thickness_mm":10,"expected_required_thickness_mm":5.0301810865,"expected_mawp_mpa":1.9762845850},
+    {"case_id":"SPH-001","component_type":"SPHERICAL_SHELL","inside_diameter_mm":1000,"design_pressure_mpa":1,"allowable_stress_mpa":100,"joint_efficiency":1,"actual_thickness_mm":10,"expected_required_thickness_mm":2.5025025025,"expected_mawp_mpa":3.9840637450},
+    {"case_id":"ELL-001","component_type":"ELLIPSOIDAL_HEAD_2_1","inside_diameter_mm":1000,"design_pressure_mpa":1,"allowable_stress_mpa":100,"joint_efficiency":1,"actual_thickness_mm":10,"expected_required_thickness_mm":5.0050050050,"expected_mawp_mpa":1.9960079840},
+    {"case_id":"HEM-001","component_type":"HEMISPHERICAL_HEAD","inside_diameter_mm":1000,"design_pressure_mpa":1,"allowable_stress_mpa":100,"joint_efficiency":1,"actual_thickness_mm":10,"expected_required_thickness_mm":2.5025025025,"expected_mawp_mpa":3.9840637450}
+  ]
+}

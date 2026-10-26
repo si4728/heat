@@ -1,0 +1,11 @@
+{
+  "application_config": "config/database.conf",
+  "administrator_config": "config/database-admin.conf",
+  "shared_loader": "db_config.py",
+  "credentials_printed": false,
+  "git_ignored": true,
+  "legacy_json_removed": true,
+  "application_connection_verified": true,
+  "administrator_connection_verified": true,
+  "tests_passed": 7
+}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}조직 코드 관리{% endblock %}
+{% block heading %}조직 코드 관리{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('plant_line_master') }}">기존 검사 분류 관리</a><a class="button" href="{{ url_for('exchangers') }}">열교환기 목록</a>{% endblock %}
+{% block content %}
+<div class="metrics compact-metrics">{% for kind,label in kinds.items() %}<article><span>{{ label }}</span><strong>{{ entries|selectattr('node.kind','equalto',kind)|list|length }}</strong></article>{% endfor %}</div>
+{% if can_screen('PLANT_LINES', 'edit') %}
+<article class="panel form-panel"><div class="panel-head"><h2>{{ 'Label 수정' if editing else '코드 등록' }}</h2><small>공장 → 생산팀 → 공정</small></div>
+<form method="post" action="{{ url_for('organization_code_update', code_id=editing.organization_code_id) if editing else url_for('organization_code_create') }}" class="form-grid">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+{% if editing %}<label>구분<input value="{{ kinds[editing.kind] }}" readonly></label><label>코드<input value="{{ editing.code }}" readonly></label>
+{% else %}
+<label>구분<select name="kind" id="organization-kind" required>{% for kind,label in kinds.items() %}<option value="{{ kind }}">{{ label }}</option>{% endfor %}</select></label>
+<label>상위 조직<select name="parent_id" id="organization-parent"><option value="">상위 조직 없음</option>{% for entry in parents %}<option value="{{ entry.node.organization_code_id }}" data-kind="{{ entry.node.kind }}">{{ entry.node.label }} ({{ entry.node.code }}){% if entry.node.kind == 'TEAM' %} · {{ entry.parent_label }}{% endif %}</option>{% endfor %}</select></label>
+<label>코드<input name="code" maxlength="100" required placeholder="공장 P1 / 생산팀 VCM / 공정 EDC"></label>
+{% endif %}
+<label>Label(화면 표시명)<input name="label" maxlength="200" value="{{ editing.label if editing else '' }}" required placeholder="예: 울산공장"></label>
+<label class="full">상세 설명<textarea name="description" maxlength="2000">{{ editing.description or '' if editing else '' }}</textarea></label>
+<div class="form-actions full"><button class="button primary">저장</button>{% if editing %}<a class="button" href="{{ url_for('organization_codes') }}">취소</a>{% endif %}</div>
+</form></article>
+{% endif %}
+<article class="panel"><div class="panel-head"><h2>조직 코드 목록</h2><input id="organization-search" type="search" placeholder="코드·Label·상위 조직 검색" aria-label="조직 코드 검색"></div>
+<div class="table-wrap"><table id="organization-table"><thead><tr><th>구분</th><th>상위 조직</th><th>코드</th><th>Label(화면 표시명)</th><th>상세 설명</th><th>설비 수</th><th>관리</th></tr></thead><tbody>
+{% for entry in entries %}<tr><td>{{ kinds[entry.node.kind] }}</td><td>{{ entry.parent_label }}</td><td><code>{{ entry.node.code }}</code></td><td><strong>{{ entry.node.label }}</strong></td><td>{{ entry.node.description or '-' }}</td><td>{{ entry.equipment_count|comma }}</td><td>{% if can_screen('PLANT_LINES', 'edit') %}<a href="{{ url_for('organization_codes', edit=entry.node.organization_code_id) }}">Label 수정</a>{% else %}-{% endif %}</td></tr>{% else %}<tr><td colspan="7">등록된 코드가 없습니다.</td></tr>{% endfor %}
+</tbody></table></div></article>
+<script>
+const kind = document.getElementById('organization-kind');
+const parent = document.getElementById('organization-parent');
+function updateParentOptions() {
+  const expected = {TEAM:'PLANT', PROCESS:'TEAM'}[kind.value];
+  for (const option of parent.options) {
+    option.hidden = Boolean(option.value && option.dataset.kind !== expected);
+    option.disabled = option.hidden;
+  }
+  parent.value = '';
+  parent.disabled = kind.value === 'PLANT';
+  parent.required = kind.value !== 'PLANT';
+}
+if (kind) { kind.addEventListener('change', updateParentOptions); updateParentOptions(); }
+document.getElementById('organization-search').addEventListener('input', event => {
+  const query = event.target.value.toLocaleLowerCase();
+  document.querySelectorAll('#organization-table tbody tr').forEach(row => { row.hidden = !row.textContent.toLocaleLowerCase().includes(query); });
+});
+</script>
+{% endblock %}

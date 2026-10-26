@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}내 기본 설정{% endblock %}
+{% block heading %}내 기본 설정{% endblock %}
+{% block content %}
+<form class="panel form-panel" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="panel-head"><div><p class="eyebrow">User preferences</p><h2>{{ current_user.username }}</h2></div><small>이 설정은 현재 로그인 사용자에게만 적용됩니다.</small></div>
+  <div class="form-grid">
+    <label>
+      검사 PDF 열기 방식
+      <select name="pdf_open_mode" required>
+        <option value="CURRENT" {{ 'selected' if current_user.pdf_open_mode == 'CURRENT' else '' }}>현재 창</option>
+        <option value="NEW" {{ 'selected' if current_user.pdf_open_mode != 'CURRENT' else '' }}>새 창(탭)</option>
+      </select>
+      <small>열교환기 목록의 검사 Sheet PDF 보기에 적용됩니다.</small>
+    </label>
+    <div class="form-actions full"><button class="button primary" type="submit">기본설정 저장</button></div>
+  </div>
+</form>
+{% endblock %}

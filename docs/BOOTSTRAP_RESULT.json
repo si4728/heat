@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-17",
+  "scope": [
+    "VCM1",
+    "VCM2"
+  ],
+  "source_files_verified_unchanged": 315,
+  "tests_passed": 7,
+  "mariadb_ddl_tables_compiled": 57,
+  "mariadb_live_test": false,
+  "business_routes_ported": false,
+  "web_port": 4824,
+  "database_port": 3307,
+  "virtual_environment": "C:\\access\\heat\\iris2\\.venv",
+  "status": "INDEPENDENT_FOUNDATION_READY_BUSINESS_MIGRATION_PENDING"
+}

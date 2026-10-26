@@ -1,0 +1,100 @@
+.app-shell.analysis-fullscreen{grid-template-columns:minmax(0,1fr)}
+.analysis-rate-label{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}.analysis-rate-label>span:first-child{white-space:nowrap}.analysis-rate-control{display:inline-flex;align-items:center;gap:5px;margin:0;padding:0;border:0}.analysis-rate-control input[type=range]{width:76px;min-width:0;height:12px;margin:0;accent-color:#16846d;cursor:pointer}.analysis-rate-control output{min-width:28px;color:#16846d;font-size:9px;white-space:nowrap}.analysis-long-term{align-items:center}.analysis-long-term>b{flex-shrink:0;white-space:nowrap}.analysis-metric b{overflow-wrap:anywhere}
+.analysis-help-trigger{display:inline-flex;align-items:center;gap:5px;padding:0;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}.analysis-help-trigger:hover{color:#16846d}.analysis-help-trigger:focus-visible{outline:2px solid #16846d;outline-offset:4px}.analysis-help-dialog{box-sizing:border-box;width:min(620px,calc(100vw - 32px));max-height:85vh;overflow:auto;padding:22px;border:1px solid #b8ccd9;border-radius:10px;background:#f1f6fa;color:#385568;line-height:1.65}.analysis-help-dialog::backdrop{background:rgba(48,70,88,.28)}.analysis-help-header{display:flex;align-items:center;justify-content:space-between;gap:16px}.analysis-help-header h2{margin:0;color:#294456;font-size:18px}.analysis-help-header form{margin:0}.analysis-help-header button{padding:5px 10px;border:1px solid #b8ccd9;border-radius:4px;background:#e8f1f7;color:#294456;cursor:pointer}.analysis-help-definitions{margin:18px 0}.analysis-help-definitions dt{margin-top:16px;color:#16846d;font-size:14px;font-weight:600}.analysis-help-definitions dd{margin:4px 0 0;font-size:13px}.analysis-help-definitions code{display:block;margin:7px 0;padding:8px;border-radius:4px;background:#e8f1f7;color:#294456;font-size:12px;overflow-wrap:anywhere}.analysis-help-note{margin:16px 0 0;padding-top:12px;border-top:1px solid #b8ccd9;font-size:12px}
+.analysis-fullscreen .main{width:100%;min-width:0}
+.precision-analysis-shell{display:grid;grid-template-columns:190px minmax(0,1fr);min-height:calc(100vh - 132px);margin:-18px -22px -36px;background:#f7fafc;border-top:1px solid #ccdce7}
+.analysis-equipment-panel{display:flex;min-height:0;flex-direction:column;border-right:1px solid #ccdce7;background:#f1f6fa}
+.analysis-filter{display:grid;gap:6px;padding:7px;border-bottom:1px solid #ccdce7}
+.analysis-filter select,.analysis-filter input{width:100%;min-height:28px;border:1px solid #ccdce7;border-radius:3px;background:#ffffff;color:#385568;font-size:10px;padding:5px 7px}
+.analysis-search-row{display:grid;grid-template-columns:1fr auto;gap:4px}.analysis-search-row button{border:1px solid #ccdce7;border-radius:3px;background:#e8f1f7;color:#16846d;font-size:10px;padding:0 8px}
+.analysis-equipment-list{max-height:calc(100vh - 240px);overflow:auto}.analysis-equipment-item{display:flex;align-items:center;justify-content:space-between;gap:7px;padding:7px 9px;border-left:2px solid transparent;color:#587184;text-decoration:none}
+.analysis-equipment-item:hover,.analysis-equipment-item.active{border-left-color:#16846d;background:#e8f1f7;color:#294456}.analysis-equipment-item span{min-width:0}.analysis-equipment-item strong,.analysis-equipment-item small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.analysis-equipment-item strong{font-size:10px;font-weight:600}.analysis-equipment-item small{max-width:128px;color:#587184;font-size:8px}.analysis-equipment-item em{flex:0 0 auto;border-radius:2px;padding:1px 4px;font-size:8px;font-style:normal}.risk-critical{background:rgba(212,80,80,.15);color:#bd4141}.risk-warning{background:rgba(212,160,48,.15);color:#946400}.risk-normal{background:rgba(62,207,176,.15);color:#16846d}.analysis-empty{padding:18px 10px;color:#587184;font-size:10px}
+.analysis-workspace{min-width:0;overflow:hidden}.analysis-info-bar{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));border-bottom:1px solid #ccdce7}.analysis-info-bar>div{min-width:0;padding:8px 10px;border-right:1px solid #ccdce7}.analysis-info-bar>div:last-child{border-right:0}.analysis-info-bar span,.analysis-info-bar strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.analysis-info-bar span{margin-bottom:2px;color:#587184;font-size:8px}.analysis-info-bar strong{color:#294456;font-size:10px;font-weight:600}.analysis-info-bar .warning-value{color:#946400}
+.analysis-main-grid{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #ccdce7}.analysis-main-grid article{min-width:0;padding:10px}.analysis-map-panel{border-right:1px solid #ccdce7}.analysis-main-grid h2{margin:0 0 8px;color:#587184;font-size:10px;font-weight:500}.analysis-main-grid h2 small{color:#657f91;font-weight:400}.precision-tube-map{position:relative;width:100%;height:580px;overflow:hidden;border:1px solid #ccdce7;border-radius:4px;background:radial-gradient(circle at center,rgba(62,207,176,.035),transparent 64%)}.precision-tube{position:absolute;width:11px;height:11px;transform:translate(-50%,-50%);border:0;border-radius:50%;cursor:pointer;transition:transform .1s,box-shadow .1s}.precision-tube:hover,.precision-tube.selected{z-index:2;transform:translate(-50%,-50%) scale(1.55);box-shadow:0 0 0 2px #294456}.tube-not-inspected,.category-not_inspected{background:#e3edf4;border:1px solid #ccdce7}.tube-normal,.category-normal{background:#16846d}.tube-warning,.category-warning{background:#946400}.tube-critical,.category-critical{background:#c56632}.tube-plugged,.category-plugged{background:#9464c5}.category-unused{background:#d5e1e9}
+.analysis-legend{display:flex;flex-wrap:wrap;gap:9px;margin-top:7px;color:#587184;font-size:8px}.analysis-legend span{display:flex;align-items:center;gap:4px}.analysis-legend i{width:8px;height:8px;border-radius:50%}.analysis-quality-note{margin:6px 0 0;color:#587184;font-size:8px}
+.analysis-table-scroll{max-height:315px;overflow:auto}.analysis-defect-table{width:100%;border-collapse:collapse;font-size:9px;white-space:nowrap}.analysis-defect-table th{position:sticky;top:0;padding:5px;background:#e8f1f7;color:#587184;font-size:8px;font-weight:400;text-align:left}.analysis-defect-table td{padding:5px;border-bottom:1px solid #e8f1f7;color:#385568}.analysis-defect-table tbody tr{cursor:pointer}.analysis-defect-table tbody tr:hover,.analysis-defect-table tbody tr.selected{background:#e8f1f7}.loss-bar{display:inline-block;width:34px;height:6px;margin-right:4px;overflow:hidden;border-radius:2px;background:#ccdce7;vertical-align:middle}.loss-bar i{display:block;height:100%;background:#946400}
+.analysis-section-title{padding:7px 10px;border-bottom:1px solid #ccdce7;background:#f1f6fa;color:#587184;font-size:9px}.analysis-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:10px}.analysis-card{min-height:132px;padding:9px;border:1px solid #ccdce7;border-radius:5px;background:#f1f6fa}.analysis-card h3{margin:0 0 8px;color:#587184;font-size:9px;font-weight:500}.analysis-metric{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #e8f1f7;color:#587184;font-size:9px}.analysis-metric b{color:#385568;font-weight:500}.analysis-metric b.good{color:#16846d}.analysis-metric b.warn{color:#946400}.analysis-metric b.danger{color:#bd4141}.history-track{height:8px;overflow:hidden;border-radius:2px;background:#ccdce7}.history-track i{display:block;height:100%;background:#16846d}.history-caption{display:flex;justify-content:space-between;margin-top:5px;color:#587184;font-size:8px}.analysis-detail-link{display:inline-block;margin-top:8px;color:#16846d;font-size:8px;text-decoration:none}.formula-copy{display:grid;gap:4px;color:#587184;font-size:8px;line-height:1.45}.formula-copy strong{color:#385568;font-weight:500}.formula-copy code{display:block;padding:5px 7px;border:1px solid #ccdce7;border-radius:3px;background:#ffffff;color:#16846d;font-size:8px;white-space:normal}.formula-copy p{margin:0}.analysis-no-selection{padding:60px;text-align:center;color:#587184}.analysis-no-selection strong{color:#294456;font-size:16px}
+@media(max-width:1100px){.analysis-info-bar{grid-template-columns:repeat(4,1fr)}.analysis-main-grid{grid-template-columns:1fr}.analysis-map-panel{border-right:0;border-bottom:1px solid #ccdce7}}
+@media(max-width:760px){.precision-analysis-shell{grid-template-columns:1fr;margin:-18px -12px -28px}.analysis-equipment-panel{border-right:0;border-bottom:1px solid #ccdce7}.analysis-equipment-list{max-height:190px}.analysis-info-bar{grid-template-columns:repeat(2,1fr)}.analysis-detail-grid{grid-template-columns:1fr}.precision-tube-map{height:520px}}
+
+.precision-tube-map{overflow:auto}.precision-map-canvas{position:relative;width:100%;height:100%}.precision-map-label{position:absolute;transform:translate(-50%,-50%);color:#385568;font-size:10px;line-height:1;pointer-events:none;white-space:nowrap}.precision-map-label.axis-heading{color:#587184;font-size:9px}.precision-map-label.row-count{color:#16846d}
+
+/* Light tube-sheet surface and clearly separated inspection states. */
+.precision-tube-map{background:#f4f8fc}
+.precision-tube.category-not_inspected,.analysis-legend .tube-not-inspected{background:#e3edf4;border:1px solid #8fa9ba}
+.precision-tube.category-normal,.analysis-legend .tube-normal{background:#78cbb1}
+.precision-tube.category-warning,.analysis-legend .tube-warning{background:#efd071}
+.precision-tube.category-critical,.analysis-legend .tube-critical{background:#ec9c7e}
+.precision-tube.category-plugged,.analysis-legend .tube-plugged{background:#bea1de}
+.precision-tube:hover,.precision-tube.selected{box-shadow:0 0 0 2px #386d8b}
+.analysis-wall-loss-legend{margin-top:12px;padding:10px;border:1px solid #ccdce7;border-radius:5px;background:#fff}
+.analysis-wall-loss-legend h3{margin:0 0 8px;text-align:center;font-size:13px;color:#385568}
+.wall-loss-legend-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px}
+.wall-loss-legend-entry{display:grid;grid-template-columns:12px minmax(0,1fr) auto;align-items:center;gap:5px;padding:4px 0;border-bottom:1px solid #e8f1f7;color:#385568;font-size:10px}
+.wall-loss-legend-entry i{width:11px;height:11px;border:1px solid #7890a1;border-radius:50%}
+.wall-loss-legend-entry strong{font-variant-numeric:tabular-nums}
+.wall-loss-legend-total{grid-column:1/-1;padding-top:8px;text-align:right;font-size:11px;font-weight:600;color:#385568}
+@media(max-width:760px){.wall-loss-legend-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.wall-loss-legend-grid{grid-template-columns:1fr}}
+.analysis-defect-panel .corrosion-results-title{font-size:14px;font-weight:600;color:#385568}
+.corrosion-results-title small{display:block;margin-top:3px;font-size:10px}
+.corrosion-results-summary{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #b8ccd9;border-left:1px solid #b8ccd9}
+.corrosion-results-summary>div{padding:7px;border-right:1px solid #b8ccd9;border-bottom:1px solid #b8ccd9;font-size:10px;background:#f7fafc}
+.corrosion-results-summary span{display:block;margin-bottom:3px;color:#587184}
+.corrosion-results-summary strong{color:#385568;font-weight:600}
+.analysis-defect-panel .analysis-table-scroll{max-height:580px;margin-top:8px}
+.analysis-defect-table{font-size:11px}
+.analysis-defect-table thead{position:sticky;top:0;z-index:1}
+.analysis-defect-table th{position:static;padding:7px 5px;border:1px solid #b8ccd9;text-align:center;font-size:10px;font-weight:600;background:#e8f1f7}
+.analysis-defect-table td{padding:6px;border:1px solid #ccdce7;text-align:center;font-variant-numeric:tabular-nums}
+.analysis-defect-table tbody td:nth-child(-n+3){background:#fff0ed}
+.analysis-defect-table tbody tr.is-worst-loss td{background:#fff3bc}
+.analysis-defect-table tbody tr:hover td,.analysis-defect-table tbody tr.selected td{background:#dceef8}
+.analysis-defect-table tbody tr:focus-visible{outline:2px solid #386d8b;outline-offset:-2px}
+.corrosion-result-note small{display:block;margin-top:3px;font-size:9px;color:#587184;white-space:normal}
+.precision-map-grid{position:absolute;pointer-events:none;z-index:0}
+.precision-map-grid-row{left:8%;right:8%;border-top:1px solid #d5e2ec}
+.precision-map-grid-column{top:8%;bottom:8%;border-left:1px solid #d5e2ec}
+.precision-map-label{z-index:1;background:#f4f8fc;padding:2px 3px}
+.precision-map-canvas .precision-tube{z-index:1}
+.precision-map-canvas .precision-tube:hover,.precision-map-canvas .precision-tube.selected{z-index:2}
+.precision-map-toolbar{margin-bottom:8px}
+.analysis-main-grid .precision-map-toolbar h2{display:flex;align-items:center;gap:6px;margin:0}
+.precision-overlay-toggle{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;padding:2px;border:0;background:transparent;font:inherit;line-height:1;cursor:pointer}
+.precision-overlay-toggle .precision-switch-track{display:block;position:relative;box-sizing:border-box;width:2.4em;height:1.3em;border:1px solid #91a8b9;border-radius:1em;background:#d8e3eb;transition:background .15s}
+.precision-overlay-toggle .precision-switch-track::after{content:'';position:absolute;left:.15em;top:.15em;width:.8em;height:.8em;border-radius:50%;background:#fff;transition:transform .15s}
+.precision-overlay-toggle[aria-checked=true] .precision-switch-track{background:#78cbb1;border-color:#438f7a}
+.precision-overlay-toggle[aria-checked=true] .precision-switch-track::after{transform:translateX(1.05em)}
+.precision-overlay-toggle:focus-visible{outline:2px solid #386d8b;outline-offset:3px;border-radius:4px}
+.precision-tube-map.hide-map-grid .precision-map-grid{display:none}
+.precision-tube-map.hide-map-labels .precision-map-label{display:none}
+.precision-panel-resizer{display:none}
+@media(min-width:1101px){
+  .analysis-main-grid{grid-template-columns:minmax(0,var(--map-track,50fr)) 10px minmax(0,var(--results-track,50fr))}
+  .analysis-main-grid>.analysis-map-panel{grid-column:1;grid-row:1}
+  .analysis-main-grid>.precision-panel-resizer{grid-column:2;grid-row:1}
+  .analysis-main-grid>.analysis-defect-panel{grid-column:3;grid-row:1}
+  .precision-panel-resizer{display:flex;align-items:center;justify-content:center;cursor:col-resize;touch-action:none;background:#e8f1f7;border-inline:1px solid #ccdce7}
+  .precision-panel-resizer span{width:3px;height:36px;border-radius:3px;background:#91a8b9}
+}
+.precision-map-height-resizer{height:14px;display:flex;align-items:center;justify-content:center;cursor:row-resize;touch-action:none;background:#e8f1f7;border-radius:0 0 4px 4px}
+.precision-map-height-resizer span{width:40px;height:3px;border-radius:3px;background:#91a8b9}
+.precision-panel-resizer:hover,.precision-panel-resizer.is-resizing,.precision-map-height-resizer:hover,.precision-map-height-resizer.is-resizing{background:#cbe8e0}
+.precision-panel-resizer:focus-visible,.precision-map-height-resizer:focus-visible{outline:2px solid #386d8b;outline-offset:-2px}
+.precision-fullscreen-page .precision-tube-map{background:#f4f8fc}
+.precision-fullscreen-page .precision-tube{box-sizing:border-box;min-width:0;min-height:0;padding:0;width:11px;height:11px;line-height:1}
+.analysis-defect-panel .analysis-table-scroll{width:100%;overflow:auto}
+.analysis-defect-table{min-width:650px}
+.analysis-defect-panel .corrosion-results-title{word-break:keep-all;overflow-wrap:normal}
+.precision-fullscreen-page .analysis-defect-table th,.precision-fullscreen-page .analysis-defect-table td{padding:5px 6px;font-size:11px;line-height:1.4}
+.precision-fullscreen-page .corrosion-result-note{min-width:130px}
+.precision-fullscreen-page .corrosion-result-note small{font-size:9px;line-height:1.4}
+.wall-loss-legend-gradient{grid-column:1/-1;margin-top:8px;color:#385568;font-size:10px}
+.wall-loss-legend-gradient>div{height:10px;border-radius:3px;border:1px solid #ccdce7;margin-bottom:4px}
+.analysis-defect-table tbody tr.linked-tube-pulse td{animation:linked-row-pulse .85s ease-in-out 3}
+.precision-map-canvas .precision-tube.linked-tube-pulse{animation:linked-map-pulse .85s ease-in-out 3}
+@keyframes linked-row-pulse{0%,100%{background-color:#dceef8}50%{background-color:#ffe39b}}
+@keyframes linked-map-pulse{0%,100%{box-shadow:0 0 0 2px #386d8b}50%{box-shadow:0 0 0 6px #e3a83c}}
+@media(prefers-reduced-motion:reduce){.analysis-defect-table tbody tr.linked-tube-pulse td,.precision-map-canvas .precision-tube.linked-tube-pulse{animation:none}}
+.precision-map-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.precision-map-toolbar .precision-3d-link{padding:4px 9px;font-size:12px;line-height:1.4;background:#e8f1f7;color:#385568;border:1px solid #b8ccd9}

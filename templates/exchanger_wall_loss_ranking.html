@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}열교환기별 최대 감육률{% endblock %}
+{% block heading %}열교환기별 최대 감육률{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('exchangers') }}">열교환기 목록</a>{% endblock %}
+{% block content %}
+<section class="metrics">
+  <article><span>조회 열교환기</span><strong>{{ rows|length|comma }}</strong><small>필터 적용 결과</small></article>
+  <article class="warning"><span>위험</span><strong>{{ status_counts.CRITICAL|comma }}</strong><small>열교환기별 위험 기준 이상</small></article>
+  <article class="warning"><span>주의</span><strong>{{ status_counts.WARNING|comma }}</strong><small>주의 이상·위험 미만</small></article>
+  <article><span>정상 범위</span><strong>{{ status_counts.NORMAL|comma }}</strong><small>주의 기준 미만</small></article>
+  <article><span>측정값 없음</span><strong>{{ status_counts.NO_DATA|comma }}</strong><small>유효 감육률 미등록</small></article>
+</section>
+
+<form class="filters" method="get">
+  <input name="search" value="{{ search }}" placeholder="설비·열교환기·Tube 번호 검색">
+  <select name="plant"><option value="">전체 생산공장</option>{% for value in plants %}<option value="{{ value }}" {{ 'selected' if plant_code == value else '' }}>{{ value|plant_display }}</option>{% endfor %}</select>
+  <select name="unit"><option value="">전체 생산라인</option>{% for value in units %}<option value="{{ value }}" {{ 'selected' if unit_code == value else '' }}>{{ value }}</option>{% endfor %}</select>
+  <button class="button" type="submit">조회</button><a class="button ghost" href="{{ url_for('exchanger_wall_loss_ranking') }}">초기화</a>
+</form>
+
+<article class="panel">
+  <div class="panel-head"><div><p class="eyebrow">Highest valid Tube wall loss</p><h2>최대 감육률 순위</h2></div><small>전체 검사이력의 유효 튜브 결과 중 열교환기별 최대값 · 동일값은 최근 검사 우선</small></div>
+  <div class="table-wrap tall"><table><thead><tr><th>순위</th><th>공장/라인</th><th>설비 / 열교환기</th><th>대표 Tube</th><th>최대 감육률</th><th>최소두께</th><th>검사일</th><th>측정 Tube/결과</th><th>기준(주의/위험)</th><th>판정</th><th>검사결과</th></tr></thead><tbody>
+  {% set rank = namespace(value=0) %}
+  {% for row in rows %}{% if row.wall_loss_percent is not none %}{% set rank.value = rank.value + 1 %}{% endif %}<tr>
+    <td>{{ rank.value if row.wall_loss_percent is not none else '-' }}</td>
+    <td>{{ row.plant_code|plant_display }}/{{ row.unit_code }}</td>
+    <td><a class="strong-link" href="{{ url_for('exchanger_detail', exchanger_id=row.heat_exchanger_id) }}">{{ row.equipment_code }}</a><br><small>{{ row.exchanger_code or '-' }} · {{ row.equipment_name }}</small></td>
+    <td>{% if row.tube_id %}<a class="strong-link" href="{{ url_for('tube_detail', tube_id=row.tube_id) }}">{{ row.tube_no }}</a>{% else %}-{% endif %}</td>
+    <td class="{{ 'danger-text' if row.wall_loss_status == 'CRITICAL' else '' }}">{{ '%.2f%%'|format(row.wall_loss_percent) if row.wall_loss_percent is not none else '-' }}</td>
+    <td>{{ '%.3f mm'|format(row.minimum_wall_thickness_mm) if row.minimum_wall_thickness_mm is not none else '-' }}</td>
+    <td>{{ (row.inspection_date|string)[:10] if row.inspection_date else '-' }}</td>
+    <td>{{ row.measured_tube_count|comma }} / {{ row.result_count|comma }}</td>
+    <td>{{ '%.1f%% / %.1f%%'|format(row.warning_threshold, row.critical_threshold) }}</td>
+    <td><span class="status {{ 'muted' if row.wall_loss_status in ['NORMAL','NO_DATA'] else '' }}">{{ {'CRITICAL':'위험','WARNING':'주의','NORMAL':'정상','NO_DATA':'데이터 없음'}.get(row.wall_loss_status, row.wall_loss_status) }}</span></td>
+    <td>{% if row.iris_inspection_id %}<a class="button" href="{{ url_for('inspection_detail', inspection_id=row.iris_inspection_id) }}">결과 보기</a>{% else %}-{% endif %}</td>
+  </tr>{% else %}<tr><td colspan="11" class="empty">조건에 맞는 열교환기가 없습니다.</td></tr>{% endfor %}
+  </tbody></table></div>
+</article>
+{% endblock %}

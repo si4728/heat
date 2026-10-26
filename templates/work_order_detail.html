@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% set wo=master[0] %}{% set hx=master[1] %}{% set equipment=master[2] %}
+{% block title %}{{ wo.work_order_code }}{% endblock %}
+{% block heading %}{{ wo.work_order_code }}{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('maintenance') }}">목록</a>{% endblock %}
+{% block content %}
+<div class="grid two">
+  <article class="panel">
+    <div class="panel-head"><h2>{{ wo.title }}</h2></div>
+    <dl class="details"><dt>설비</dt><dd>{{ equipment.equipment_code }}</dd><dt>유형</dt><dd>{{ wo.work_type }}</dd><dt>상태</dt><dd>{{ wo.status }}</dd><dt>설명</dt><dd>{{ wo.description or '-' }}</dd></dl>
+    <form method="post" action="{{ url_for('work_order_status', order_id=wo.work_order_id) }}" class="form-grid"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>상태<select name="status">{% for s in ['REQUESTED','APPROVED','IN_PROGRESS','COMPLETED','CANCELLED'] %}<option {{ 'selected' if wo.status==s else '' }}>{{ s }}</option>{% endfor %}</select></label>
+      <label>결과<input name="result" value="{{ wo.result or '' }}"></label>
+      <button class="button primary full">상태 저장</button>
+    </form>
+  </article>
+  <article class="panel">
+    <div class="panel-head"><div><h2>정비·교체 이력 추가</h2><small>{{ equipment.equipment_code }}에 등록된 튜브만 선택할 수 있습니다.</small></div></div>
+    <form method="post" action="{{ url_for('maintenance_record_create', order_id=wo.work_order_id) }}" class="form-grid maintenance-record-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>작업 유형<select name="action_type"><option value="MAINTENANCE">정비</option><option value="REPLACEMENT">열교환기 전체 Replacement</option><option value="PLUGGING">튜브 사용중지 (Plugging)</option></select></label>
+      <label>Tube ID / 튜브<select name="tube_id" id="maintenance-tube-select"><option value="">선택 안 함 — 열교환기 전체 작업</option>{% for tube in tubes %}<option value="{{ tube.tube_id }}" data-status="{{ tube.current_status }}">ID {{ tube.tube_id }} · {{ tube.tube_no }} · Row {{ tube.row_no or '-' }} / Col {{ tube.column_no or '-' }} · {{ tube.current_status }}</option>{% endfor %}</select><small>양수 ID이며 현재 열교환기에 사전 등록된 튜브만 표시합니다.</small></label>
+      <label class="plugged-filter"><input type="checkbox" name="exclude_plugged" value="1" checked><span><strong>PLUGGED 상태 제외</strong><small><b id="plugged-excluded-count">0</b>개 옵션 제외</small></span></label>
+      <label>변경 상태<select name="new_status"><option value="">변경 없음</option><option value="IN_SERVICE">사용중</option><option value="PLUGGED">사용중지 (Plugged)</option></select></label>
+      <label class="full">상세<textarea name="details"></textarea></label>
+      <button class="button primary full">이력 저장</button>
+    </form>
+  </article>
+</div>
+<article class="panel" style="margin-top:18px">
+  <div class="table-wrap"><table><thead><tr><th>일시</th><th>유형</th><th>튜브</th><th>상태 변경</th><th>내용</th></tr></thead><tbody>{% for record,tube in records %}<tr><td>{{ record.action_date.strftime('%Y-%m-%d %H:%M') }}</td><td>{{ record.action_type }}</td><td>{{ tube.tube_no if tube else '-' }}</td><td>{{ record.old_status or '-' }} → {{ record.new_status or '-' }}</td><td>{{ record.details or '-' }}</td></tr>{% else %}<tr><td colspan="5" class="empty">등록된 이력이 없습니다.</td></tr>{% endfor %}</tbody></table></div>
+</article>
+<script src="{{ url_for('static', filename='maintenance-record.js') }}"></script>
+{% endblock %}

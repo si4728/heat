@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}정밀 분석{% endblock %}
+{% block heading %}정밀 분석{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='precision-analysis.css', v='20261023-3d-link') }}">{% endblock %}
+{% block actions %}
+  {% if selected_exchanger_id %}<a class="button" href="{{ url_for('exchanger_detail', exchanger_id=selected_exchanger_id) }}">열교환기 상세</a>{% endif %}
+{% endblock %}
+{% block content %}
+<div class="precision-analysis-shell">
+  <aside class="analysis-equipment-panel" aria-label="분석 열교환기 선택">
+    <form class="analysis-filter" method="get" action="{{ url_for('precision_analysis') }}">
+      <input type="hidden" name="rate_multiplier" value="{{ corrosion_rate_multiplier }}">
+      <select name="unit" aria-label="공정 선택" onchange="this.form.submit()">
+        <option value="">전체 공정</option>
+        {% for item in units %}<option value="{{ item }}" {{ 'selected' if item == unit_code else '' }}>{{ item }}</option>{% endfor %}
+      </select>
+      <div class="analysis-search-row">
+        <input name="search" value="{{ search }}" placeholder="열교환기 검색..." aria-label="열교환기 검색">
+        <button type="submit">조회</button>
+      </div>
+    </form>
+    <div class="analysis-equipment-list">
+      {% for row in analysis_rows %}
+      <a class="analysis-equipment-item {{ 'active' if row.heat_exchanger_id == selected_exchanger_id else '' }}"
+         href="{{ url_for('precision_analysis', exchanger_id=row.heat_exchanger_id, unit=unit_code, search=search, rate_multiplier=corrosion_rate_multiplier) }}">
+        <span><strong>{{ row.exchanger_code or row.equipment_code }}</strong><small>{{ row.unit_code }} · {{ row.equipment_name or '-' }}</small></span>
+        <em class="risk-{{ row.wall_loss_status|lower }}">{{ '%.0f%%'|format(row.wall_loss_percent or 0) }}</em>
+      </a>
+      {% else %}<div class="analysis-empty">분석 가능한 검사 데이터가 없습니다.</div>{% endfor %}
+    </div>
+  </aside>
+
+  <section class="analysis-workspace">
+    {% if selected_detail and tube_map %}
+      {% set master = selected_detail.master %}
+      {% set equipment = master[1] %}
+      {% set unit = master[2] %}
+      {% set plant = master[3] %}
+      {% set life = selected_detail.remaining_life %}
+      {% set summary = life.equipment_summary %}
+      <div class="analysis-info-bar">
+        <div><span>열교환기코드</span><strong>{{ tube_map.equipment_code }}</strong></div>
+        <div><span>생산공장 / 공정</span><strong>{{ plant.plant_code|plant_display }} / {{ (equipment.process_code|organization_label('PROCESS', plant.plant_code, equipment.production_team_code)) if equipment.process_code else unit.unit_name }}</strong></div>
+        <div><span>검사일</span><strong>{{ summary.latest_inspection_date or '-' }}</strong></div>
+        <div><span>검사수량 / 총수량</span><strong>{{ summary.inspected_tube_count or 0 }} / {{ summary.total_tube_count or 0 }}</strong></div>
+        <div><span>Shell 유체</span><strong>{{ summary.shell_fluid or '-' }}</strong></div>
+        <div><span>Tube 유체</span><strong>{{ summary.tube_fluid or '-' }}</strong></div>
+        <div><span>Tube 재질</span><strong>{{ summary.tube_material or '-' }}</strong></div>
+        <div><span>부식속도 (mm/yr)</span><strong class="warning-value">{{ '%.3f'|format(summary.representative_corrosion_rate_mm_per_year) if summary.representative_corrosion_rate_mm_per_year is not none else '-' }}</strong></div>
+      </div>
+
+      <div id="precision-panel-layout" class="analysis-main-grid">
+        <article id="precision-map-panel" class="analysis-map-panel">
+          <div class="precision-map-toolbar">
+            <h2>Tube Sheet Map <button id="precision-overlay-toggle" class="precision-overlay-toggle" type="button" role="switch" aria-checked="true" aria-controls="precision-tube-map" aria-label="격자와 X·Y축 행·열 번호 표시" title="격자와 X·Y축 행·열 번호 표시 전환"><span class="precision-switch-track" aria-hidden="true"></span></button></h2>
+            <a id="precision-3d-link" class="button precision-3d-link" href="{{ url_for('exchanger_tube_map', exchanger_id=selected_exchanger_id, view='3d', campaign_id=tube_map.selected_campaign.campaign_id if tube_map.selected_campaign else none) }}" target="_blank" rel="noopener" title="선택한 열교환기와 Tube를 새 탭의 3D Map에서 보기">3D 보기 ↗</a>
+          </div>
+          <div id="precision-tube-map" class="precision-tube-map" aria-label="2D Tube Sheet Map"></div>
+          <div id="precision-map-height-resizer" class="precision-map-height-resizer" role="separator" tabindex="0" aria-orientation="horizontal" aria-label="Map 세로 높이 조절" aria-controls="precision-tube-map" aria-valuemin="240" aria-valuemax="1600" aria-valuenow="580" title="위아래로 드래그하여 Map 높이 조절 · 방향키 사용 가능"><span aria-hidden="true"></span></div>
+          <p class="analysis-quality-note">X축(위·아래): 열 번호 · Y축(왼쪽): 행 번호 · 오른쪽: 행별 표시 Tube 수. 격자선은 등록된 행·열별 표시 위치의 중심을 기준으로 연결합니다.</p>
+          <section class="analysis-wall-loss-legend" aria-label="감육률 색상 범례">
+            <h3>Wall Loss · 감육률 범례</h3>
+            <div id="precision-map-legend" class="wall-loss-legend-grid"></div>
+            <p class="analysis-quality-note">Wall Loss 색상표의 저장 색상과 열교환기별 주의·위험 임계값을 적용합니다. 감육률에 따라 정상→주의→위험 색상을 연속 보간하며, Plugged 상태를 우선 표시합니다. 색상 설정 변경 후 이 화면을 새로고침해 주세요.</p>
+          </section>
+          {% if tube_map.layout.is_estimated %}<p class="analysis-quality-note">등록 좌표가 없는 위치는 추정 배치로 표시됩니다. 추정 배치의 격자선은 위치 안내용이며 실제 Tube 배열의 행·열 정렬을 보증하지 않습니다.</p>{% endif %}
+        </article>
+        <div id="precision-panel-resizer" class="precision-panel-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Map과 부식측정결과 표의 너비 조절" aria-controls="precision-map-panel precision-results-panel" aria-valuemin="25" aria-valuemax="75" aria-valuenow="50" title="좌우로 드래그하여 패널 너비 조절 · 방향키 사용 가능"><span aria-hidden="true"></span></div>
+        <article id="precision-results-panel" class="analysis-defect-panel">
+          <h2 class="corrosion-results-title">부식측정결과 일람표 <small>Corrosion Examination Results</small></h2>
+          <p id="precision-linked-selection-status" class="analysis-quality-note" role="status" aria-live="polite">Map의 Tube 또는 결과표 행을 선택하면 양쪽에서 연결 표시됩니다.</p>
+          <div class="corrosion-results-summary">
+            <div><span>기기번호</span><strong>{{ tube_map.equipment_code }}</strong></div>
+            <div><span>Tube ID 수량</span><strong>{{ life.defect_count }}개</strong></div>
+            <div><span>감육률 범위</span><strong>{% if life.defect_rows %}{{ '%.2f'|format(life.defect_rows|map(attribute='wall_loss_percent')|min) }} ~ {{ '%.2f'|format(life.defect_rows|map(attribute='wall_loss_percent')|max) }}%{% else %}-{% endif %}</strong></div>
+            <div><span>Tube 사양 (mm)</span><strong>O.D {{ tube_map.tube_spec.outer_diameter_mm or '-' }} × {{ tube_map.tube_spec.nominal_thickness_mm or '-' }} T × {{ tube_map.tube_spec.length_mm or '-' }} L</strong></div>
+          </div>
+          <p class="analysis-quality-note">Tube별 최근 검사 중 감육률이 0%를 초과한 결과입니다. 행을 선택하면 Map과 하단 분석에 연결됩니다.</p>
+          <div class="analysis-table-scroll">
+            <table class="analysis-defect-table">
+              <thead><tr><th colspan="2" scope="colgroup">튜브번호 · Tube ID</th><th rowspan="2" scope="col">최소잔여두께<br>MWT (mm)</th><th rowspan="2" scope="col">부식위치<br>Location (mm)</th><th rowspan="2" scope="col">부식유형<br>Corrosion Type</th><th rowspan="2" scope="col">감육량<br>(mm)</th><th rowspan="2" scope="col">감육률<br>(%)</th><th rowspan="2" scope="col">비고</th></tr><tr><th scope="col">행 · Row</th><th scope="col">열 · Col</th></tr></thead>
+              <tbody>
+              {% for row in life.defect_rows %}
+                <tr data-analysis-tube="{{ row.tube_id }}" tabindex="0">
+                  <td title="Tube {{ row.tube_no }}">{{ row.row_no if row.row_no is not none else '-' }}</td><td title="Tube {{ row.tube_no }}">{{ row.column_no if row.column_no is not none else '-' }}</td>
+                  <td>{{ '%.2f'|format(row.minimum_wall_thickness_mm) if row.minimum_wall_thickness_mm is not none else '-' }}</td>
+                  <td>{{ '%.0f'|format(row.location_mm) if row.location_mm is not none else '-' }}</td>
+                  <td>{{ row.corrosion_type or '-' }}</td>
+                  <td>{{ '%.2f'|format(row.wall_loss_depth_mm) if row.wall_loss_depth_mm is not none else '-' }}</td>
+                  <td>{{ '%.2f'|format(row.wall_loss_percent) }}</td>
+                  <td class="corrosion-result-note">Tube {{ row.tube_no }}{% if row.plugging_complete %} · Plugged{% endif %}<small>{{ row.measurement_date }}{% if row.report_number %} · {{ row.report_number }}{% endif %}</small></td>
+                </tr>
+              {% else %}<tr><td colspan="8">유효한 결함 결과가 없습니다.</td></tr>{% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+
+      <div class="analysis-section-title">선택 튜브 — 두께 이력 / 부식속도 / 잔여수명 분석</div>
+      <div class="analysis-detail-grid">
+        <article class="analysis-card"><h3 id="selected-tube-title">튜브를 클릭하면 이력이 표시됩니다</h3><div id="thickness-history" class="analysis-card-body"></div></article>
+        <article class="analysis-card"><h3><button type="button" id="corrosion-help-trigger" class="analysis-help-trigger" aria-haspopup="dialog" aria-controls="corrosion-help-dialog">부식속도 분석 <span aria-hidden="true">ⓘ</span></button></h3>
+          <form id="corrosion-rate-form" class="analysis-rate-control" method="get" action="{{ url_for('precision_analysis') }}">
+            <input type="hidden" name="exchanger_id" value="{{ selected_exchanger_id }}">
+            <input type="hidden" name="unit" value="{{ unit_code }}">
+            <input type="hidden" name="search" value="{{ search }}">
+            <input type="range" id="corrosion-rate-slider" name="rate_multiplier" min="0.1" max="2.0" step="0.1" value="{{ corrosion_rate_multiplier }}" aria-label="적용 부식속도 배율" title="0.1~2.0배 · 적용 부식속도 = 장기 부식속도 × 배율">
+            <output id="corrosion-rate-output" for="corrosion-rate-slider">{{ '%.1f'|format(corrosion_rate_multiplier) }}배</output>
+          </form><div id="corrosion-analysis" class="analysis-card-body"></div></article>
+        <article class="analysis-card"><h3><button type="button" id="remaining-life-help-trigger" class="analysis-help-trigger" aria-haspopup="dialog" aria-controls="remaining-life-help-dialog">열교환기 잔여수명 분석 <span aria-hidden="true">ⓘ</span></button></h3><div id="remaining-life-analysis" class="analysis-card-body"></div></article>
+        <article class="analysis-card formula-card"><h3>잔여수명 계산 방법</h3><div class="formula-copy">
+          <strong>① 튜브별 Plugging 도달 연도</strong>
+          <code>최근 검사일 + ((공칭두께 × Plugging 기준비율 − 현재 감육량) ÷ 부식속도)</code>
+          <strong>② 연도별 누적 Plugging 집계</strong><p>각 튜브의 도달 연도 기준으로 누적 합산합니다.</p>
+          <strong>③ 허용 한도 초과 시점 = 수명 도달</strong>
+          <code>허용 Plugging 수 = 총 튜브 수 × 한도율</code>
+        </div></article>
+      </div>
+      <dialog id="remaining-life-help-dialog" class="analysis-help-dialog" aria-labelledby="remaining-life-help-title">
+        <div class="analysis-help-header"><h2 id="remaining-life-help-title">열교환기 잔여수명 분석 항목 설명</h2><form method="dialog"><button type="submit" aria-label="설명 닫기">닫기</button></form></div>
+        <dl class="analysis-help-definitions">
+          <dt>허용 Plugging 한도</dt><dd>전체 튜브 수에 허용 비율을 적용한 튜브 개수입니다. 소수점 이하는 버립니다. 예를 들어 20% (129개)는 허용 개수가 129개라는 뜻이며, 누적 대상이 130개 이상이면 한도를 초과합니다.<code>허용 개수 = 전체 튜브 수 × 허용 비율 ÷ 100 (소수점 이하 버림)</code></dd>
+          <dt>기준일 누적 Plugging 대상(예측 포함)</dt><dd>이미 Plugging 처리된 튜브와, 계산상 Plugging 예상 시점이 기준일까지 도래한 튜브를 합산한 수량입니다. 실제 막음 처리 완료 수량과는 다릅니다. 부식속도 배율을 바꾸면 예상 시점과 이 수량도 달라질 수 있습니다.<code>계산 기준일: {{ life.as_of_date or '-' }}</code></dd>
+          <dt>선택 Tube 예상</dt><dd>선택한 튜브가 Plugging 판정 감육률에 도달할 것으로 예상되는 연도입니다. ‘처리 완료’는 등록된 튜브 상태가 PLUGGED인 경우입니다. ‘판정 기준 도달’은 최근 검사 감육률이 판정 기준 이상인 경우이며, 실제 막음 처리 완료를 의미하지 않습니다. ‘산정 불가’는 예측에 필요한 데이터가 부족한 상태입니다.<code>최근 검사일 + (판정 감육량 − 최근 감육량) ÷ 적용 부식속도</code></dd>
+          <dt>열교환기 예상 잔여수명</dt><dd>튜브별 Plugging 예상 연도를 누적 집계하여 허용 개수를 처음 초과하는 연도까지 남은 연수입니다. ‘한도 미도달’은 계산 가능한 튜브의 예측 결과에서 한도 초과 시점이 나오지 않았다는 뜻입니다. 데이터가 부족한 튜브는 예측 집계에서 제외되므로 무한 수명이라는 의미는 아닙니다.<code>잔여수명 = 한도 최초 초과 연도 − 기준 연도 (최소 0년)</code></dd>
+          <dt>한도 초과 예상일</dt><dd>Tube별 Plugging 예상일을 날짜순으로 누적하여 허용 개수를 처음 초과하는 날짜입니다. 예를 들어 허용 개수가 18개이면 19번째 Tube의 예상일을 표시합니다. 부식속도 배율을 바꾸면 함께 다시 계산됩니다. 과거 날짜는 계산 기준일 이전에 이미 한도를 초과한 것으로 예측된다는 의미입니다.</dd>
+        </dl>
+        <p class="analysis-help-note">슬라이더 배율은 부식속도와 예상 시점에 즉시 반영됩니다. 실제 Plugging 작업 기록과 예측 대상 수량을 구분하여 확인하세요.</p>
+      </dialog>
+      <dialog id="corrosion-help-dialog" class="analysis-help-dialog" aria-labelledby="corrosion-help-title">
+        <div class="analysis-help-header"><h2 id="corrosion-help-title">부식속도 분석 항목 설명</h2><form method="dialog"><button type="submit" aria-label="설명 닫기">닫기</button></form></div>
+        <dl class="analysis-help-definitions">
+          <dt>단기 부식속도</dt><dd>최근 두 번의 검사 사이에서 감소한 두께를 검사 간 경과연수로 나눈 값입니다. 최근 부식 추세를 보여줍니다.<code>(직전 검사 두께 − 최근 검사 두께) ÷ 검사 간 경과연수</code></dd>
+          <dt>장기 부식속도</dt><dd>설치 시점 또는 최초 측정 시점부터 최근 검사까지의 두께 감소를 연간 평균으로 환산한 기준값입니다. 슬라이더 배율을 바꿔도 이 값은 유지됩니다.<code>(초기 두께 − 최근 검사 두께) ÷ 경과연수</code></dd>
+          <dt>적용 부식속도</dt><dd>장기 부식속도에 슬라이더 배율을 곱한 값으로, 잔여수명과 Plugging 도달 시점 예측에 사용합니다. 배율은 0.1~2.0이며 기본값은 1.0입니다. 슬라이더를 움직이면 즉시 다시 계산합니다. 예를 들어 장기 부식속도 0.130 mm/yr에 1.5배를 적용하면 0.195 mm/yr가 됩니다.<code>적용 부식속도 = 장기 부식속도 × 배율</code></dd>
+          <dt>산정 근거</dt><dd>적용 부식속도를 계산하거나 선택한 기준입니다. <code>LATEST_INSPECTION_INSTALLATION_AVERAGE</code>는 ‘설치 후 최근 검사 평균’을 뜻합니다. 설치 당시 감육량을 0으로 가정하고, 최근 검사 감육량을 설치 후 검사일까지의 경과연수로 나눕니다.<code>(공칭두께 × 최근 감육률 ÷ 100) ÷ 설치 후 검사일까지의 경과연수</code>튜브 교체 없이 평균 부식속도가 일정하게 유지된다고 가정합니다.</dd>
+        </dl>
+        <p class="analysis-help-note">mm/yr는 연간 두께 감소량입니다. ‘-’는 데이터 부족 또는 미산정·미표시를 의미하며, 부식속도 0을 뜻하지 않습니다. 단기·장기 값이 없어도 설치 후 최근 검사 평균으로 적용 부식속도를 산정할 수 있습니다.</p>
+      </dialog>
+      <script id="precision-map-data" type="application/json">{{ tube_map|tojson }}</script>
+      <script id="precision-life-data" type="application/json">{{ life|tojson }}</script>
+    {% else %}
+      <div class="analysis-no-selection"><strong>정밀 분석 데이터 없음</strong><p>검사 결과가 등록된 열교환기를 선택해 주세요.</p></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script defer src="{{ url_for('static', filename='precision-analysis.js', v='20261023-3d-link') }}"></script>{% endblock %}

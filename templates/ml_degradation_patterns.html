@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}유사 열화 패턴{% endblock %}
+{% block heading %}유사 열화 패턴 그룹화{% endblock %}
+{% block actions %}<button class="button primary" type="button" data-pattern-help-open>패턴 도움말</button><a class="button" href="{{ url_for('ml_spatial_hotspots') }}">공간 Hotspot</a><a class="button" href="{{ url_for('ml_review_targets') }}">ML 검토대상</a>{% endblock %}
+{% block content %}
+<div id="pattern-help-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="pattern-help-title" hidden>
+  <section class="load-modal pattern-help-modal">
+    <header class="modal-header">
+      <div class="modal-icon">?</div>
+      <div><p class="eyebrow">Pattern interpretation guide</p><h2 id="pattern-help-title">유사 열화 패턴 활용 도움말</h2><p>군집 결과를 안전하게 해석하고 검토하는 방법</p></div>
+      <button type="button" class="modal-close" data-pattern-help-close aria-label="도움말 닫기">×</button>
+    </header>
+    <div class="pattern-guide-body">
+      <section><h3>안정·저변화형</h3><p>검사연도별 감육률 변화와 변동성이 비교적 작은 그룹입니다. 정상 또는 안전 판정을 의미하지 않으므로 최근 감육률과 최소두께 기준은 별도로 확인합니다.</p></section>
+      <section><h3>고감육형</h3><p>최근 감육률과 과거 최대 감육률이 다른 군집보다 높은 그룹입니다. 감육률이 높은 Tube부터 원본 검사, 최소두께, 주변 Tube 및 정비 상태를 우선 검토합니다.</p></section>
+      <section class="pattern-guide-emphasis"><h3>고변동·역전형</h3><p>연도별 감육률 변화가 크고 최근 값이 과거보다 크게 낮아진 Tube 그룹입니다. 부식된 두께가 실제로 회복됐다는 의미가 아닙니다.</p><ul><li>검사 위치·방향 또는 TOP/BTM Scope 차이</li><li>Tube Mapping 오류</li><li>공칭두께·감육률 계산 기준 변경</li><li>장비·탐촉자·교정조건 차이</li><li>과거 또는 최근 측정값 오류</li></ul><p><strong>조치:</strong> 원본 C-scan과 보고서, Tube 번호, 위치 및 교정기록을 확인하기 전에는 잔여수명 계산의 정상 회복값으로 사용하지 않습니다.</p></section>
+      <section><h3>권장 검토 순서</h3><ol><li>패턴과 최근/최대 감육률을 확인합니다.</li><li>연간 기울기와 변동성이 큰 Tube를 우선 선택합니다.</li><li>Tube 상세에서 연도별 측정 위치와 Scope를 비교합니다.</li><li>Tube Map과 공간 Hotspot에서 주변관 측정값을 확인합니다.</li><li>최신 검사 원본과 PDF 페이지를 대조해 데이터 오류 또는 실제 열화를 판정합니다.</li></ol></section>
+      <aside class="pattern-guide-note"><strong>주의</strong><p>이 패턴은 유사한 데이터 특성을 묶은 검토지원 결과입니다. 결함등급, 잔여수명, 사용적합성 또는 정비 필요 여부를 자동 판정하지 않습니다.</p></aside>
+    </div>
+    <footer class="modal-footer"><button type="button" class="button primary" data-pattern-help-close>확인</button></footer>
+  </section>
+</div>
+<div class="notice {{ 'success' if enabled else 'warning' }}" role="status"><strong>{{ '패턴 분석 활성' if enabled else '패턴 분석 비활성' }}</strong><span>{{ message }}</span></div>
+<section class="metrics compact-metrics">
+  <article><span>분석 Tube</span><strong>{{ tube_count|default(0)|comma }}</strong><small>검사이력 2회 이상</small></article>
+  <article><span>군집 분리도</span><strong>{{ '%.3f'|format(silhouette) if silhouette is defined and silhouette is not none else '-' }}</strong><small>Silhouette</small></article>
+  <article><span>재현 안정성</span><strong>{{ '%.3f'|format(stability_ari) if stability_ari is defined and stability_ari is not none else '-' }}</strong><small>seed 변경 ARI</small></article>
+</section>
+<section class="metrics compact-metrics">
+  {% for profile in profiles %}<article><span>{{ profile.pattern_label }}</span><strong>{{ profile.tube_count|comma }}</strong><small>최근 감육률 중앙값 {{ '%.2f%%'|format(profile.median_latest_wall_loss_percent) }} · 변동 {{ '%.2f%%p'|format(profile.median_wall_loss_volatility_pp) }}</small></article>{% endfor %}
+</section>
+<form class="filters" method="get" aria-label="유사 열화 패턴 조회 조건">
+  <select name="pattern_code" aria-label="열화 패턴"><option value="">전체 패턴</option>{% for profile in profiles %}<option value="{{ profile.pattern_code }}" {{ 'selected' if pattern_code == profile.pattern_code else '' }}>{{ profile.pattern_label }}</option>{% endfor %}</select>
+  <select name="unit_code" aria-label="생산라인"><option value="">전체 생산라인</option><option value="VCM1" {{ 'selected' if unit_code == 'VCM1' else '' }}>VCM1</option><option value="VCM2" {{ 'selected' if unit_code == 'VCM2' else '' }}>VCM2</option></select>
+  <input name="equipment_code" value="{{ equipment_code }}" placeholder="열교환기 코드" aria-label="열교환기 코드">
+  <button class="button primary" type="submit">조회</button><a class="button ghost" href="{{ url_for('ml_degradation_patterns') }}">초기화</a>
+</form>
+<article class="panel">
+  <div class="panel-head"><div><p class="eyebrow">Unsupervised grouping · review support only</p><h2>Tube 패턴 목록</h2></div><small>{{ total_count|comma }}건 · Run {{ run_id|default('-') }}</small></div>
+  <p class="muted">군집명은 데이터 특성의 설명이며 결함등급, 잔여수명 또는 사용적합성 판정이 아닙니다.</p>
+  <div class="table-wrap tall"><table>
+    <thead><tr><th>#</th><th>패턴</th><th>라인/열교환기</th><th>Tube</th><th>검사횟수</th><th>최근/최대 감육률</th><th>연간 기울기</th><th>변동성</th><th>최근 최소두께</th><th>원본 추적</th></tr></thead>
+    <tbody>{% for row in rows %}<tr>
+      <td>{{ ((page - 1) * per_page + loop.index)|comma }}</td><td><span class="status {{ 'warning' if row.pattern_code != 'STABLE_OR_LOW_CHANGE' else '' }}">{{ row.pattern_label }}</span></td>
+      <td>{{ row.unit_code }}/{{ row.equipment_code }}<br><a href="{{ url_for('exchanger_tube_map', exchanger_id=row.heat_exchanger_id) }}">Tube Map</a></td>
+      <td><a class="strong-link" href="{{ url_for('tube_detail', tube_id=row.tube_id) }}">{{ row.tube_no }}</a></td><td>{{ row.inspection_count }}</td>
+      <td>{{ '%.2f%%'|format(row.latest_wall_loss_percent) }} / {{ '%.2f%%'|format(row.maximum_wall_loss_percent) }}</td><td>{{ '%+.2f%%p/년'|format(row.wall_loss_slope_pp_per_year) }}</td><td>{{ '%.2f%%p'|format(row.wall_loss_volatility_pp) }}</td>
+      <td>{{ '%.3f mm'|format(row.latest_minimum_thickness_mm) if row.latest_minimum_thickness_mm is not none else '-' }}</td>
+      <td><a class="strong-link" href="{{ url_for('inspection_detail', inspection_id=row.latest_inspection_id) }}">검사 #{{ row.latest_inspection_id }}</a><br><small>결과 #{{ row.latest_result_id }}</small></td>
+    </tr>{% else %}<tr><td colspan="10" class="empty">{{ '선택한 조건에 맞는 Tube가 없습니다.' if enabled else message }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% if page_count > 1 %}<nav class="history-pagination" aria-label="유사 열화 패턴 페이지">{% if page > 1 %}<a class="button" href="{{ url_for('ml_degradation_patterns', pattern_code=pattern_code, unit_code=unit_code, equipment_code=equipment_code, page=page-1) }}">이전</a>{% endif %}<span>{{ page }} / {{ page_count }} 페이지</span>{% if page < page_count %}<a class="button" href="{{ url_for('ml_degradation_patterns', pattern_code=pattern_code, unit_code=unit_code, equipment_code=equipment_code, page=page+1) }}">다음</a>{% endif %}</nav>{% endif %}
+</article>
+<script src="{{ url_for('static', filename='pattern-help.js') }}"></script>
+{% endblock %}

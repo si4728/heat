@@ -1,0 +1,51 @@
+/* Keep dense management screens usable on phones and narrow browser windows. */
+html,
+body {
+  max-width: 100%;
+  min-width: 320px;
+  overflow-x: auto;
+}
+
+.app-shell,
+.main,
+.content,
+.panel {
+  min-width: 0;
+}
+
+.table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-wrap > table {
+  min-width: max-content;
+}
+
+@media (max-width: 760px) {
+  body {
+    overflow-y: auto;
+  }
+
+  .app-shell,
+  .main,
+  .content {
+    width: 100%;
+  }
+
+  .main {
+    overflow-x: auto;
+  }
+
+  .topbar,
+  .panel-head,
+  .top-actions {
+    flex-wrap: wrap;
+  }
+}

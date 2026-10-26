@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>초기 관리자 설정 · 지능형열교환시스템</title>
+  <link rel="stylesheet" href="{{ url_for('static',filename='app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static',filename='legacy-theme.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static',filename='auth.css') }}">
+</head>
+<body class="auth-page">
+  <main class="auth-card setup">
+    <img src="{{ url_for('hanwha_solution_logo') }}" alt="Hanwha Solutions">
+    <p class="eyebrow">지능형열교환시스템</p>
+    <h1>초기 관리자 생성</h1>
+    <p class="auth-note">등록된 사용자가 없습니다. 최초 관리자는 모든 화면과 사용자 관리 권한을 갖습니다.</p>
+    {% with messages=get_flashed_messages(with_categories=true) %}
+      {% for category,message in messages %}<div class="alert {{ category }}">{{ message }}</div>{% endfor %}
+    {% endwith %}
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>관리자 이메일<input type="email" name="username" value="{{ request.form.get('username','') }}" maxlength="50" autocomplete="username" required><small>로그인에 사용할 이메일 주소, 최대 50자</small></label>
+      <label>관리자 이름<input name="display_name" value="{{ request.form.get('display_name','') }}" required></label>
+      <label>비밀번호<input type="password" name="password" minlength="9" autocomplete="new-password" required><small>문자 종류 제한 없이 9자 이상</small></label>
+      <label>비밀번호 확인<input type="password" name="password_confirm" minlength="9" autocomplete="new-password" required></label>
+      <button class="button primary" type="submit">관리자 생성</button>
+    </form>
+  </main>
+</body>
+</html>

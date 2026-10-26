@@ -1,0 +1,2 @@
+# Install from an approved offline wheelhouse for the target CPU/GPU environment.
+llama-cpp-python

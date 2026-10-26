@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}ML 검토대상{% endblock %}
+{% block heading %}ML 이상치 검토 우선순위{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('tube_inspection_history') }}">튜브 검사이력</a><a class="button" href="{{ url_for('inspections') }}">전체 검사 이력</a>{% endblock %}
+{% block content %}
+{% set evaluation = expert_evaluation|default({}) %}
+{% set quality = quality_detection|default({}) %}
+<div class="notice {{ 'success' if enabled else 'warning' }}" role="status">
+  <strong>{{ '검토지원 활성' if enabled else '검토지원 비활성' }}</strong>
+  <span>{{ message }}</span>
+</div>
+<section class="metrics compact-metrics ml-review-metrics" aria-label="전문가 평가 현황">
+  <article><span>분석 대상</span><strong>{{ total_model_rows|default(0)|comma }}</strong><small>VCM1·VCM2 결과</small></article>
+  <article><span>Hard Gate</span><strong>{{ hard_gate_rows|default(0)|comma }}</strong><small>ML 점수보다 항상 우선</small></article>
+  <article><span>Top-30 검토</span><strong>{{ evaluation.get('reviewed_top30_count', 0) }}/{{ evaluation.get('top30_target_count', 30) }}</strong><small>목표 커버리지 100%</small></article>
+  <article><span>Precision@30</span><strong>{{ '%.1f%%'|format(evaluation.get('precision_at_30_reviewed') * 100) if evaluation.get('precision_at_30_reviewed') is not none else '-' }}</strong><small>통과 기준 60% 이상</small></article>
+  <article class="{{ 'warning' if evaluation.get('status') == 'HOLD' else '' }}"><span>평가 상태</span><strong>{{ {'COLLECTING':'수집 중','PASS':'통과','HOLD':'보류'}.get(evaluation.get('status'), '-') }}</strong><small>치명 누락 {{ evaluation.get('hard_gate_critical_omissions', 0) }}건 · 자동판정 비활성</small></article>
+</section>
+<article class="panel evaluation-gate-panel">
+  <div class="panel-head"><div><p class="eyebrow">Stage 1 quality gate</p><h2>확정 평가 기준</h2></div><span class="status {{ 'warning' if evaluation.get('status') == 'HOLD' else 'muted' }}">{{ evaluation.get('status', 'UNAVAILABLE') }}</span></div>
+  <div class="gate-criteria"><span><strong>대상</strong> Top-30 전건</span><span><strong>정밀도</strong> 60% 이상</span><span><strong>Hard Gate 치명 누락</strong> 0건</span><span><strong>용도</strong> 검토 지원 전용</span></div>
+</article>
+<article class="panel evaluation-gate-panel">
+  <div class="panel-head"><div><p class="eyebrow">Operational detection</p><h2>이상치·품질 탐지 운영 현황</h2></div><small>자동 원천수정·자동판정 비활성</small></div>
+  <div class="gate-criteria">
+    <span><strong>품질 신호 행</strong>{{ quality.get('flagged_row_count', 0)|comma }}건</span>
+    <span><strong>ML 이상치</strong>{{ quality.get('ml_anomaly_row_count', 0)|comma }}건</span>
+    <span><strong>Hard Gate</strong>{{ quality.get('hard_gate_row_count', hard_gate_rows|default(0))|comma }}건</span>
+    <span><strong>운영 모드</strong>검토 지원 전용</span>
+  </div>
+</article>
+<form class="filters" method="get" aria-label="ML 검토대상 조회 조건">
+  <select name="unit_code" aria-label="생산라인"><option value="">전체 생산라인</option><option value="VCM1" {{ 'selected' if unit_code == 'VCM1' else '' }}>VCM1</option><option value="VCM2" {{ 'selected' if unit_code == 'VCM2' else '' }}>VCM2</option></select>
+  <input name="equipment_code" value="{{ equipment_code }}" placeholder="열교환기 코드" aria-label="열교환기 코드">
+  <label><input type="checkbox" name="hard_only" value="1" {{ 'checked' if hard_only else '' }}> Hard Gate만</label>
+  <button class="button primary" type="submit">조회</button><a class="button ghost" href="{{ url_for('ml_review_targets') }}">초기화</a>
+</form>
+<article class="panel">
+  <div class="panel-head"><div><p class="eyebrow">Review support only</p><h2>Top-30 검토대상</h2></div><small>Run {{ run_id|default('-') }} · {{ model_version|default('-') }}</small></div>
+  <p class="muted ml-review-description">이 결과는 결함·안전 판정이 아니며 원본 측정값, Tube 상태 또는 API 510 승인값을 변경하지 않습니다. 라벨 변경 이력은 별도 분석 DB에 추가 방식으로 보존됩니다.</p>
+  <div class="table-wrap tall"><table class="ml-review-table">
+    <thead><tr><th>우선순위</th><th>라인/열교환기</th><th>Tube</th><th>감육률</th><th>Hard Gate 근거</th><th>ML 점수</th><th>원본 추적</th><th>전문가 라벨·근거</th></tr></thead>
+    <tbody>{% for row in rows %}<tr>
+      <td><strong>{{ row.review_priority_rank }}</strong></td>
+      <td>{{ row.unit_code }} / {{ row.equipment_code }}<br><small>{{ row.campaign_year }}년 · {{ row.scope_code }}</small></td>
+      <td><a class="strong-link" href="{{ url_for('tube_detail', tube_id=row.tube_id) }}">{{ row.tube_no }}</a><br><small>{{ '%.3f mm'|format(row.minimum_wall_thickness_mm) if row.minimum_wall_thickness_mm is not none else '-' }}</small></td>
+      <td><strong>{{ '%.2f%%'|format(row.wall_loss_percent) }}</strong></td>
+      <td>{% for flag in row.hard_gate_flags %}<span class="status warning">{{ flag }}</span>{% else %}<span class="status muted">ML 우선순위</span>{% endfor %}</td>
+      <td>{{ '%.6f'|format(row.ml_anomaly_score) }}<br><small>기준모델 순위 {{ row.ml_anomaly_rank }}</small></td>
+      <td><a class="strong-link" href="{{ url_for('inspection_detail', inspection_id=row.iris_inspection_id) }}">검사 #{{ row.iris_inspection_id }}</a><br><small>결과 #{{ row.iris_tube_result_id }}</small></td>
+      <td class="review-cell">
+        {% if row.review_feedback %}<div class="saved-review"><span class="status">{{ row.review_feedback.label_name }}</span><small>{{ row.review_feedback.reviewer_name }} · {{ row.review_feedback.created_at[:10] }}</small><p>{{ row.review_feedback.note }}</p></div>{% endif %}
+        {% if can_screen('INSPECTIONS','edit') %}<details class="review-editor"><summary>{{ '라벨 변경' if row.review_feedback else '검토 입력' }}</summary><form method="post" action="{{ url_for('ml_review_targets') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="run_id" value="{{ run_id }}"><input type="hidden" name="iris_tube_result_id" value="{{ row.iris_tube_result_id }}"><input type="hidden" name="unit_code" value="{{ unit_code }}"><input type="hidden" name="equipment_code" value="{{ equipment_code }}">{% if hard_only %}<input type="hidden" name="hard_only" value="1">{% endif %}
+          <label>판정<select name="label" required><option value="">선택</option>{% for value, name in label_definitions %}<option value="{{ value }}" {{ 'selected' if row.review_feedback and row.review_feedback.label == value else '' }}>{{ name }}</option>{% endfor %}</select></label>
+          <label>판단 근거<textarea name="note" rows="2" maxlength="1000" required placeholder="원본·도면·재측정 등 확인 근거">{{ row.review_feedback.note if row.review_feedback else '' }}</textarea></label><button class="button primary" type="submit">라벨 저장</button>
+        </form></details>{% elif not row.review_feedback %}<span class="status muted">검토 권한 없음</span>{% endif %}
+      </td>
+    </tr>{% else %}<tr><td colspan="8" class="empty">{{ '선택한 조건에 맞는 검토대상이 없습니다.' if enabled else message }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</article>
+{% if anomaly_run_history %}<article class="panel ml-run-history">
+  <div class="panel-head"><div><p class="eyebrow">Execution history</p><h2>최근 탐지 실행</h2></div><small>최근 {{ anomaly_run_history|length }}건</small></div>
+  <div class="table-wrap"><table><thead><tr><th>Run</th><th>완료 시각</th><th>구분</th><th>상태</th><th>분석 행</th><th>Hard Gate</th><th>ML 이상치</th><th>운영 DB</th></tr></thead><tbody>
+  {% for item in anomaly_run_history %}<tr><td><code>{{ item.run_id }}</code></td><td>{{ item.finished_at[:19] if item.finished_at else '-' }}</td><td>{{ item.operation }}</td><td><span class="status {{ 'warning' if item.status not in ['PASS','PASS_WITH_NOTE'] else '' }}">{{ item.status }}</span></td><td>{{ item.model_row_count|comma }}</td><td>{{ item.hard_gate_row_count|comma }}</td><td>{{ item.ml_anomaly_row_count|comma if item.ml_anomaly_row_count is not none else '-' }}</td><td>{{ '변경 감지' if item.operational_database_changed else '변경 없음' }}</td></tr>{% endfor %}
+  </tbody></table></div>
+</article>{% endif %}
+{% endblock %}

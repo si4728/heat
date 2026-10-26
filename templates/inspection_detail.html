@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% set inspection=master[0] %}{% set equipment=master[1] %}{% set scope=master[2] %}{% set source=master[3] %}{% set spec=master[4] %}
+{% block title %}{{ equipment.equipment_code }} 검사{% endblock %}
+{% block heading %}검사 상세{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('tube_inspection_history', exchanger_id=inspection.heat_exchanger_id) }}">튜브 검사이력</a><a class="button" href="{{ url_for('exchanger_detail', exchanger_id=inspection.heat_exchanger_id) }}">열교환기 이력</a>{% endblock %}
+{% block content %}
+<div class="summary-card"><div><p class="eyebrow">{{ inspection.report_date.strftime('%Y-%m-%d') if inspection.report_date else '검사일 미상' }}</p><h2>{{ equipment.equipment_code }} / {{ spec.exchanger_code if spec and spec.exchanger_code else '-' }} · {{ scope.scope_code if scope else 'ALL' }}</h2><p>{{ inspection.report_number or source.source_file }}</p></div><div class="summary-stats"><span>튜브 결과 <strong>{{ results|length }}</strong></span><span>검증 이슈 <strong>{{ issues|length }}</strong></span></div></div>
+<article class="panel"><div class="panel-head"><div><p class="eyebrow">Source report</p><h2>보고서 기본·공정 정보</h2></div><small>JSON 원문에서 구조화한 읽기 전용 정보</small></div>
+  <dl class="details">
+    <dt>검사일 / 보고일</dt><dd>{{ inspection.inspection_date.strftime('%Y-%m-%d') if inspection.inspection_date else '-' }} / {{ inspection.report_date.strftime('%Y-%m-%d') if inspection.report_date else '-' }}</dd>
+    <dt>설치·교체일자</dt><dd>{{ inspection.installation_or_replacement_date_raw or '-' }}{% if inspection.installation_or_replacement_date_precision %} ({{ inspection.installation_or_replacement_date_precision }}){% endif %}</dd>
+    <dt>제작일 / 가동일</dt><dd>{{ inspection.manufacturing_date.strftime('%Y-%m-%d') if inspection.manufacturing_date else '-' }} / {{ inspection.commissioning_date.strftime('%Y-%m-%d') if inspection.commissioning_date else '-' }}</dd>
+    <dt>공정 / 생산라인</dt><dd>{{ setup.process_code if setup and setup.process_code else '-' }} / {{ setup.production_line if setup and setup.production_line else '-' }}</dd>
+    <dt>Shell / Tube 유체</dt><dd>{{ setup.shell_fluid if setup and setup.shell_fluid else '-' }} / {{ setup.tube_fluid if setup and setup.tube_fluid else '-' }}</dd>
+    <dt>Tube 형식</dt><dd>{{ setup.tube_type if setup and setup.tube_type else '-' }}</dd>
+    <dt>Bundle / Scope</dt><dd>{{ inspection.source_bundle_code or 'MAIN' }} / {{ inspection.source_scope_code or 'ALL' }}</dd>
+  </dl>
+</article>
+<article class="panel inspection-governance-panel">
+  <div class="panel-head"><div><p class="eyebrow">Inspection governance</p><h2>검사 수행업체·장비·소프트웨어</h2></div><small>검사 당시 정보의 스냅샷</small></div>
+  <form class="governance-form" method="post" action="{{ url_for('inspection_execution_update', inspection_id=inspection.iris_inspection_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <fieldset class="governance-section provider-section">
+      <legend><span>01</span><strong>검사 수행업체</strong><small>등록 업체 선택 및 보고서 원문 정보</small></legend>
+      <div class="governance-grid">
+        <label class="field-wide">검사 수행업체<select name="inspection_provider_id"><option value="">미지정</option>{% for item in providers %}<option value="{{ item.inspection_provider_id }}" {% if provider and provider.inspection_provider_id == item.inspection_provider_id %}selected{% endif %}>{{ item.provider_code }} · {{ item.provider_name }}</option>{% endfor %}</select><small>등록된 업체를 선택합니다. 신규 업체 입력 시에는 미지정을 선택하세요.</small></label>
+        <div class="new-provider-fields field-wide">
+          <p><strong>신규 업체 등록</strong><small>목록에 없는 업체인 경우에만 입력</small></p>
+          <label>신규 업체 코드<input name="new_provider_code" placeholder="예: NDT_VENDOR_01"></label>
+          <label>신규 업체명<input name="new_provider_name" placeholder="검사 수행회사명"></label>
+        </div>
+        <label class="field-wide">원보고 업체명<input name="inspection_company_raw" value="{{ execution.inspection_company_raw if execution and execution.inspection_company_raw else '' }}"></label>
+        <label>업체 원문 표기<input readonly value="{{ execution.inspection_company_source_text if execution and execution.inspection_company_source_text else '' }}"></label>
+        <label>업체 브랜드<input readonly value="{{ execution.inspection_company_brand if execution and execution.inspection_company_brand else '' }}"></label>
+        <label>업체 출처 페이지<input readonly value="{{ execution.source_page if execution and execution.source_page is not none else '' }}"></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="governance-section">
+      <legend><span>02</span><strong>계약·검사 절차</strong><small>검사 작업을 식별하는 관리번호</small></legend>
+      <div class="governance-grid governance-grid-four">
+        <label>계약번호<input name="contract_no" value="{{ execution.contract_no if execution and execution.contract_no else '' }}"></label>
+        <label>작업지시번호<input name="work_order_no" value="{{ execution.work_order_no if execution and execution.work_order_no else '' }}"></label>
+        <label>검사 절차서 번호<input name="procedure_no" value="{{ execution.procedure_no if execution and execution.procedure_no else '' }}"></label>
+        <label>절차서 개정번호<input name="procedure_revision" value="{{ execution.procedure_revision if execution and execution.procedure_revision else '' }}"></label>
+      </div>
+    </fieldset>
+
+    <div class="governance-section-pair">
+      <fieldset class="governance-section">
+        <legend><span>03</span><strong>검사 장비·교정</strong><small>장비 식별 및 교정 유효성</small></legend>
+        <div class="governance-grid">
+          <label>장비 제조사<input name="equipment_maker" value="{{ setup.equipment_maker if setup and setup.equipment_maker else '' }}"></label>
+          <label>장비 모델<input name="equipment_model" value="{{ setup.equipment_model if setup and setup.equipment_model else '' }}"></label>
+          <label class="field-wide">장비 일련번호<input name="equipment_serial_number" value="{{ setup.equipment_serial_number if setup and setup.equipment_serial_number else '' }}"></label>
+          <label>장비 교정일<input type="date" name="equipment_calibration_date" value="{{ execution.equipment_calibration_date.strftime('%Y-%m-%d') if execution and execution.equipment_calibration_date else '' }}"></label>
+          <label>교정 유효기간<input type="date" name="equipment_calibration_valid_until" value="{{ execution.equipment_calibration_valid_until.strftime('%Y-%m-%d') if execution and execution.equipment_calibration_valid_until else '' }}"></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="governance-section">
+        <legend><span>04</span><strong>소프트웨어</strong><small>데이터 취득 및 분석 환경</small></legend>
+        <div class="governance-grid">
+          <label>취득 소프트웨어<input name="acquisition_software_name" value="{{ execution.acquisition_software_name if execution and execution.acquisition_software_name else '' }}"></label>
+          <label>취득 SW 버전<input name="acquisition_software_version" value="{{ execution.acquisition_software_version if execution and execution.acquisition_software_version else '' }}"></label>
+          <label>분석 소프트웨어<input name="analysis_software_name" value="{{ execution.analysis_software_name if execution and execution.analysis_software_name else '' }}"></label>
+          <label>분석 SW 버전<input name="analysis_software_version" value="{{ execution.analysis_software_version if execution and execution.analysis_software_version else '' }}"></label>
+        </div>
+      </fieldset>
+    </div>
+
+    <fieldset class="governance-section">
+      <legend><span>05</span><strong>탐촉자·담당자</strong><small>탐촉자 식별 및 역할별 소속</small></legend>
+      <div class="governance-grid governance-grid-three">
+        <label>탐촉자 제조사<input name="search_unit_maker" value="{{ setup.search_unit_maker if setup and setup.search_unit_maker else '' }}"></label>
+        <label>탐촉자 모델<input name="search_unit_model" value="{{ setup.search_unit_model if setup and setup.search_unit_model else '' }}"></label>
+        <label>탐촉자 일련번호<input name="search_unit_serial_number" value="{{ setup.search_unit_serial_number if setup and setup.search_unit_serial_number else '' }}"></label>
+        {% for role,label in [('examiner','검사자 소속'),('interpreter','판독자 소속'),('prepared_by','작성자 소속')] %}{% set person = personnel|selectattr('role','equalto',role|upper)|first %}<label>{{ label }}<input name="organization_{{ role }}" value="{{ person.organization if person and person.organization else '' }}"></label>{% endfor %}
+      </div>
+    </fieldset>
+
+    <label class="governance-remarks">비고<textarea name="remarks" rows="3">{{ execution.remarks if execution and execution.remarks else '' }}</textarea></label>
+    <div class="form-actions governance-actions"><small>변경 내용은 해당 검사 시점의 수행정보로 저장됩니다.</small><button class="button primary" type="submit">검사 수행정보 저장</button></div>
+  </form>
+</article>
+{% if issues %}<article class="panel issue-panel"><div class="panel-head"><h2>검증 이슈</h2></div>{% for issue in issues %}<div class="issue-row"><span class="severity">{{ issue.severity }}</span><code>{{ issue.issue_code }}</code><p>{{ issue.description }}</p></div>{% endfor %}</article>{% endif %}
+<article class="panel"><div class="panel-head"><div><p class="eyebrow">Tube results</p><h2>튜브별 결과</h2></div><small>원본: {{ source.source_file }}</small></div><div class="table-wrap tall"><table><thead><tr><th>튜브</th><th>행</th><th>열</th><th>최소두께(mm)</th><th>설계두께(mm)</th><th>감육깊이(mm)</th><th>감육률</th><th>보고 손상률</th><th>결함코드</th><th>부식 유형</th><th>위치</th><th>비고</th></tr></thead><tbody>
+{% for result,tube in results %}<tr><td><a class="strong-link" href="{{ url_for('tube_detail', tube_id=tube.tube_id) }}">{{ tube.tube_no }}</a></td><td>{{ tube.row_no or '-' }}</td><td>{{ tube.column_no or '-' }}</td><td>{{ result.minimum_wall_thickness_mm if result.minimum_wall_thickness_mm is not none else '-' }}</td><td>{{ result.design_wall_thickness_mm if result.design_wall_thickness_mm is not none else '-' }}</td><td>{{ result.wall_loss_depth_mm if result.wall_loss_depth_mm is not none else '-' }}</td><td class="{{ 'danger-text' if result.wall_loss_percent and result.wall_loss_percent >= 40 else '' }}">{{ '%.2f%%'|format(result.wall_loss_percent) if result.wall_loss_percent is not none else '-' }}</td><td>{{ '%.2f%%'|format(result.reported_depth_percent) if result.reported_depth_percent is not none else '-' }}</td><td>{{ result.defect_code or '-' }}</td><td>{{ result.corrosion_type or '-' }}</td><td>{{ '%.1f mm'|format(result.location_mm) if result.location_mm is not none else '-' }}</td><td>{{ result.remark or '-' }}</td></tr>{% endfor %}
+</tbody></table></div></article>
+{% endblock %}

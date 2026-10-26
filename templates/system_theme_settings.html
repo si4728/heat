@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}화면 테마 설정{% endblock %}
+{% block heading %}화면 테마 설정{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='system-theme-settings.css') }}">{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('dashboard') }}">대시보드</a>{% endblock %}
+{% block content %}
+<article class="panel theme-intro">
+  <div class="panel-head"><div><p class="eyebrow">SYSTEM APPEARANCE</p><h2>배경 및 라벨 색상</h2></div></div>
+  <div class="theme-intro-copy">
+    <p>시스템에 저장된 {{ theme_presets|length }}가지 테마의 배경색과 라벨 글자색을 조정하고, 사용할 테마를 선택할 수 있습니다.</p>
+    <p>사내 오렌지는 밝은 배경, 오렌지 강조색, 맑은 고딕과 확대된 글씨를 적용합니다. Tube Map의 검사·상태 색상은 유지됩니다.</p>
+    <p>저장 즉시 모든 기본 화면과 정밀 분석 화면에 적용됩니다.</p>
+  </div>
+</article>
+
+<form method="post" class="theme-settings-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="theme-preset-grid">
+    {% for preset in theme_presets %}
+    <article class="theme-preset-card {{ 'active' if preset.is_active else '' }} {{ 'orange-preview' if preset.preset_key == 'ORANGE' else '' }}" style="--preview-bg:{{ preset.background_color }};--preview-label:{{ preset.label_color }}">
+      <label class="theme-preset-select">
+        <input type="radio" name="active_preset" value="{{ preset.preset_key }}" {{ 'checked' if preset.is_active else '' }} required>
+        <span><strong>{{ preset.preset_name }}</strong><small>{{ preset.preset_key }}</small></span>
+      </label>
+      <div class="theme-preview" aria-label="{{ preset.preset_name }} 미리보기">
+        <span>LABEL COLOR</span>
+        <strong>지능형열교환기시스템</strong>
+        <small>배경색과 라벨 글자색 미리보기</small>
+      </div>
+      <div class="theme-color-fields">
+        <label>바탕화면 색
+          <span class="theme-color-picker"><input type="color" name="background_color_{{ preset.preset_key }}" value="{{ preset.background_color }}" required><code>{{ preset.background_color }}</code></span>
+        </label>
+        <label>라벨 글자색
+          <span class="theme-color-picker"><input type="color" name="label_color_{{ preset.preset_key }}" value="{{ preset.label_color }}" required><code>{{ preset.label_color }}</code></span>
+        </label>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  <div class="theme-actions"><button class="button primary" type="submit">선택 테마 저장 및 적용</button></div>
+</form>
+
+<form method="post" action="{{ url_for('system_theme_settings_reset') }}" class="theme-reset-form" onsubmit="return confirm('저장된 모든 테마를 시스템 기본값으로 복원하시겠습니까?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <button class="button" type="submit">기본 테마 복원</button>
+  <small>기본 다크 테마가 다시 적용됩니다.</small>
+</form>
+
+<script>
+document.querySelectorAll('input[name=active_preset]').forEach((input) => {
+  input.addEventListener('change', () => {
+    document.querySelectorAll('.theme-preset-card').forEach((card) => {
+      card.classList.toggle('active', card.querySelector('input[name=active_preset]').checked);
+    });
+  });
+});
+document.querySelectorAll('.theme-color-picker input[type=color]').forEach((input) => {
+  input.addEventListener('input', () => {
+    input.nextElementSibling.textContent = input.value;
+    const card = input.closest('.theme-preset-card');
+    const property = input.name.startsWith('background') ? '--preview-bg' : '--preview-label';
+    card.style.setProperty(property, input.value);
+  });
+});
+</script>
+{% endblock %}

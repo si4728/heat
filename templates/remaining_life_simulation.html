@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% set hx=master[0] %}{% set equipment=master[1] %}{% set unit=master[2] %}{% set plant=master[3] %}
+{% set life=remaining_life %}{% set simulation=remaining_life_simulation %}
+{% set display_exchanger_code=spec.exchanger_code if spec and spec.exchanger_code else equipment.equipment_code %}
+{% block title %}{{ (equipment.process_code|organization_label('PROCESS', plant.plant_code, equipment.production_team_code)) if equipment.process_code else unit.unit_name }} / {{ display_exchanger_code }} Tube Plugging 예측{% endblock %}
+{% block heading %}{{ (equipment.process_code|organization_label('PROCESS', plant.plant_code, equipment.production_team_code)) if equipment.process_code else unit.unit_name }} / {{ display_exchanger_code }} Tube Plugging 예측{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('api510_management', exchanger_id=hx.heat_exchanger_id) }}">API 510 계산 관리</a> <a class="button" href="{{ url_for('exchanger_detail', exchanger_id=hx.heat_exchanger_id) }}">열교환기 상세</a> <a class="button" href="{{ url_for('exchangers') }}">열교환기 목록</a>{% endblock %}
+{% block content %}
+<section class="simulation-identity">
+  <div><span>공정 / 열교환기 코드</span><strong>{{ (equipment.process_code|organization_label('PROCESS', plant.plant_code, equipment.production_team_code)) if equipment.process_code else unit.unit_name }} / {{ display_exchanger_code }}</strong><small>{{ equipment.equipment_name }}</small></div>
+  <div><span>생산공장</span><strong>{{ plant.plant_code|plant_display }}</strong></div>
+  <div><span>총 튜브</span><strong>{{ life.total_tube_count|comma }}개</strong></div>
+  <div><span>예측 데이터 보유</span><strong>{{ life.projected_tube_count|comma }}개</strong><small>{{ life.projection_coverage_percent }}%</small></div>
+</section>
+
+<article class="panel simulation-control-panel">
+  <div class="panel-head"><div><p class="eyebrow">Calculation Method</p><h2>계산 방식 및 조건 설정</h2></div><small>실행 결과와 입력값은 DB에 저장되지 않습니다.</small></div>
+  <form class="simulation-parameter-form calculation-method-{{ calculation_method|lower }}" method="get">
+    <input type="hidden" name="simulate" value="1">
+    <label><span>계산 방식</span><select name="calculation_method" required><option value="LEGACY" {{ 'selected' if calculation_method == 'LEGACY' else '' }}>기존 Tube Plugging 예측</option><option value="API510" {{ 'selected' if calculation_method == 'API510' else '' }}>API 510 검사주기</option></select><small>목적에 맞는 계산 엔진을 선택합니다.</small></label>
+    <div class="calculation-fields" data-calculation-fields="LEGACY">
+    {% set selected_limit=(simulation_limit if simulation_requested else life.limit_percent)|int %}
+    <label class="plugging-limit-range"><span class="range-heading"><span>허용 Plugging 한도</span><output for="simulation-limit-range">{{ selected_limit }}%</output></span><input id="simulation-limit-range" type="range" name="simulation_limit" min="1" max="20" step="1" value="{{ selected_limit }}" data-plugging-limit-range required><span class="range-scale"><span>1%</span><span>5%</span><span>10%</span><span>15%</span><span>20%</span></span><small>전체 튜브 중 허용 가능한 Plugging 비율</small></label>
+    <label><span>Plugging 판정 감육률</span><div class="parameter-with-unit"><input type="number" name="plugging_wall_loss_percent" min="1" max="100" step="1" value="{{ plugging_wall_loss_percent|round(1) }}" required><b>%</b></div><small>튜브를 Plugging 대상으로 판정하는 감육률</small></label>
+    <label><span>부식속도 배율</span><div class="parameter-with-unit"><input type="number" name="corrosion_rate_percent" min="50" max="300" step="10" value="{{ corrosion_rate_percent|round(0)|int }}" required><b>%</b></div><small>100%=현재, 150%=현재보다 1.5배 빠름</small></label>
+    <label><span>예측 종료 연도</span><input type="number" name="forecast_end_year" min="{{ life.current_year }}" max="2200" value="{{ forecast_end_year }}" required><small>비교 그래프에 표시할 마지막 연도</small></label>
+    </div>
+    {% set api_values=api510_values or api510_defaults %}
+    <div class="calculation-fields" data-calculation-fields="API510">
+      <label><span>검사 유형</span><select name="api_inspection_type" required><option value="INTERNAL_ON_STREAM" {{ 'selected' if api_values.inspection_type|default('INTERNAL_ON_STREAM') == 'INTERNAL_ON_STREAM' else '' }}>내부/가동중 검사</option><option value="EXTERNAL" {{ 'selected' if api_values.inspection_type|default('') == 'EXTERNAL' else '' }}>외부검사</option></select><small>검사 유형별 최대주기가 적용됩니다.</small></label>
+      <label><span>실제 측정두께 t_actual</span><div class="parameter-with-unit"><input type="number" name="api_actual_thickness_mm" min="0.001" step="0.001" value="{{ api_values.actual_thickness_mm if api_values.actual_thickness_mm is not none else '' }}" required><b>mm</b></div><small>{{ api510_defaults.actual_thickness_source }}</small></label>
+      <label><span>필요두께 t_required</span><div class="parameter-with-unit"><input type="number" name="api_required_thickness_mm" min="0" step="0.001" value="{{ api_values.required_thickness_mm if api_values.required_thickness_mm is not none else '' }}" required><b>mm</b></div><small>{{ api510_defaults.required_thickness_source }}</small></label>
+      <label><span>적용 부식속도</span><div class="parameter-with-unit"><input type="number" name="api_corrosion_rate_mm_per_year" min="0.000001" step="0.000001" value="{{ api_values.corrosion_rate_mm_per_year if api_values.corrosion_rate_mm_per_year is not none else '' }}" required><b>mm/yr</b></div><small>{{ api510_defaults.corrosion_rate_source }}</small></label>
+      <label><span>최근 검사일</span><input type="date" name="api_last_inspection_date" value="{{ api_values.last_inspection_date or '' }}" required><small>검사주기 기산일</small></label>
+      <label class="api-confirmation"><span>설계근거 확인</span><span class="check-line"><input type="checkbox" name="api_confirm_required_thickness" value="1" required><b>필요두께를 승인된 설계계산서와 대조했습니다.</b></span><small>{{ api510_defaults.code_edition }}</small></label>
+    </div>
+    <div class="simulation-form-actions"><button class="button primary" type="submit">Simulation 실행</button><a class="button" href="{{ url_for('remaining_life_simulation', exchanger_id=hx.heat_exchanger_id) }}">기본값 복원</a></div>
+  </form>
+</article>
+
+{% if calculation_method == 'API510' %}
+<section class="simulation-comparison api510-results">
+  <article class="simulation-scenario baseline"><p>계산 기준</p><strong>API 510</strong><span>{{ api510_defaults.code_edition }}</span><dl><dt>필요두께</dt><dd>설계계산 확인값</dd><dt>Plugging 기준</dt><dd>사용 안 함</dd></dl></article>
+  <div class="simulation-arrow" aria-hidden="true">→</div>
+  <article class="simulation-scenario projected {{ 'waiting' if not api510_result else '' }}"><p>검사주기 결과</p>{% if api510_result %}<strong>{{ '%.2f'|format(api510_result.inspection_interval_years) }}년</strong><span>다음 검사일 {{ api510_result.next_inspection_date }}</span><dl><dt>검사 유형</dt><dd>{{ api510_result.inspection_type_label }}</dd><dt>상태</dt><dd>{{ '기한 경과' if api510_result.overdue else ('즉시 조치 필요' if api510_result.status == 'ACTION_REQUIRED' else '계산 완료') }}</dd></dl>{% else %}<strong>조건을 확인해 실행하세요.</strong><span>실제두께·필요두께·적용 부식속도가 필요합니다.</span>{% endif %}</article>
+  <article class="simulation-scenario delta"><p>잔여수명</p>{% if api510_result %}<strong>{{ '%.2f'|format(api510_result.remaining_life_years) }}년</strong><span>잔여 부식여유 {{ '%.3f'|format(api510_result.remaining_corrosion_allowance_mm) }} mm</span><dl><dt>적용 부식속도</dt><dd>{{ '%.6f'|format(api510_result.corrosion_rate_mm_per_year) }} mm/yr</dd><dt>최대 검사주기</dt><dd>{{ api510_result.maximum_interval_years|round(1) }}년</dd></dl>{% else %}<strong>-</strong><span>계산 실행 전</span>{% endif %}</article>
+</section>
+{% else %}
+<section class="simulation-comparison">
+  <article class="simulation-scenario baseline"><p>현재 관리기준</p><strong>{{ life.remaining_life_years if life.remaining_life_years is not none else '-' }}년</strong><span>수명 도달 {{ life.life_reached_year or '예측기간 내 미도달' }}</span><dl><dt>허용 Plugging</dt><dd>{{ life.limit_percent|int }}% · {{ life.allowable_plugging_count|comma }}개</dd><dt>판정 감육률</dt><dd>{{ life.plugging_wall_loss_percent|round(1) }}%</dd><dt>부식속도</dt><dd>100%</dd></dl></article>
+  <div class="simulation-arrow" aria-hidden="true">→</div>
+  <article class="simulation-scenario projected {{ 'waiting' if not simulation else '' }}"><p>사용자 Simulation</p>{% if simulation %}<strong>{{ simulation.remaining_life_years if simulation.remaining_life_years is not none else '-' }}년</strong><span>수명 도달 {{ simulation.life_reached_year or '예측기간 내 미도달' }}</span><dl><dt>허용 Plugging</dt><dd>{{ simulation.limit_percent|int }}% · {{ simulation.allowable_plugging_count|comma }}개</dd><dt>판정 감육률</dt><dd>{{ simulation.plugging_wall_loss_percent|round(1) }}%</dd><dt>부식속도</dt><dd>{{ (simulation.corrosion_rate_multiplier*100)|round(0)|int }}%</dd></dl>{% else %}<strong>조건을 설정해 실행하세요.</strong><span>현재 관리기준과 비교 결과가 표시됩니다.</span>{% endif %}</article>
+  <article class="simulation-scenario delta"><p>잔여수명 변화</p>{% if simulation and life.remaining_life_years is not none and simulation.remaining_life_years is not none %}{% set delta=simulation.remaining_life_years-life.remaining_life_years %}<strong>{{ '+' if delta > 0 else '' }}{{ delta }}년</strong><span>현재 관리기준 대비</span>{% elif simulation %}<strong>비교 불가</strong><span>한도 도달 연도 산정 데이터가 부족합니다.</span>{% else %}<strong>-</strong><span>Simulation 실행 전</span>{% endif %}</article>
+</section>
+
+<article class="panel simulation-chart-panel">
+  <div class="panel-head"><div><p class="eyebrow">Cumulative Plugging Forecast</p><h2>연도별 누적 Plugging 비교</h2></div><div class="simulation-legend"><span class="baseline">현재 기준</span>{% if simulation %}<span class="projected">Simulation</span>{% endif %}</div></div>
+  <div id="simulation-comparison-chart" class="simulation-comparison-chart" role="img" aria-label="현재 관리기준과 사용자 시뮬레이션의 연도별 누적 Plugging 비교 그래프"></div>
+  <script id="simulation-comparison-data" type="application/json">{{ {'baseline':{'series':life.chart_series,'limit':life.allowable_plugging_count},'simulation':({'series':simulation.chart_series,'limit':simulation.allowable_plugging_count} if simulation else none),'total':life.total_tube_count}|tojson }}</script>
+</article>
+{% endif %}
+
+<div class="simulation-caution"><strong>해석 주의</strong><span>{% if calculation_method == 'API510' %}API 510 결과는 입력한 필요두께와 적용 부식속도를 기준으로 한 검사계획 보조자료입니다. 적용 코드 판본, 관할 규정, RBI 적용 여부 및 최종 검사일은 API 공인검사자 또는 책임 엔지니어가 승인해야 합니다.{% else %}본 결과는 등록된 검사 이력과 부식속도를 기반으로 한 Tube Plugging What-if 계산입니다. API 510 검사주기와는 별도이며 정비 의사결정 전 엔지니어 검토가 필요합니다.{% endif %}</span></div>
+{% if calculation_method == 'LEGACY' %}<script src="{{ url_for('static', filename='life-simulation.js') }}"></script>{% endif %}
+<script src="{{ url_for('static', filename='calculation-method.js') }}"></script>
+{% endblock %}

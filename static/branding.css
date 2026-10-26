@@ -1,0 +1,39 @@
+.brand {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 2px 4px 28px;
+}
+
+.brand-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+  padding-left: 3px;
+}
+
+.brand-copy strong {
+  font-size: 15px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.brand-copy small {
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .brand {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand-copy {
+    display: block;
+    padding-left: 0;
+  }
+}

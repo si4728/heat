@@ -1,0 +1,552 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:var(--font-sans)}
+.topnav{display:flex;align-items:center;background:#08111a;border-bottom:1px solid #1a2b38;padding:0 12px;height:38px;gap:2px;position:sticky;top:0;z-index:10}
+.logo{font-size:13px;font-weight:500;color:#3ecfb0;margin-right:12px;display:flex;align-items:center;gap:5px}
+.tab{padding:0 12px;height:38px;display:flex;align-items:center;font-size:12px;color:#6a8494;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s}
+.tab.active{color:#3ecfb0;border-bottom:2px solid #3ecfb0}
+.tab:hover{color:#b0c8d4}
+.page{display:none;background:#060e15;min-height:calc(100vh - 38px)}
+.page.active{display:block}
+.two-col{display:flex;min-height:calc(100vh - 38px)}
+.lp{width:190px;background:#08111a;border-right:1px solid #1a2b38;display:flex;flex-direction:column;flex-shrink:0}
+.lp-filter{padding:6px;border-bottom:1px solid #1a2b38}
+.lp-filter select,.lp-search input{width:100%;background:#060e15;border:1px solid #1a2b38;border-radius:3px;color:#b0c8d4;font-size:11px;padding:4px 7px;outline:none}
+.lp-filter select option{background:#0c1820}
+.lp-search{padding:6px;border-bottom:1px solid #1a2b38}
+.lp-search input::placeholder{color:#3a4f5e}
+.lp-list{overflow-y:auto;flex:1}
+.ei{padding:5px 10px;font-size:11px;color:#6a8494;cursor:pointer;border-left:2px solid transparent;display:flex;justify-content:space-between;align-items:center}
+.ei:hover{background:#0c1820;color:#b0c8d4}
+.ei.active{background:#0c1820;color:#ddeef8;border-left:2px solid #3ecfb0}
+.eb2{font-size:9px;padding:1px 4px;border-radius:2px;font-weight:500;flex-shrink:0}
+.eb-g{background:rgba(62,207,176,0.15);color:#3ecfb0}.eb-y{background:rgba(212,160,48,0.15);color:#d4a030}.eb-r{background:rgba(212,80,80,0.15);color:#d45050}
+.rc{flex:1;overflow:auto}
+
+/* 대시보드 */
+.dw{padding:1rem}
+.ptitle{font-size:14px;font-weight:500;color:#ddeef8;margin-bottom:1rem}
+.stbl{width:100%;border-collapse:collapse;margin-bottom:1.5rem;font-size:12px}
+.stbl th{background:#0c1820;color:#6a8494;font-weight:400;padding:7px 12px;border:1px solid #1a2b38;text-align:center}
+.stbl th.pc{text-align:left}
+.stbl td{padding:7px 12px;border:1px solid #1a2b38;text-align:center;color:#b0c8d4;background:#08111a}
+.stbl td.pn{text-align:left;font-weight:500;color:#ddeef8;background:#0c1820;font-size:11px}
+.stbl tfoot td{background:#0c1820;font-weight:500;color:#ddeef8}
+.nb{cursor:pointer;padding:2px 8px;border-radius:3px;display:inline-block;min-width:28px;font-size:12px;transition:all 0.15s}
+.nb:hover{opacity:0.75}
+.n-g{color:#3ecfb0;background:rgba(62,207,176,0.1)}.n-y{color:#d4a030;background:rgba(212,160,48,0.1)}.n-r{color:#d45050;background:rgba(212,80,80,0.1)}.n-t{color:#b0c8d4;background:rgba(176,200,212,0.07)}.n-z{color:#253545;cursor:default}
+.rs{display:none}
+.rh{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
+.rt{font-size:13px;font-weight:500;color:#b0c8d4}
+.rbadge{font-size:10px;padding:2px 8px;border-radius:8px}
+.rb-g{background:rgba(62,207,176,0.15);color:#3ecfb0}.rb-y{background:rgba(212,160,48,0.15);color:#d4a030}.rb-r{background:rgba(212,80,80,0.15);color:#d45050}.rb-a{background:rgba(176,200,212,0.1);color:#b0c8d4}
+.divider{border:none;border-top:1px solid #1a2b38;margin:1rem 0}
+
+/* 대시보드 목록 테이블 */
+.list-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.list-tbl th{background:#0c1820;color:#6a8494;font-weight:400;padding:6px 10px;border:1px solid #1a2b38;text-align:left;white-space:nowrap}
+.list-tbl td{padding:6px 10px;border:1px solid #1a2b38;color:#b0c8d4;background:#08111a}
+.list-tbl tr:hover td{background:#0c1820;cursor:pointer}
+.list-tbl td.code{color:#ddeef8;font-weight:500}
+.rul-pill{font-size:10px;padding:1px 7px;border-radius:10px;display:inline-block}
+.rp-g{background:rgba(62,207,176,0.15);color:#3ecfb0}.rp-y{background:rgba(212,160,48,0.15);color:#d4a030}.rp-r{background:rgba(212,80,80,0.15);color:#d45050}
+.goto-link{font-size:10px;color:#3a4f5e;cursor:pointer}
+.goto-link:hover{color:#3ecfb0}
+
+/* 설비마스터 */
+.mform{padding:1.25rem}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fcard{background:#08111a;border:1px solid #1a2b38;border-radius:8px;padding:1rem 1.25rem}
+.fcard-title{font-size:12px;font-weight:500;color:#b0c8d4;margin-bottom:1rem;display:flex;align-items:center;gap:6px;padding-bottom:8px;border-bottom:1px solid #1a2b38}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field.span2{grid-column:span 2}
+label{font-size:10px;color:#6a8494}
+.req{color:#d45050;margin-left:2px}
+input[type=text],input[type=number],select.fi,textarea{background:#060e15;border:1px solid #1a2b38;border-radius:4px;color:#b0c8d4;font-size:11px;padding:6px 8px;outline:none;width:100%;transition:border-color 0.15s}
+input:focus,select.fi:focus,textarea:focus{border-color:#3ecfb0}
+input::placeholder,textarea::placeholder{color:#3a4f5e}
+select.fi option{background:#0c1820}
+textarea{resize:vertical;min-height:60px;line-height:1.5}
+.crit-box{display:flex;align-items:flex-start;gap:10px;background:#0c1820;border:1px solid #1a2b38;border-radius:6px;padding:10px 12px;cursor:pointer;transition:border-color 0.15s}
+.crit-box:hover{border-color:#253545}
+.crit-box.checked{border-color:#d45050;background:rgba(212,80,80,0.05)}
+.chk{width:16px;height:16px;border-radius:3px;border:1.5px solid #253545;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;transition:all 0.15s;background:#060e15}
+.chk.on{background:#d45050;border-color:#d45050}
+.chk-lbl{display:flex;flex-direction:column;gap:2px}
+.chk-main{font-size:11px;font-weight:500;color:#b0c8d4}
+.chk-sub{font-size:10px;color:#6a8494}
+.odf-disp{margin-top:10px;background:#0c1820;border:1px solid #1a2b38;border-radius:6px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between}
+.odf-lbl{font-size:10px;color:#6a8494}
+.fdiv{border:none;border-top:1px solid #1a2b38;margin:8px 0;grid-column:span 2}
+.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem}
+.btn-cancel{font-size:12px;color:#6a8494;cursor:pointer;border:1px solid #1a2b38;padding:6px 16px;border-radius:4px;background:#0c1820}
+.btn-save{font-size:12px;color:#060e15;cursor:pointer;border:none;padding:6px 18px;border-radius:4px;background:#3ecfb0;font-weight:500}
+.unit{font-size:10px;color:#4a6070;margin-left:3px}
+
+/* 정밀분석 */
+.ib{display:grid;grid-template-columns:repeat(8,1fr);border-bottom:1px solid #1a2b38}
+.ic{padding:7px 10px;border-right:1px solid #1a2b38;min-width:0}
+.ic:last-child{border-right:none}
+.il{font-size:9px;color:#6a8494;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iv{font-size:11px;font-weight:500;color:#ddeef8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iv.y{color:#d4a030}.iv.r{color:#d45050}
+.mg{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #1a2b38}
+.pn2{border-right:1px solid #1a2b38;padding:10px}
+.pn2:last-child{border-right:none}
+.pt2{font-size:11px;color:#6a8494;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.tmap{display:grid;gap:3px;margin-bottom:6px}
+.tube{width:15px;height:15px;border-radius:50%;cursor:pointer;transition:transform 0.1s;display:inline-block}
+.tube:hover{transform:scale(1.35)}
+.t-none{background:#1a2b38}.t-ok{background:#3ecfb0}.t-med{background:#d4a030}.t-hi{background:#b06020}.t-plug{background:#a070d0}.t-uninspect{background:#0d1e2a;border:1px solid #1a2b38}
+.mleg{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.ml2{display:flex;align-items:center;gap:3px;font-size:9px;color:#6a8494}
+.mld{width:8px;height:8px;border-radius:50%}
+.dt{width:100%;border-collapse:collapse;font-size:10px}
+.dt th{color:#6a8494;font-weight:400;padding:4px 5px;border-bottom:1px solid #1a2b38;text-align:left;white-space:nowrap}
+.dt td{padding:4px 5px;color:#b0c8d4;border-bottom:1px solid #0c1820}
+.dt tr:hover td{background:#0c1820;cursor:pointer}
+.dbar{height:7px;border-radius:2px;display:inline-block;vertical-align:middle}
+.st{font-size:10px;color:#6a8494;padding:6px 10px;border-bottom:1px solid #1a2b38;border-top:1px solid #1a2b38;background:#08111a}
+.tp{padding:10px}
+.tg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tc{background:#08111a;border:1px solid #1a2b38;border-radius:5px;padding:8px}
+.tt{font-size:10px;color:#6a8494;margin-bottom:6px}
+.tr2{display:flex;align-items:center;gap:5px;margin-bottom:3px;font-size:10px}
+.ty2{width:32px;color:#6a8494}
+.tbg{flex:1;height:8px;background:#1a2b38;border-radius:2px;overflow:hidden}
+.tbf{height:100%;border-radius:2px}
+.tv2{width:44px;color:#b0c8d4;text-align:right;font-size:10px}
+.cr2{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #0c1820;font-size:10px}
+.cr2:last-child{border-bottom:none}
+.crb{font-size:9px;padding:1px 5px;border-radius:2px}
+.crb-g{background:rgba(62,207,176,0.12);color:#3ecfb0}.crb-y{background:rgba(212,160,48,0.12);color:#d4a030}.crb-r{background:rgba(212,80,80,0.12);color:#d45050}
+.rul-box{background:#08111a;border:1px solid #1a2b38;border-radius:5px;padding:8px}
+.rul-explain{font-size:10px;color:#6a8494;line-height:1.8}
+.rul-explain b{color:#b0c8d4;font-weight:500}
+.rul-formula{font-size:10px;color:#3ecfb0;background:#060e15;border:1px solid #1a2b38;border-radius:4px;padding:5px 8px;margin:3px 0;font-family:var(--font-mono)}
+</style>
+
+<div class="topnav">
+  <div class="logo"><i class="ti ti-settings-2" aria-hidden="true"></i> HX-Manager</div>
+  <div class="tab active" id="tab-dashboard" onclick="switchTab('dashboard',this)">대시보드</div>
+  <div class="tab" id="tab-master" onclick="switchTab('master',this)">설비 마스터</div>
+  <div class="tab" id="tab-analysis" onclick="switchTab('analysis',this)">정밀 분석</div>
+</div>
+
+<!-- 대시보드 -->
+<div class="page active" id="page-dashboard">
+  <div class="dw">
+    <div class="ptitle">운영 대시보드</div>
+    <table class="stbl">
+      <thead><tr>
+        <th class="pc">공정</th>
+        <th style="color:#3ecfb0">15년↑</th>
+        <th style="color:#d4a030">5~15년</th>
+        <th style="color:#d45050">5년↓</th>
+        <th>합계</th>
+      </tr></thead>
+      <tbody id="summaryBody"></tbody>
+      <tfoot id="summaryFoot"></tfoot>
+    </table>
+    <div class="rs" id="resultSection">
+      <hr class="divider">
+      <div class="rh">
+        <div class="rt" id="resultTitle"></div>
+        <span class="rbadge" id="resultBadge"></span>
+      </div>
+      <table class="list-tbl" id="listTable">
+        <thead><tr>
+          <th>Item No.</th><th>설비명</th><th>최근 검사일</th><th>최대 감육률</th><th>잔여수명</th><th></th>
+        </tr></thead>
+        <tbody id="listBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 설비 마스터 -->
+<div class="page" id="page-master">
+  <div class="two-col">
+    <div class="lp">
+      <div class="lp-filter"><select onchange="filterMaster(this.value)"><option value="ALL">전체 공정</option><option>VCM1</option><option>VCM2</option><option>VCM3</option><option>VCM4</option><option>여수</option></select></div>
+      <div class="lp-search"><input placeholder="설비 검색..." oninput="filterMasterSearch(this.value)" id="masterSearch"></div>
+      <div class="lp-list" id="masterList"></div>
+    </div>
+    <div class="rc">
+      <div class="mform">
+        <div style="font-size:14px;font-weight:500;color:#ddeef8;margin-bottom:4px">설비 수정</div>
+        <div style="font-size:11px;color:#6a8494;margin-bottom:1.25rem">자산 관리 마스터 및 기술 사양을 입력합니다.</div>
+        <div class="form-grid">
+          <div class="fcard">
+            <div class="fcard-title"><i class="ti ti-building-factory-2" aria-hidden="true"></i> 기본 마스터 정보</div>
+            <div class="fg">
+              <div class="field"><label>공정<span class="req">*</span></label><select class="fi"><option>VCM1</option><option>VCM2</option><option>VCM3</option><option>VCM4</option><option>여수</option></select></div>
+              <div class="field"><label>설비 코드<span class="req">*</span></label><input type="text" id="mCode" value="E-111"></div>
+              <div class="field"><label>설비명<span class="req">*</span></label><input type="text" value="VCM1 Condenser A"></div>
+              <div class="field"><label>설비 유형</label><select class="fi"><option>Shell &amp; Tube</option><option>Air Cooler</option><option>Plate</option></select></div>
+              <hr class="fdiv">
+              <div class="field span2">
+                <label>공정 중요도 (Criticality)</label>
+                <div class="crit-box" id="critBox" onclick="toggleCrit()">
+                  <div class="chk" id="chkIcon"></div>
+                  <div class="chk-lbl"><div class="chk-main">Critical 설비로 지정</div><div class="chk-sub">체크 시 허용 Plugging 한도 10% 적용 (기본: 20%)</div></div>
+                </div>
+                <div class="odf-disp">
+                  <div class="odf-lbl">적용 Over-design Factor (허용 Plugging 한도)</div>
+                  <div><span style="font-size:14px;font-weight:500;color:#3ecfb0" id="odfVal">20%</span><span style="font-size:10px;color:#6a8494;margin-left:6px" id="odfNote">— 일반 설비 기준</span></div>
+                </div>
+              </div>
+              <hr class="fdiv">
+              <div class="field"><label>Shell 측 유체</label><input type="text" placeholder="예) 냉각수, Steam"></div>
+              <div class="field"><label>Tube 측 유체</label><input type="text" placeholder="예) VCM, EDC, HCl"></div>
+              <div class="field span2"><label>비고 (Remark)</label><textarea placeholder="특이사항, 이력 메모 등"></textarea></div>
+            </div>
+          </div>
+          <div class="fcard">
+            <div class="fcard-title"><i class="ti ti-adjustments-horizontal" aria-hidden="true"></i> 기술 사양 (Specification)</div>
+            <div class="fg">
+              <div class="field"><label>설계 압력 <span class="unit">(kg/cm²g)</span></label><input type="number" placeholder="예) 10.5"></div>
+              <div class="field"><label>설계 온도 <span class="unit">(°C)</span></label><input type="number" placeholder="예) 150"></div>
+              <div class="field"><label>운전 압력 <span class="unit">(kg/cm²g)</span></label><input type="number" placeholder="예) 8.2"></div>
+              <div class="field"><label>운전 온도 <span class="unit">(°C)</span></label><input type="number" placeholder="예) 120"></div>
+              <hr class="fdiv">
+              <div class="field"><label>Shell 재질</label><input type="text" value="Carbon Steel"></div>
+              <div class="field"><label>Tube 재질</label><input type="text" value="Stainless Steel 316"></div>
+              <div class="field"><label>Tube 공칭 두께 <span class="unit">(mm)</span></label><input type="number" placeholder="예) 2.77"></div>
+              <div class="field"><label>Tube 총 수량 <span class="unit">(개)</span></label><input type="number" placeholder="예) 450"></div>
+              <div class="field"><label>Tube 외경 <span class="unit">(mm)</span></label><input type="number" placeholder="예) 19.05"></div>
+              <div class="field"><label>Tube 길이 <span class="unit">(mm)</span></label><input type="number" placeholder="예) 6000"></div>
+              <hr class="fdiv">
+              <div class="field"><label>제작 연도</label><input type="number" placeholder="예) 2005"></div>
+              <div class="field"><label>최초 가동 연도</label><input type="number" placeholder="예) 2006"></div>
+              <div class="field"><label>T/A 주기 <span class="unit">(년)</span></label><select class="fi"><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+              <div class="field"><label>최근 T/A 연도</label><input type="number" placeholder="예) 2023"></div>
+            </div>
+          </div>
+        </div>
+        <div class="actions"><div class="btn-cancel">✕ 취소</div><div class="btn-save">✔ 최종 저장</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 정밀 분석 -->
+<div class="page" id="page-analysis">
+  <div class="two-col">
+    <div class="lp">
+      <div class="lp-filter"><select onchange="filterAnalysis(this.value)" id="apf"><option value="ALL">전체 공정</option><option>VCM1</option><option>VCM2</option><option>VCM3</option><option>VCM4</option><option>여수</option></select></div>
+      <div class="lp-search"><input placeholder="설비 검색..." oninput="filterEq(this.value)" id="searchInput"></div>
+      <div class="lp-list" id="eqList"></div>
+    </div>
+    <div class="rc">
+      <div class="ib">
+        <div class="ic"><div class="il">설비코드</div><div class="iv" id="iCode">-</div></div>
+        <div class="ic"><div class="il">공정</div><div class="iv" id="iPlant">-</div></div>
+        <div class="ic"><div class="il">검사일</div><div class="iv" id="iDate">-</div></div>
+        <div class="ic"><div class="il">검사수량 / 총수량</div><div class="iv" id="iTubes">-</div></div>
+        <div class="ic"><div class="il">Shell 유체</div><div class="iv" id="iShell">-</div></div>
+        <div class="ic"><div class="il">Tube 유체</div><div class="iv" id="iTubeFluid">-</div></div>
+        <div class="ic"><div class="il">Tube 재질</div><div class="iv" id="iTubeMat">-</div></div>
+        <div class="ic"><div class="il">부식속도 (mm/yr)</div><div class="iv y" id="iCrVal">-</div></div>
+      </div>
+      <div class="mg">
+        <div class="pn2">
+          <div class="pt2"><i class="ti ti-grid-dots" aria-hidden="true"></i> Tube Sheet Map</div>
+          <div class="tmap" id="tubeMap"></div>
+          <div class="mleg">
+            <div class="ml2"><div class="mld" style="background:#0d1e2a;border:1px solid #1a2b38"></div>미검사</div>
+            <div class="ml2"><div class="mld" style="background:#3ecfb0"></div>OK (0~15%)</div>
+            <div class="ml2"><div class="mld" style="background:#d4a030"></div>Medium (15~25%)</div>
+            <div class="ml2"><div class="mld" style="background:#b06020"></div>High (25~40%)</div>
+            <div class="ml2"><div class="mld" style="background:#a070d0"></div>Plugging (40%↑)</div>
+          </div>
+        </div>
+        <div class="pn2">
+          <div class="pt2"><i class="ti ti-list" aria-hidden="true"></i> 결함 목록 <span style="color:#3a4f5e;font-weight:400;margin-left:3px" id="defectCount"></span></div>
+          <div style="overflow-y:auto;max-height:280px">
+            <table class="dt">
+              <thead><tr><th>#</th><th>Row</th><th>Col</th><th>감육률</th><th>두께(mm)</th><th>부식속도</th><th>Plugging 예상</th></tr></thead>
+              <tbody id="defectBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="st">선택 튜브 — 두께 이력 / 부식속도 / 잔여수명 분석</div>
+      <div class="tp">
+        <div class="tg">
+          <div class="tc"><div class="tt" id="trendTitle">튜브를 클릭하면 이력이 표시됩니다</div><div id="trendBars"></div></div>
+          <div class="tc"><div class="tt">부식속도 분석</div><div id="crAnalysis"></div></div>
+          <div class="tc"><div class="tt">설비 잔여수명 분석</div><div id="rulAnalysis"></div></div>
+          <div class="rul-box">
+            <div class="tt" style="margin-bottom:8px">잔여수명 계산 방법</div>
+            <div class="rul-explain">
+              <b>① 튜브별 Plugging 도달 연도</b><br>
+              <div class="rul-formula">Plugging 연도 = 현재연도 + (공칭두께×0.4 − 현재감육량) ÷ 부식속도</div>
+              <b>② 연도별 누적 Plugging 집계</b><br>
+              각 튜브의 도달 연도 기준 누적 합산<br><br>
+              <b>③ 허용 한도 초과 시점 = 수명 도달</b><br>
+              <div class="rul-formula">허용 Plugging 수 = 총 튜브 수 × 한도율 (일반 20% / Critical 10%)</div>
+              <b>④ 잔여수명</b><br>
+              <div class="rul-formula">잔여수명(년) = 수명 도달 연도 − 2025</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CY=2025,NOM=2.77,PLG=0.40;
+
+const eqData=[
+  {code:'C-160E3',name:'VCM1 Condenser',plant:'VCM1',date:'2025-07-09',total:176,inspected:124,shell:'냉각수',tubeFluid:'VCM',tubeMat:'Carbon Steel',critical:false,
+   tubes:[{r:2,c:3,loss:8,cr:0.030},{r:3,c:7,loss:12,cr:0.035},{r:4,c:2,loss:6,cr:0.025},{r:5,c:11,loss:18,cr:0.045},{r:6,c:4,loss:22,cr:0.050},{r:1,c:9,loss:5,cr:0.018},{r:7,c:6,loss:15,cr:0.038},{r:8,c:1,loss:9,cr:0.028},{r:3,c:13,loss:28,cr:0.060},{r:9,c:5,loss:3,cr:0.015},{r:2,c:15,loss:35,cr:0.070},{r:10,c:8,loss:7,cr:0.022},{r:5,c:3,loss:11,cr:0.032},{r:7,c:12,loss:4,cr:0.016}]},
+  {code:'C-170E 1A',name:'VCM1 EDC Cooler A',plant:'VCM1',date:'2025-03-15',total:96,inspected:96,shell:'냉각수',tubeFluid:'EDC',tubeMat:'Carbon Steel',critical:true,
+   tubes:[{r:1,c:2,loss:32,cr:0.080},{r:2,c:5,loss:28,cr:0.065},{r:3,c:1,loss:41,cr:0.095},{r:4,c:8,loss:15,cr:0.040},{r:5,c:3,loss:22,cr:0.055},{r:6,c:6,loss:38,cr:0.085},{r:7,c:4,loss:10,cr:0.030},{r:2,c:9,loss:45,cr:0.100},{r:8,c:2,loss:19,cr:0.048},{r:3,c:11,loss:26,cr:0.062},{r:9,c:7,loss:8,cr:0.025},{r:1,c:13,loss:33,cr:0.078}]},
+  {code:'C-170E 1B',name:'VCM1 EDC Cooler B',plant:'VCM1',date:'2025-03-15',total:96,inspected:88,shell:'냉각수',tubeFluid:'EDC',tubeMat:'Carbon Steel',critical:false,
+   tubes:[{r:2,c:4,loss:14,cr:0.038},{r:4,c:7,loss:20,cr:0.050},{r:6,c:2,loss:8,cr:0.025},{r:1,c:10,loss:25,cr:0.058},{r:7,c:5,loss:11,cr:0.032},{r:3,c:12,loss:18,cr:0.044},{r:5,c:8,loss:5,cr:0.018},{r:8,c:3,loss:30,cr:0.068},{r:9,c:6,loss:7,cr:0.022}]},
+  {code:'C-190E 1A',name:'VCM2 HCl Cooler A',plant:'VCM2',date:'2025-07-01',total:80,inspected:60,shell:'냉각수',tubeFluid:'HCl',tubeMat:'Titanium',critical:true,
+   tubes:[{r:3,c:4,loss:6,cr:0.020},{r:5,c:2,loss:9,cr:0.025},{r:1,c:7,loss:4,cr:0.015},{r:7,c:5,loss:12,cr:0.030},{r:4,c:9,loss:7,cr:0.022}]},
+  {code:'C-190E 1B',name:'VCM2 HCl Cooler B',plant:'VCM2',date:'2025-07-01',total:80,inspected:72,shell:'냉각수',tubeFluid:'HCl',tubeMat:'Titanium',critical:false,
+   tubes:[{r:2,c:3,loss:5,cr:0.018},{r:4,c:6,loss:8,cr:0.024},{r:6,c:1,loss:3,cr:0.012},{r:3,c:8,loss:10,cr:0.028},{r:8,c:4,loss:6,cr:0.020}]},
+  {code:'E-152B',name:'VCM3 Process Cooler',plant:'VCM3',date:'2024-11-10',total:60,inspected:60,shell:'냉각수',tubeFluid:'Process',tubeMat:'Carbon Steel',critical:false,
+   tubes:[{r:1,c:3,loss:38,cr:0.088},{r:3,c:6,loss:25,cr:0.062},{r:2,c:9,loss:42,cr:0.095},{r:5,c:2,loss:18,cr:0.045},{r:4,c:7,loss:31,cr:0.075},{r:6,c:4,loss:12,cr:0.033}]},
+  {code:'E-3171',name:'VCM4 NaOH HX',plant:'VCM4',date:'2024-10-01',total:200,inspected:168,shell:'냉각수',tubeFluid:'NaOH',tubeMat:'SS 304',critical:false,
+   tubes:[{r:2,c:5,loss:20,cr:0.048},{r:4,c:10,loss:15,cr:0.038},{r:6,c:3,loss:25,cr:0.058},{r:8,c:7,loss:10,cr:0.028},{r:3,c:14,loss:30,cr:0.068},{r:5,c:1,loss:8,cr:0.024},{r:7,c:9,loss:18,cr:0.044},{r:9,c:6,loss:22,cr:0.052}]},
+  {code:'PE3 E-310',name:'Yeosu Process HX',plant:'Yeosu',date:'2024-05-30',total:120,inspected:96,shell:'냉각수',tubeFluid:'Process',tubeMat:'Carbon Steel',critical:false,
+   tubes:[{r:3,c:5,loss:12,cr:0.032},{r:5,c:8,loss:8,cr:0.024},{r:2,c:11,loss:16,cr:0.040},{r:7,c:3,loss:5,cr:0.018},{r:4,c:14,loss:20,cr:0.048}]},
+  {code:'PE3 E-401',name:'Yeosu Feed HX',plant:'Yeosu',date:'2024-05-30',total:150,inspected:132,shell:'냉각수',tubeFluid:'Process',tubeMat:'Carbon Steel',critical:true,
+   tubes:[{r:1,c:4,loss:35,cr:0.082},{r:3,c:8,loss:28,cr:0.065},{r:5,c:2,loss:42,cr:0.096},{r:2,c:12,loss:18,cr:0.044},{r:6,c:6,loss:22,cr:0.054},{r:4,c:10,loss:38,cr:0.088}]},
+];
+
+function calcRUL(eq){
+  const limit=eq.critical?0.10:0.20;
+  const allowPlug=Math.floor(eq.total*limit);
+  const plugYears=eq.tubes.map(t=>{
+    if(t.loss>=40) return CY;
+    const rem=(NOM*PLG)-(NOM*t.loss/100);
+    return t.cr>0?CY+Math.ceil(rem/t.cr):CY+99;
+  });
+  const curPlug=Math.round(plugYears.filter(y=>y<=CY).length/eq.tubes.length*eq.total);
+  for(let yr=CY+1;yr<=CY+30;yr++){
+    const cnt=Math.round(plugYears.filter(y=>y<=yr).length/eq.tubes.length*eq.total);
+    if(cnt>=allowPlug) return {rul:yr-CY,lifeYear:yr,curPlug,allowPlug,limit};
+  }
+  return {rul:'>25',lifeYear:null,curPlug,allowPlug,limit};
+}
+function getRULClass(rul){return(rul==='>25'||rul>15)?'g':rul>5?'y':'r';}
+function getMaxLoss(eq){return Math.max(...eq.tubes.map(t=>t.loss));}
+
+const dashData={
+  VCM1:[
+    {code:'E-111',name:'VCM1 Condenser A',date:'2025-03-15',maxLoss:12,rul:'g'},
+    {code:'E-281B',name:'VCM1 Reboiler',date:'2023-10-01',maxLoss:24,rul:'y'},
+    {code:'E-330B',name:'VCM1 Cooler B',date:'2025-03-15',maxLoss:9,rul:'g'},
+    {code:'E-400A',name:'VCM1 HX-400A',date:'2023-10-01',maxLoss:38,rul:'r'},
+    {code:'E-400B',name:'VCM1 HX-400B',date:'2023-10-01',maxLoss:27,rul:'y'},
+    {code:'E-801',name:'VCM1 Feed Heater',date:'2021-09-01',maxLoss:42,rul:'r'},
+    {code:'E-802',name:'VCM1 Trim Cooler',date:'2025-03-15',maxLoss:8,rul:'g'},
+    {code:'E-803',name:'VCM1 Product Cooler',date:'2025-03-15',maxLoss:6,rul:'g'},
+  ],
+  VCM2:[
+    {code:'E-211',name:'VCM2 Condenser',date:'2023-09-15',maxLoss:21,rul:'y'},
+    {code:'E-212',name:'VCM2 Reboiler',date:'2025-04-01',maxLoss:7,rul:'g'},
+    {code:'E-281',name:'VCM2 HX-281',date:'2025-04-01',maxLoss:5,rul:'g'},
+    {code:'E-401',name:'VCM2 Feed HX',date:'2023-09-15',maxLoss:19,rul:'y'},
+  ],
+  VCM3:[
+    {code:'E-111',name:'VCM3 Condenser',date:'2024-11-10',maxLoss:4,rul:'g'},
+    {code:'E-281',name:'VCM3 HX-281',date:'2024-11-10',maxLoss:11,rul:'g'},
+    {code:'E-330',name:'VCM3 Cooler',date:'2022-10-01',maxLoss:22,rul:'y'},
+    {code:'E-401',name:'VCM3 Feed HX',date:'2024-11-10',maxLoss:3,rul:'g'},
+  ],
+  VCM4:[
+    {code:'DS-E1305B',name:'DS Cooler B',date:'2024-10-01',maxLoss:6,rul:'g'},
+    {code:'DS-E1350C-1',name:'DS HX C-1',date:'2022-09-01',maxLoss:23,rul:'y'},
+    {code:'DS-E1500A-1',name:'DS HX A-1',date:'2024-10-01',maxLoss:9,rul:'g'},
+    {code:'DS-E1570A',name:'DS HX 1570A',date:'2022-09-01',maxLoss:18,rul:'y'},
+  ],
+  Yeosu:[
+    {code:'Y-E101',name:'Yeosu Condenser',date:'2024-05-30',maxLoss:5,rul:'g'},
+    {code:'Y-E201',name:'Yeosu Cooler',date:'2022-04-01',maxLoss:20,rul:'y'},
+    {code:'Y-E301',name:'Yeosu HX-301',date:'2024-05-30',maxLoss:8,rul:'g'},
+    {code:'Y-E302',name:'Yeosu Feed HX',date:'2022-04-01',maxLoss:26,rul:'y'},
+  ]
+};
+
+const pLabel={VCM1:'VCM1',VCM2:'VCM2',VCM3:'VCM3',VCM4:'VCM4',Yeosu:'여수'};
+const rulLabel={g:'15년↑',y:'5~15년',r:'5년↓'};
+const rulBadge={g:'rb-g',y:'rb-y',r:'rb-r',a:'rb-a'};
+
+function switchTab(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  (el||document.getElementById('tab-'+name)).classList.add('active');
+  document.getElementById('page-'+name).classList.add('active');
+  window.scrollTo(0,0);
+}
+function goToAnalysis(code){
+  const eq=eqData.find(e=>e.code===code);
+  if(eq) selEqFn(code);
+  switchTab('analysis',document.getElementById('tab-analysis'));
+}
+
+function cnt(plant,type){return dashData[plant].filter(e=>e.rul===type).length;}
+
+function renderTable(){
+  const body=document.getElementById('summaryBody'),foot=document.getElementById('summaryFoot');
+  let tG=0,tY=0,tR=0;
+  body.innerHTML=Object.keys(dashData).map(p=>{
+    const g=cnt(p,'g'),y=cnt(p,'y'),r=cnt(p,'r'),total=dashData[p].length;
+    tG+=g;tY+=y;tR+=r;
+    const nb=(v,cls,type)=>v>0?`<span class="nb ${cls}" onclick="showList('${p}','${type}')">${v}</span>`:`<span class="n-z">0</span>`;
+    return `<tr><td class="pn">${pLabel[p]}</td><td>${nb(g,'n-g','g')}</td><td>${nb(y,'n-y','y')}</td><td>${nb(r,'n-r','r')}</td><td><span class="nb n-t" onclick="showList('${p}','a')">${total}</span></td></tr>`;
+  }).join('');
+  foot.innerHTML=`<tr><td class="pn">합계</td><td><span class="nb n-g" onclick="showList('ALL','g')">${tG}</span></td><td><span class="nb n-y" onclick="showList('ALL','y')">${tY}</span></td><td><span class="nb n-r" onclick="showList('ALL','r')">${tR}</span></td><td><span class="nb n-t" onclick="showList('ALL','a')">${tG+tY+tR}</span></td></tr>`;
+}
+
+function showList(plant,type){
+  const plants=plant==='ALL'?Object.keys(dashData):[plant];
+  const items=plants.flatMap(p=>dashData[p].filter(e=>type==='a'||e.rul===type).map(e=>({...e,plant:p})));
+  document.getElementById('resultTitle').textContent=`${plant==='ALL'?'전체':pLabel[plant]} — ${type==='a'?'전체':rulLabel[type]} (${items.length}대)`;
+  const badge=document.getElementById('resultBadge');
+  badge.textContent=type==='a'?'전체':rulLabel[type];
+  badge.className=`rbadge ${rulBadge[type]||'rb-a'}`;
+  const rulColor={g:'#3ecfb0',y:'#d4a030',r:'#d45050'};
+  const hasDetail=code=>!!eqData.find(e=>e.code===code);
+  document.getElementById('listBody').innerHTML=items.map(eq=>`
+    <tr onclick="${hasDetail(eq.code)?`goToAnalysis('${eq.code}')`:''}" style="${hasDetail(eq.code)?'cursor:pointer':''}">
+      <td class="code">${eq.code}</td>
+      <td>${eq.name}</td>
+      <td>${eq.date}</td>
+      <td><span style="color:${eq.maxLoss>=40?'#a070d0':eq.maxLoss>=25?'#b06020':eq.maxLoss>=15?'#d4a030':'#3ecfb0'}">${eq.maxLoss}%</span></td>
+      <td><span class="rul-pill rp-${eq.rul}">${rulLabel[eq.rul]}</span></td>
+      <td>${hasDetail(eq.code)?'<span class="goto-link">정밀분석 →</span>':''}</td>
+    </tr>`).join('');
+  const sec=document.getElementById('resultSection');
+  sec.style.display='block';
+  sec.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// 마스터
+let mPF='ALL',mSF='';
+function filterMaster(v){mPF=v;renderMasterList();}
+function filterMasterSearch(v){mSF=v;renderMasterList();}
+function renderMasterList(){
+  const all=Object.entries(dashData).flatMap(([p,items])=>items.map(e=>({...e,plant:p})));
+  const f=all.filter(e=>(mPF==='ALL'||e.plant===mPF)&&e.code.toLowerCase().includes(mSF.toLowerCase()));
+  document.getElementById('masterList').innerHTML=f.map(e=>`<div class="ei" onclick="selectMasterEq('${e.code}')"><span>${e.code}</span><span style="font-size:9px;color:#6a8494">${pLabel[e.plant]}</span></div>`).join('');
+}
+function selectMasterEq(code){
+  document.getElementById('mCode').value=code;
+  document.querySelectorAll('#masterList .ei').forEach(el=>el.classList.toggle('active',el.querySelector('span').textContent===code));
+}
+let isCrit=false;
+function toggleCrit(){
+  isCrit=!isCrit;
+  const box=document.getElementById('critBox'),chk=document.getElementById('chkIcon');
+  if(isCrit){box.classList.add('checked');chk.classList.add('on');chk.innerHTML='<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>';document.getElementById('odfVal').textContent='10%';document.getElementById('odfVal').style.color='#d45050';document.getElementById('odfNote').textContent='— Critical 설비 기준';document.getElementById('odfNote').style.color='#d45050';}
+  else{box.classList.remove('checked');chk.classList.remove('on');chk.innerHTML='';document.getElementById('odfVal').textContent='20%';document.getElementById('odfVal').style.color='#3ecfb0';document.getElementById('odfNote').textContent='— 일반 설비 기준';document.getElementById('odfNote').style.color='#6a8494';}
+}
+
+// 정밀분석
+let selEq=eqData[0],aPF='ALL';
+function filterAnalysis(v){aPF=v;renderEqList('');}
+function filterEq(v){renderEqList(v);}
+function renderEqList(f=''){
+  const filtered=eqData.filter(e=>(aPF==='ALL'||e.plant===aPF)&&e.code.toLowerCase().includes(f.toLowerCase()));
+  document.getElementById('eqList').innerHTML=filtered.map(e=>{
+    const rul=calcRUL(e),cls=getRULClass(rul.rul);
+    const lbl=rul.rul==='>25'||rul.rul>15?'15년↑':rul.rul>5?'5~15년':'5년↓';
+    return `<div class="ei ${e.code===selEq.code?'active':''}" onclick="selEqFn('${e.code}')"><span>${e.code}</span><span class="eb2 eb-${cls}">${lbl}</span></div>`;
+  }).join('');
+}
+function selEqFn(code){
+  selEq=eqData.find(e=>e.code===code)||selEq;
+  const avgCr=+(selEq.tubes.reduce((s,t)=>s+t.cr,0)/selEq.tubes.length).toFixed(3);
+  document.getElementById('iCode').textContent=selEq.code;
+  document.getElementById('iPlant').textContent=selEq.plant;
+  document.getElementById('iDate').textContent=selEq.date;
+  document.getElementById('iTubes').textContent=selEq.inspected+' / '+selEq.total;
+  document.getElementById('iShell').textContent=selEq.shell;
+  document.getElementById('iTubeFluid').textContent=selEq.tubeFluid;
+  document.getElementById('iTubeMat').textContent=selEq.tubeMat;
+  document.getElementById('iCrVal').textContent=avgCr;
+  renderEqList(document.getElementById('searchInput').value);
+  renderMap();renderDefects();renderRUL();
+}
+function renderMap(){
+  const map=document.getElementById('tubeMap');
+  const cols=16,rows=12,total=cols*rows;
+  map.style.gridTemplateColumns=`repeat(${cols},17px)`;
+  map.innerHTML='';
+  // 랜덤 배치: inspected 수만큼 검사된 위치 랜덤 선택
+  const positions=Array.from({length:total},(_,i)=>i);
+  // shuffle
+  for(let i=positions.length-1;i>0;i--){const j=Math.floor((i*31+7)%(i+1));[positions[i],positions[j]]=[positions[j],positions[i]];}
+  const inspectedPos=new Set(positions.slice(0,Math.min(selEq.inspected,total)));
+  for(let i=0;i<total;i++){
+    const t=document.createElement('div');
+    if(!inspectedPos.has(i)){t.className='tube t-uninspect';map.appendChild(t);continue;}
+    const idx=Array.from(inspectedPos).indexOf(i)%selEq.tubes.length;
+    const d=selEq.tubes[idx]||{loss:0,cr:0};
+    if(d.loss>=40) t.className='tube t-plug';
+    else if(d.loss>=25) t.className='tube t-hi';
+    else if(d.loss>=15) t.className='tube t-med';
+    else t.className='tube t-ok';
+    t.title=`감육률 ${d.loss}% | 부식속도 ${d.cr} mm/yr`;
+    t.onclick=()=>selectTube(d.loss,d.cr,d.r,d.c);
+    map.appendChild(t);
+  }
+}
+function renderDefects(){
+  const defects=[...selEq.tubes].filter(t=>t.loss>0).sort((a,b)=>b.loss-a.loss).slice(0,20);
+  document.getElementById('defectCount').textContent=`(${defects.length}개)`;
+  document.getElementById('defectBody').innerHTML=defects.map((d,i)=>{
+    const bc=d.loss>=40?'#a070d0':d.loss>=25?'#b06020':d.loss>=15?'#d4a030':'#3ecfb0';
+    const rem=(NOM*PLG)-(NOM*d.loss/100);
+    const plugY=d.loss>=40?'완료':d.cr>0?CY+Math.ceil(rem/d.cr)+'년':'-';
+    const plugCls=d.loss>=40?'color:#a070d0':parseInt(plugY)<=CY+5?'color:#d45050':parseInt(plugY)<=CY+15?'color:#d4a030':'color:#3ecfb0';
+    return `<tr onclick="selectTube(${d.loss},${d.cr},${d.r},${d.c})"><td style="color:#3a4f5e">${i+1}</td>
+      <td>${d.r}</td><td>${d.c}</td>
+      <td><div style="display:flex;align-items:center;gap:5px"><div class="dbar" style="width:${Math.min(d.loss*1.2,70)}px;background:${bc}"></div><span>${d.loss}%</span></div></td>
+      <td>${(NOM*(1-d.loss/100)).toFixed(2)}</td><td>${d.cr}</td>
+      <td style="${plugCls}">${plugY}</td></tr>`;
+  }).join('');
+}
+function renderRUL(){
+  const rul=calcRUL(selEq);
+  const cls=getRULClass(rul.rul);
+  const color=cls==='g'?'#3ecfb0':cls==='y'?'#d4a030':'#d45050';
+  document.getElementById('rulAnalysis').innerHTML=`
+    <div class="cr2"><span style="color:#6a8494">허용 Plugging 한도</span><span class="crb crb-g">${Math.round(rul.limit*100)}% (${rul.allowPlug}개) — ${selEq.critical?'Critical':'일반'}</span></div>
+    <div class="cr2"><span style="color:#6a8494">현재 Plugging 추정</span><span class="crb ${rul.curPlug>=rul.allowPlug?'crb-r':'crb-y'}">${rul.curPlug}개</span></div>
+    <div class="cr2"><span style="color:#6a8494">잔여 여유</span><span class="crb crb-g">${Math.max(0,rul.allowPlug-rul.curPlug)}개</span></div>
+    <div class="cr2" style="border-top:1px solid #1a2b38;padding-top:6px;margin-top:4px"><span style="color:#6a8494">예상 잔여수명</span>
+      <span style="font-size:14px;font-weight:500;color:${color}">${rul.rul==='>25'?'>25년':rul.rul+'년'}</span></div>
+    ${rul.lifeYear?`<div style="font-size:9px;color:#6a8494;text-align:right;margin-top:2px">${rul.lifeYear}년 수명 도달 예상</div>`:''}`;
+}
+function selectTube(loss,cr,row,col){
+  document.getElementById('trendTitle').textContent=`두께 이력 — Row ${row}, Col ${col}`;
+  const nom=NOM,years=[2019,2021,2023,2025];
+  const vals=years.map((y,i)=>+(nom*(1-(loss/100)*((i+1)/years.length)*0.85)).toFixed(2));
+  document.getElementById('trendBars').innerHTML=years.map((y,i)=>{
+    const pct=+(vals[i]/nom*100).toFixed(0);
+    const color=pct>90?'#3ecfb0':pct>75?'#d4a030':'#d45050';
+    return `<div class="tr2"><div class="ty2">${y}</div><div class="tbg"><div class="tbf" style="width:${pct}%;background:${color}"></div></div><div class="tv2">${vals[i]}mm</div></div>`;
+  }).join('');
+  const rem=(nom*PLG)-(nom*loss/100);
+  const plugYear=cr>0?CY+Math.ceil(rem/cr):CY+99;
+  document.getElementById('crAnalysis').innerHTML=[
+    {l:'2019→2021',v:+((vals[0]-vals[1])/2).toFixed(3)+' mm/yr',c:(vals[0]-vals[1])/2<0.04?'crb-g':'crb-y'},
+    {l:'2021→2023',v:+((vals[1]-vals[2])/2).toFixed(3)+' mm/yr',c:(vals[1]-vals[2])/2<0.06?'crb-y':'crb-r'},
+    {l:'2023→2025',v:+((vals[2]-vals[3])/2).toFixed(3)+' mm/yr',c:(vals[2]-vals[3])/2<0.06?'crb-y':'crb-r'},
+    {l:'평균 부식속도',v:cr+' mm/yr',c:cr<0.04?'crb-g':cr<0.08?'crb-y':'crb-r'},
+    {l:'Plugging 예상 연도',v:loss>=40?'완료 (Plugged)':(plugYear>CY+25?'>25년 후':plugYear+'년'),c:loss>=40?'crb-r':plugYear-CY>15?'crb-g':plugYear-CY>5?'crb-y':'crb-r'},
+  ].map(r=>`<div class="cr2"><span style="color:#6a8494">${r.l}</span><span class="crb ${r.c}">${r.v}</span></div>`).join('');
+}
+
+renderTable();renderMasterList();renderEqList('');selEqFn('C-160E3');
+</script>

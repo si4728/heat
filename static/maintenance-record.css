@@ -1,0 +1,4 @@
+.maintenance-record-form .plugged-filter{display:flex;align-items:center;gap:10px;min-height:40px;padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:rgba(20,184,166,.08)}
+.maintenance-record-form .plugged-filter input{width:17px;height:17px;margin:0;accent-color:var(--accent)}
+.maintenance-record-form .plugged-filter span,.maintenance-record-form .plugged-filter small{display:block}.maintenance-record-form .plugged-filter strong{color:var(--ink)}.maintenance-record-form .plugged-filter small{color:var(--muted);font-weight:400}
+.maintenance-record-form select[name="tube_id"]{width:100%}

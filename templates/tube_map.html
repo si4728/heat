@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}{{ equipment.equipment_code }} Tube Map{% endblock %}
+{% block heading %}2D/3D Tube Map{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('exchanger_detail', exchanger_id=hx.heat_exchanger_id) }}">{{ equipment.equipment_code }} 상세</a>{% endblock %}
+{% block content %}
+<section id="tube-map-app" class="tube-map-app"
+         data-api-url="{{ url_for('api_exchanger_tube_map', exchanger_id=hx.heat_exchanger_id) }}"
+         data-position-url-template="{{ url_for('api_tube_position_update', tube_id=999999) }}"
+         data-tube-url-template="{{ url_for('tube_detail', tube_id=999999) }}"
+         data-pdf-url-template="{{ url_for('inspection_pdf_view', inspection_id=999999) }}"
+         data-pdf-target="{{ '_self' if current_user and current_user.pdf_open_mode == 'CURRENT' else '_blank' }}">
+  <div class="tube-map-toolbar panel">
+    <label>검사 연도<select id="tube-map-campaign" aria-label="검사 연도 선택"><option>불러오는 중...</option></select></label>
+    <div class="view-switch" role="group" aria-label="표시 방식"><button type="button" class="button primary" data-view="2d" aria-pressed="true">2D Map</button><button type="button" class="button" data-view="3d" aria-pressed="false">3D Map</button></div>
+    <label>색상 기준<select id="tube-map-color-mode" aria-label="부식 색상 기준"><option value="wall_loss">감육률 (%)</option><option value="depth">감육 깊이 (mm)</option><option value="remaining">잔존 두께 (mm)</option></select></label>
+    <label class="map-check"><input type="checkbox" id="tube-map-labels"> 튜브 번호 표시</label>
+    <label>전체 회전 <input type="range" id="tube-map-rotation" min="0" max="360" value="0"><output id="tube-map-rotation-value">0°</output></label>
+    <button type="button" class="button" id="tube-map-rotate-left">↶ 15°</button><button type="button" class="button" id="tube-map-rotate-right">↷ 15°</button>
+    <label class="map-check"><input type="checkbox" id="tube-map-edit"> 튜브 이동</label>
+    <label class="move-reason">이동 사유<input id="tube-map-move-reason" placeholder="도면 확인 등"></label>
+  </div>
+  <div class="map-metrics" aria-label="검사 현황 요약">
+    <article><span>설계/예상 튜브</span><strong id="metric-expected">-</strong></article>
+    <article><span>좌표 관리 튜브</span><strong id="metric-mapped">-</strong></article>
+    <article><span>화면 표시 위치</span><strong id="metric-display">-</strong></article>
+    <article><span>검사 튜브</span><strong id="metric-inspected">-</strong></article>
+    <article><span>검사율</span><strong id="metric-coverage">-</strong></article>
+    <article><span>사용 중</span><strong id="metric-in-service">-</strong></article>
+    <article><span>사용중지 (Plugged)</span><strong id="metric-plugged">-</strong></article>
+    
+  </div>
+  <article class="panel map-panel">
+    <div class="map-header"><div><p class="eyebrow">{{ equipment.equipment_code }}</p><h2 id="map-title">Tube inspection map</h2></div><div class="map-legend" aria-label="범례"><span><i data-color-key="NORMAL"></i><b id="legend-normal-label">정상</b></span><span><i data-color-key="WARNING"></i><b id="legend-warning-label">주의</b></span><span><i data-color-key="CRITICAL"></i><b id="legend-critical-label">위험</b></span><span><i class="legend-uninspected" data-color-key="NOT_INSPECTED"></i>미검사</span><span class="loss-gradient"><i></i><b id="legend-loss-label">감육률 연속 색상</b></span><span><i class="legend-plugged" data-color-key="PLUGGED"></i>사용중지 (Plugged)</span></div></div>
+    <div id="tube-map-loading" class="map-loading">튜브 데이터를 불러오는 중입니다.</div>
+    <canvas id="tube-map-2d" role="img" aria-label="튜브 검사 여부와 감육률을 표시한 2D 배열도"></canvas>
+    <div id="tube-map-3d" role="img" aria-label="실제 튜브 길이 비율과 감육률 색상을 표시한 회전 가능한 3D 배열도" hidden></div>
+    <aside id="tube-3d-inspector" class="tube-3d-inspector" hidden>
+      <div><span>분리 확인</span><strong id="inspect-tube-no">-</strong></div>
+      <dl>
+        <dt>실제 Tube 길이</dt><dd id="inspect-tube-length">-</dd>
+        <dt>축 위치 기준</dt><dd id="inspect-position-basis">0 mm 기준방향 미등록</dd>
+        <dt>결함 지시</dt><dd id="inspect-indication-count">-</dd>
+        <dt>Wall Loss</dt><dd id="inspect-wall-loss">-</dd>
+        <dt>최소 두께</dt><dd id="inspect-min-thickness">-</dd>
+        <dt>감육 깊이</dt><dd id="inspect-loss-depth">-</dd>
+        <dt>결함 위치</dt><dd id="inspect-location">-</dd>
+      </dl>
+      <div class="focus-controls" aria-label="단일 튜브 3D 조작">
+        <span>단일 튜브 조작</span>
+        <div class="focus-control-row">
+          <button type="button" class="button" id="focus-rotate-left" aria-label="튜브 왼쪽 회전">↶ 회전</button>
+          <button type="button" class="button" id="focus-rotate-right" aria-label="튜브 오른쪽 회전">↷ 회전</button>
+          <button type="button" class="button" id="focus-zoom-in" aria-label="튜브 확대">＋ 확대</button>
+          <button type="button" class="button" id="focus-zoom-out" aria-label="튜브 축소">－ 축소</button>
+          <button type="button" class="button" id="focus-reset">보기 초기화</button>
+        </div>
+      </div>
+      <p id="inspect-color-description">색상은 감육률을, 튜브 옆 세로선은 실제 길이 비율을 나타냅니다. 원주각이 있으면 국부 패치로, 없으면 원주 밴드로 표시합니다.</p>
+      <p class="focus-help">왼쪽 드래그: 회전 · 휠/두 손가락: 확대·축소 · 오른쪽 드래그: 화면 이동</p>
+    </aside>
+    <div id="map-quality-note" class="map-quality-note" role="status"></div>
+    <div id="map-data-note" class="map-data-note" hidden></div>
+    <div id="map-interaction-note" class="map-interaction-note" role="status">선택: 튜브 클릭 시 번호·Row/Column 표시 및 축 방향 자동 인출 · 전체 회전: 슬라이더 또는 3D 배경 드래그 · 이동: 편집 모드와 사유 입력 후 실제 튜브 드래그</div>
+  </article>
+  <article id="tube-selection" class="panel tube-selection" aria-live="polite">
+    <div><span>선택 튜브</span><strong id="selected-tube">튜브를 선택하세요</strong></div>
+    <div><span>운전 상태</span><strong id="selected-operational">-</strong></div>
+    <div><span>검사 상태 / 판정</span><strong id="selected-status">-</strong></div>
+    <div><span>감육률</span><strong id="selected-loss">-</strong></div>
+    <div><span>감육 등급</span><strong id="selected-loss-grade">-</strong></div>
+    <div><span>최소 두께</span><strong id="selected-thickness">-</strong></div>
+    <div><span>Tube 길이</span><strong id="selected-length">-</strong></div>
+    <div><span>부식 유형 / 범위</span><strong id="selected-corrosion">-</strong></div>
+    <div><span>결함 지시</span><strong id="selected-indications">-</strong></div>
+    <div class="tube-selection-actions"><button id="extract-tube" type="button" class="button primary" disabled>3D 단일 튜브 분리</button><button id="restore-array" type="button" class="button" hidden>배열로 복귀</button><a id="selected-history" class="button" href="#" hidden>튜브 이력</a></div>
+  </article>
+  <article id="tube-indication-panel" class="panel tube-indication-panel" hidden>
+    <div class="panel-head"><div><p class="eyebrow">Inspection indications</p><h2 id="indication-panel-title">검사 위치·측정값</h2></div><small>축 위치는 보고서 기록값이며 0 mm 기준방향이 없으면 임의 추정하지 않습니다.</small></div>
+    <div class="position-axis" aria-label="튜브 축 방향 위치"><span id="position-axis-start">0 mm · 기준방향 미등록</span><i></i><span id="position-axis-end">Tube 끝</span></div>
+    <section class="tube-unwrapped-section" aria-labelledby="tube-unwrapped-title">
+      <div class="unwrapped-head"><strong id="tube-unwrapped-title">튜브 내면·외면 부식 펼침도</strong><span>가로: 축 위치 · 세로: 원주각 0~360° · 점선: 대표/추정 위치</span></div>
+      <div class="surface-unwrapped-grid">
+        <article class="surface-unwrapped-card">
+          <div><strong>내면 (ID)</strong><span id="inner-surface-count">0건</span></div>
+          <canvas id="tube-unwrapped-inner" role="img" aria-label="선택 튜브 내면의 축 위치와 원주 방향에 따른 부식 펼침도"></canvas>
+          <p id="tube-unwrapped-inner-empty" class="unwrapped-empty" hidden>내면으로 확인된 부식 데이터가 없습니다.</p>
+        </article>
+        <article class="surface-unwrapped-card">
+          <div><strong>외면 (OD)</strong><span id="outer-surface-count">0건</span></div>
+          <canvas id="tube-unwrapped-outer" role="img" aria-label="선택 튜브 외면의 축 위치와 원주 방향에 따른 부식 펼침도"></canvas>
+          <p id="tube-unwrapped-outer-empty" class="unwrapped-empty" hidden>외면으로 확인된 부식 데이터가 없습니다.</p>
+        </article>
+        <article class="surface-unwrapped-card surface-unknown-card">
+          <div><strong>표면 미확정</strong><span id="unknown-surface-count">0건</span></div>
+          <canvas id="tube-unwrapped-unknown" role="img" aria-label="내면 또는 외면이 확인되지 않은 부식 펼침도"></canvas>
+          <p id="tube-unwrapped-unknown-empty" class="unwrapped-empty" hidden>표시할 축 위치 데이터가 없습니다.</p>
+        </article>
+      </div>
+      <p class="surface-data-warning" id="surface-data-warning">검사 원본에 내면·외면 구분이 없으면 표면 미확정 영역에만 표시합니다.</p>
+    </section>
+    <div class="table-wrap"><table class="indication-table"><thead><tr><th>#</th><th>축 위치</th><th>위치 기준</th><th>표면</th><th>원주각</th><th>측정두께</th><th>감육깊이</th><th>Wall Loss</th><th>결함 길이</th><th>결함/판정</th><th>검사 범위·일자</th><th>데이터 수준</th><th>원본</th></tr></thead><tbody id="tube-indication-rows"></tbody></table></div>
+  </article>
+</section>
+<script src="{{ url_for('three_vendor') }}"></script>
+<script src="{{ url_for('orbit_controls_vendor') }}"></script>
+<script src="{{ url_for('transform_controls_vendor') }}"></script>
+<script src="{{ url_for('static', filename='tube-map.js', v='20261023-3d-link') }}"></script>
+{% endblock %}

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>로그인 · 지능형열교환시스템</title>
+  <link rel="stylesheet" href="{{ url_for('static',filename='app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static',filename='legacy-theme.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static',filename='auth.css') }}">
+</head>
+<body class="auth-page">
+  <main class="auth-card">
+    <img src="{{ url_for('hanwha_solution_logo') }}" alt="Hanwha Solutions">
+    <p class="eyebrow">Intelligent Heat Exchanger System</p>
+    <h1>지능형열교환시스템 로그인</h1>
+    {% with messages=get_flashed_messages(with_categories=true) %}
+      {% for category,message in messages %}<div class="alert {{ category }}">{{ message }}</div>{% endfor %}
+    {% endwith %}
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="next" value="{{ next_path }}">
+      <label>이메일 주소<input type="email" name="username" maxlength="50" autocomplete="username" required autofocus></label>
+      <label>비밀번호<input type="password" name="password" autocomplete="current-password" required></label>
+      <button class="button primary" type="submit">로그인</button>
+    </form>
+  </main>
+</body>
+</html>

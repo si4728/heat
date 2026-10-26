@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}공장·생산라인 관리{% endblock %}
+{% block heading %}공장·생산라인 코드 관리{% endblock %}
+{% block actions %}<a class="button primary" href="{{ url_for('exchanger_new') }}">열교환기 등록</a>{% endblock %}
+{% block content %}<p><a class="button" href="{{ url_for('organization_codes') }}">공장·생산팀·공정 코드 관리</a></p>
+<div class="master-data-grid">
+  <article class="panel form-section">
+    <div class="panel-head"><div><p class="eyebrow">Plant master</p><h2>{{ '공장 정보 수정' if editing_plant else '공장 등록' }}</h2></div></div>
+    <form method="post" action="{{ url_for('plant_update', plant_id=editing_plant.plant_id) if editing_plant else url_for('plant_create') }}" class="master-form compact-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="field-grid">
+        <label>생산공장 코드 *<input name="plant_code" maxlength="50" pattern="P[1-9][0-9]*" title="P1, P2, P3 형식" value="{{ editing_plant.plant_code if editing_plant else '' }}" placeholder="P1, P2, P3 …" required><small>P1부터 Pn까지 필요에 따라 계속 등록할 수 있습니다.</small></label>
+        <label>생산공장명 *<input name="plant_name" value="{{ editing_plant.plant_name if editing_plant else '' }}" placeholder="생산공장 1" required></label>
+        <label class="wide">위치<input name="location" value="{{ editing_plant.location if editing_plant and editing_plant.location else '' }}"></label>
+        <label class="wide">설명<textarea name="description" rows="2">{{ editing_plant.description if editing_plant and editing_plant.description else '' }}</textarea></label>
+      </div>
+      <div class="master-form-actions">{% if editing_plant %}<a class="button ghost" href="{{ url_for('plant_line_master') }}">취소</a>{% endif %}<button class="button primary" type="submit">{{ '공장 수정' if editing_plant else '공장 등록' }}</button></div>
+    </form>
+  </article>
+
+  <article class="panel form-section">
+    <div class="panel-head"><div><p class="eyebrow">Production line master</p><h2>{{ '생산라인 정보 수정' if editing_unit else '생산라인 등록' }}</h2></div></div>
+    <form method="post" action="{{ url_for('production_line_update', unit_id=editing_unit.unit_id) if editing_unit else url_for('production_line_create') }}" class="master-form compact-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="field-grid">
+        <label>소속 생산공장 *<select name="plant_id" required><option value="">선택해 주세요</option>{% for plant in plants %}<option value="{{ plant.plant_id }}" {{ 'selected' if editing_unit and editing_unit.plant_id == plant.plant_id else '' }}>{{ plant.plant_code|plant_display }} · {{ plant.plant_name }}</option>{% endfor %}</select></label>
+        <label>생산라인 코드 *<input name="unit_code" maxlength="50" value="{{ editing_unit.unit_code if editing_unit else '' }}" placeholder="VCM3 또는 LINE-A" required></label>
+        <label class="wide">생산라인명 *<input name="unit_name" value="{{ editing_unit.unit_name if editing_unit else '' }}" placeholder="VCM 3 생산라인" required></label>
+        <label class="wide">설명<textarea name="description" rows="2">{{ editing_unit.description if editing_unit and editing_unit.description else '' }}</textarea></label>
+      </div>
+      <div class="master-form-actions">{% if editing_unit %}<a class="button ghost" href="{{ url_for('plant_line_master') }}">취소</a>{% endif %}<button class="button primary" type="submit">{{ '생산라인 수정' if editing_unit else '생산라인 등록' }}</button></div>
+    </form>
+  </article>
+</div>
+
+<article class="panel master-list-panel">
+  <div class="panel-head"><div><p class="eyebrow">Registered plants</p><h2>공장 목록</h2></div><span class="badge neutral">{{ plants|length }}개</span></div>
+  <div class="table-wrap"><table><thead><tr><th>생산공장 코드</th><th>생산공장명</th><th>위치</th><th>관리</th></tr></thead><tbody>
+    {% for plant in plants %}<tr><td><strong>{{ plant.plant_code|plant_display }}</strong></td><td>{{ plant.plant_name }}</td><td>{{ plant.location or '-' }}</td><td><a class="text-link" href="{{ url_for('plant_line_master', plant_id=plant.plant_id) }}">수정</a></td></tr>{% else %}<tr><td colspan="4" class="empty">등록된 공장이 없습니다.</td></tr>{% endfor %}
+  </tbody></table></div>
+</article>
+
+<article class="panel master-list-panel">
+  <div class="panel-head"><div><p class="eyebrow">Registered production lines</p><h2>생산라인 목록</h2></div><span class="badge neutral">{{ unit_rows|length }}개</span></div>
+  <div class="table-wrap"><table><thead><tr><th>공장</th><th>생산라인 코드</th><th>생산라인명</th><th>연결 설비</th><th>관리</th></tr></thead><tbody>
+    {% for line,plant,equipment_count in unit_rows %}<tr><td>{{ plant.plant_code|plant_display }}</td><td><strong>{{ line.unit_code }}</strong></td><td>{{ line.unit_name }}</td><td>{{ equipment_count|comma }}대</td><td><a class="text-link" href="{{ url_for('plant_line_master', unit_id=line.unit_id) }}">수정</a></td></tr>{% else %}<tr><td colspan="5" class="empty">등록된 생산라인이 없습니다.</td></tr>{% endfor %}
+  </tbody></table></div>
+</article>
+{% endblock %}

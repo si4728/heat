@@ -1,0 +1,14 @@
+{
+  "table_count": 57,
+  "partial_indexes_converted": [
+    "uq_organization_plant_code",
+    "uq_current_spec_revision"
+  ],
+  "applied": false,
+  "production_ready": false,
+  "pending": [
+    "LIVE_DDL_VALIDATION",
+    "REVISION_OVERLAP_CONCURRENCY_RULES",
+    "ACTUAL_DB_SCHEMA_PARITY"
+  ]
+}

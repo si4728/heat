@@ -1,0 +1,72 @@
+[
+  {
+    "check": "all_templates_compile",
+    "count": 44,
+    "passed": true
+  },
+  {
+    "url": "/setup-admin",
+    "status": 302,
+    "passed": true
+  },
+  {
+    "url": "/imports/pdf-review",
+    "status": 200,
+    "passed": true
+  },
+  {
+    "url": "/imports/pdf-review/1/source",
+    "status": 200,
+    "passed": true
+  },
+  {
+    "url": "/imports/pdf-review/2/source",
+    "status": 200,
+    "passed": true
+  },
+  {
+    "url": "/imports/pdf-review/3/source",
+    "status": 200,
+    "passed": true
+  },
+  {
+    "url": "/imports/pdf-review/4/source",
+    "status": 200,
+    "passed": true
+  },
+  {
+    "url": "/imports/pdf-review/5/source",
+    "status": 200,
+    "passed": true
+  },
+  {
+    "url": "/imports/pdf-review/6/source",
+    "status": 200,
+    "passed": true
+  },
+  {
+    "url": "/imports/pdf-review/7/source",
+    "status": 200,
+    "passed": true
+  },
+  {
+    "url": "/imports/pdf-review/8/source",
+    "status": 200,
+    "passed": true
+  },
+  {
+    "url": "/imports/pdf-review/9/source",
+    "status": 200,
+    "passed": true
+  },
+  {
+    "url": "/imports/pdf-review/10/source",
+    "status": 200,
+    "passed": true
+  },
+  {
+    "url": "/imports/pdf-review/11/source",
+    "status": 200,
+    "passed": true
+  }
+]

@@ -1,0 +1,1537 @@
+{
+  "date": "2026-10-26",
+  "units": {
+    "VCM1": {
+      "heat_exchanger_id": 67,
+      "inspection_id": 15
+    },
+    "VCM2": {
+      "heat_exchanger_id": 139,
+      "inspection_id": 157
+    }
+  },
+  "counts": {
+    "heat_exchanger": 900,
+    "heat_exchanger_tube": 2253,
+    "iris_inspection": 435,
+    "iris_tube_result": 6084,
+    "tube_lifecycle_event": 2
+  },
+  "checks": [
+    {
+      "url": "/login",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.186,
+      "title": "로그인 · 지능형열교환시스템",
+      "forms": 1
+    },
+    {
+      "url": "/settings/preferences",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.158,
+      "title": "내 기본 설정 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/settings/users",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.081,
+      "title": "사용자·권한 관리 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.616,
+      "title": "대시보드 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/master-data/organization-codes",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.137,
+      "title": "조직 코드 관리 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.249,
+      "title": "열교환기 관리 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/wall-loss-ranking",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.139,
+      "title": "열교환기별 최대 감육률 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/analysis",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.4,
+      "title": "정밀 분석 · 지능형열교환시스템",
+      "forms": 4
+    },
+    {
+      "url": "/master-data/plants-lines",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.087,
+      "title": "공장·생산라인 관리 · 지능형열교환시스템",
+      "forms": 3
+    },
+    {
+      "url": "/settings/wall-loss-colors",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.078,
+      "title": "Wall Loss 색상 관리 · 지능형열교환시스템",
+      "forms": 3
+    },
+    {
+      "url": "/settings/system-theme",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.077,
+      "title": "화면 테마 설정 · 지능형열교환시스템",
+      "forms": 3
+    },
+    {
+      "url": "/exchangers/new",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.107,
+      "title": "열교환기 등록 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/67/edit",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.074,
+      "title": "열교환기 수정 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/67",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.133,
+      "title": "1102121 · 지능형열교환시스템",
+      "forms": 3
+    },
+    {
+      "url": "/q/exchangers/67",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.23,
+      "title": "1102121 · QR 간편조회",
+      "forms": 1
+    },
+    {
+      "url": "/remaining-life/tubes",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 2.053,
+      "title": "Tube Plugging 예측 대상 조회 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/67/remaining-life-simulation",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.11,
+      "title": "VCM(VCM1) / E-121A Tube Plugging 예측 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/67/api510",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.113,
+      "title": "1102121 API 510 계산 관리 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspections/15/pdf",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.019
+    },
+    {
+      "url": "/inspections/15",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.151,
+      "title": "1102121 검사 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspections",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.13,
+      "title": "검사 관리 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspections/tubes",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.638,
+      "title": "튜브 검사이력 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspections/ml-review",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 1.976,
+      "title": "ML 검토대상 · 지능형열교환시스템",
+      "forms": 32
+    },
+    {
+      "url": "/inspections/ml-hotspots",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 1.517,
+      "title": "공간 부식 Hotspot · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspections/ml-patterns",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 1.506,
+      "title": "유사 열화 패턴 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspection-plans",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.357,
+      "title": "검사계획 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/tubes/176",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.108,
+      "title": "1102121 / 1-3 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/67/tubes/manage",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.122,
+      "title": "튜브 관리 · 지능형열교환시스템",
+      "forms": 10
+    },
+    {
+      "url": "/exchangers/67/report",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.106,
+      "title": "1102121 보고서 · 지능형열교환시스템",
+      "forms": 1
+    },
+    {
+      "url": "/maintenance",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.11,
+      "title": "정비 관리 · 지능형열교환시스템",
+      "forms": 1
+    },
+    {
+      "url": "/maintenance/work-orders/new",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.111,
+      "title": "작업지시 등록 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/67/tube-map",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.098,
+      "title": "1102121 Tube Map · 지능형열교환시스템",
+      "forms": 1
+    },
+    {
+      "url": "/api/exchangers/67/tube-map",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.028
+    },
+    {
+      "url": "/assets/three.min.js",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.085
+    },
+    {
+      "url": "/assets/OrbitControls.js",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.021
+    },
+    {
+      "url": "/assets/TransformControls.js",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.022
+    },
+    {
+      "url": "/assets/hanhwa_solution2.jpg",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.001
+    },
+    {
+      "url": "/assets/hanwha_solution.png",
+      "category": "screen",
+      "status": 301,
+      "expected": 301,
+      "passed": true,
+      "seconds": 0.0,
+      "title": "Redirecting...",
+      "forms": 0
+    },
+    {
+      "url": "/quality-issues",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.115,
+      "title": "품질 이슈 · 지능형열교환시스템",
+      "forms": 439
+    },
+    {
+      "url": "/imports",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.091,
+      "title": "JSON 적재 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/imports/pdf-review",
+      "category": "screen",
+      "status": 403,
+      "expected": 403,
+      "passed": true,
+      "seconds": 0.071,
+      "title": "접근 권한 없음 · 지능형열교환시스템",
+      "forms": 1
+    },
+    {
+      "url": "/settings/database-monitor",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.291,
+      "title": "DB 상태 점검 · 지능형열교환시스템",
+      "forms": 1
+    },
+    {
+      "url": "/settings/backups",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.453,
+      "title": "백업 관리 · 지능형열교환시스템",
+      "forms": 14
+    },
+    {
+      "url": "/settings/tube-layout-revisions",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.104,
+      "title": "Tube Layout Revision · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/reports/ai-review",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.107,
+      "title": "AI 보고서 검토 · 지능형열교환시스템",
+      "forms": 6
+    },
+    {
+      "url": "/inspections/ai-search",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.072,
+      "title": "자연어 조회 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/api/health",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.103
+    },
+    {
+      "url": "/api/v1/exchangers",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.102
+    },
+    {
+      "url": "/api/v1/exchangers/67/history",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.037
+    },
+    {
+      "url": "/exports/heat-exchangers-tubes.xlsx",
+      "category": "screen",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 7.677
+    },
+    {
+      "url": "/exchangers?unit=VCM1",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.108,
+      "title": "열교환기 관리 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/wall-loss-ranking?unit=VCM1",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.098,
+      "title": "열교환기별 최대 감육률 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/analysis?unit=VCM1&exchanger_id=67",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.154,
+      "title": "정밀 분석 · 지능형열교환시스템",
+      "forms": 4
+    },
+    {
+      "url": "/remaining-life/tubes?unit_code=VCM1&target_year=2030",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.652,
+      "title": "Tube Plugging 예측 대상 조회 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspections/ml-review?unit_code=VCM1",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 1.532,
+      "title": "ML 검토대상 · 지능형열교환시스템",
+      "forms": 3
+    },
+    {
+      "url": "/inspections/ml-hotspots?unit_code=VCM1",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 1.634,
+      "title": "공간 부식 Hotspot · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspections/ml-patterns?unit_code=VCM1",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 1.696,
+      "title": "유사 열화 패턴 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/67",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.103,
+      "title": "1102121 · 지능형열교환시스템",
+      "forms": 3
+    },
+    {
+      "url": "/exchangers/67/edit",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.101,
+      "title": "열교환기 수정 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/67/tube-map",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.099,
+      "title": "1102121 Tube Map · 지능형열교환시스템",
+      "forms": 1
+    },
+    {
+      "url": "/api/exchangers/67/tube-map",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.03
+    },
+    {
+      "url": "/exchangers/67/report",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.098,
+      "title": "1102121 보고서 · 지능형열교환시스템",
+      "forms": 1
+    },
+    {
+      "url": "/exchangers/67/api510",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.095,
+      "title": "1102121 API 510 계산 관리 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/67/remaining-life-simulation?simulate=1&simulation_limit=20&corrosion_rate_percent=100",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.105,
+      "title": "VCM(VCM1) / E-121A Tube Plugging 예측 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspections/15",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.086,
+      "title": "1102121 검사 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspections/15/pdf",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.008
+    },
+    {
+      "url": "/inspections/tubes?exchanger_id=67&sort_dir=desc&page=2",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.177,
+      "title": "튜브 검사이력 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/pdf-reports/2020/VCM1",
+      "category": "VCM1",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.006
+    },
+    {
+      "url": "/exchangers?unit=VCM2",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.117,
+      "title": "열교환기 관리 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/wall-loss-ranking?unit=VCM2",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.104,
+      "title": "열교환기별 최대 감육률 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/analysis?unit=VCM2&exchanger_id=139",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.189,
+      "title": "정밀 분석 · 지능형열교환시스템",
+      "forms": 4
+    },
+    {
+      "url": "/remaining-life/tubes?unit_code=VCM2&target_year=2030",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.88,
+      "title": "Tube Plugging 예측 대상 조회 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspections/ml-review?unit_code=VCM2",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 1.663,
+      "title": "ML 검토대상 · 지능형열교환시스템",
+      "forms": 31
+    },
+    {
+      "url": "/inspections/ml-hotspots?unit_code=VCM2",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 1.711,
+      "title": "공간 부식 Hotspot · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspections/ml-patterns?unit_code=VCM2",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 1.595,
+      "title": "유사 열화 패턴 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/139",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.111,
+      "title": "1104421 · 지능형열교환시스템",
+      "forms": 3
+    },
+    {
+      "url": "/exchangers/139/edit",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.098,
+      "title": "열교환기 수정 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/139/tube-map",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.1,
+      "title": "1104421 Tube Map · 지능형열교환시스템",
+      "forms": 1
+    },
+    {
+      "url": "/api/exchangers/139/tube-map",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.07
+    },
+    {
+      "url": "/exchangers/139/report",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.1,
+      "title": "1104421 보고서 · 지능형열교환시스템",
+      "forms": 1
+    },
+    {
+      "url": "/exchangers/139/api510",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.109,
+      "title": "1104421 API 510 계산 관리 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/139/remaining-life-simulation?simulate=1&simulation_limit=20&corrosion_rate_percent=100",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.11,
+      "title": "EDC / AE-502A Tube Plugging 예측 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspections/157",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.088,
+      "title": "1104421 검사 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspections/157/pdf",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.019
+    },
+    {
+      "url": "/inspections/tubes?exchanger_id=139&sort_dir=desc&page=2",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.117,
+      "title": "튜브 검사이력 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/pdf-reports/2020/VCM2",
+      "category": "VCM2",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.017
+    },
+    {
+      "url": "/exchangers?search=NO_SUCH_EQUIPMENT_RECHECK",
+      "category": "input",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.092,
+      "title": "열교환기 관리 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspections?search=NO_SUCH_EQUIPMENT_RECHECK",
+      "category": "input",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.078,
+      "title": "검사 관리 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/inspections/ai-search?q=1104421",
+      "category": "input",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.094,
+      "title": "자연어 조회 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/remaining-life/tubes?target_year=invalid",
+      "category": "input",
+      "status": 302,
+      "expected": 302,
+      "passed": true,
+      "seconds": 0.006,
+      "title": "Redirecting...",
+      "forms": 0
+    },
+    {
+      "url": "/inspections/tubes?page=invalid",
+      "category": "input",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.617,
+      "title": "튜브 검사이력 · 지능형열교환시스템",
+      "forms": 2
+    },
+    {
+      "url": "/exchangers/2147483647",
+      "category": "not_found",
+      "status": 404,
+      "expected": 404,
+      "passed": true,
+      "seconds": 0.077,
+      "title": "찾을 수 없음 · 지능형열교환시스템",
+      "forms": 1
+    },
+    {
+      "url": "/inspections/2147483647",
+      "category": "not_found",
+      "status": 404,
+      "expected": 404,
+      "passed": true,
+      "seconds": 0.07,
+      "title": "찾을 수 없음 · 지능형열교환시스템",
+      "forms": 1
+    },
+    {
+      "url": "/tubes/2147483647",
+      "category": "not_found",
+      "status": 404,
+      "expected": 404,
+      "passed": true,
+      "seconds": 0.071,
+      "title": "찾을 수 없음 · 지능형열교환시스템",
+      "forms": 1
+    },
+    {
+      "url": "/maintenance/work-orders/2147483647",
+      "category": "not_found",
+      "status": 404,
+      "expected": 404,
+      "passed": true,
+      "seconds": 0.009,
+      "title": "404 Not Found",
+      "forms": 0
+    },
+    {
+      "url": "/assets/OrbitControls.js",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.005
+    },
+    {
+      "url": "/assets/TransformControls.js",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.007
+    },
+    {
+      "url": "/assets/hanhwa_solution2.jpg",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.001
+    },
+    {
+      "url": "/assets/three.min.js",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.006
+    },
+    {
+      "url": "/static/app.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.008
+    },
+    {
+      "url": "/static/auth.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.006
+    },
+    {
+      "url": "/static/branding.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.007
+    },
+    {
+      "url": "/static/calculation-method.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.007
+    },
+    {
+      "url": "/static/calculation-method.js",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.012
+    },
+    {
+      "url": "/static/color-settings.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.006
+    },
+    {
+      "url": "/static/dashboard-metrics.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.007
+    },
+    {
+      "url": "/static/dashboard-metrics.js",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.015
+    },
+    {
+      "url": "/static/dashboard-qr-scanner.js",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.016
+    },
+    {
+      "url": "/static/dashboard-tube-count-search.js",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.014
+    },
+    {
+      "url": "/static/dashboard.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.007
+    },
+    {
+      "url": "/static/exchanger-form.js",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.001
+    },
+    {
+      "url": "/static/hx-v6-theme.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.006
+    },
+    {
+      "url": "/static/import-location.js",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.011
+    },
+    {
+      "url": "/static/inspection-detail.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.007
+    },
+    {
+      "url": "/static/legacy-theme.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.012
+    },
+    {
+      "url": "/static/life-prediction.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.014
+    },
+    {
+      "url": "/static/life-prediction.js",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.033
+    },
+    {
+      "url": "/static/life-simulation.js",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.036
+    },
+    {
+      "url": "/static/maintenance-record.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.014
+    },
+    {
+      "url": "/static/master-form.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.022
+    },
+    {
+      "url": "/static/ml-review.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.017
+    },
+    {
+      "url": "/static/modal.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.02
+    },
+    {
+      "url": "/static/orange-theme.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.015
+    },
+    {
+      "url": "/static/pattern-help.js",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.031
+    },
+    {
+      "url": "/static/plant-line-master.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.013
+    },
+    {
+      "url": "/static/plugging-limit-range.js",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.029
+    },
+    {
+      "url": "/static/precision-analysis.css?v=20261023-3d-link",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.016
+    },
+    {
+      "url": "/static/precision-analysis.js?v=20261023-3d-link",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.001
+    },
+    {
+      "url": "/static/qr-exchanger-lookup.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.015
+    },
+    {
+      "url": "/static/responsive-scroll.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.016
+    },
+    {
+      "url": "/static/sidebar.js",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.039
+    },
+    {
+      "url": "/static/system-theme-settings.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.018
+    },
+    {
+      "url": "/static/tube-map-interaction.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.017
+    },
+    {
+      "url": "/static/tube-map.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.017
+    },
+    {
+      "url": "/static/tube-map.js?v=20261023-3d-link",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.05
+    },
+    {
+      "url": "/static/tube-status.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.019
+    },
+    {
+      "url": "/static/vendor/jsqr/jsQR.js",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.025
+    },
+    {
+      "url": "/static/wall-loss-color-sync.js?v=20261023",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.03
+    },
+    {
+      "url": "/static/workflow.css",
+      "category": "asset",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "seconds": 0.014
+    }
+  ],
+  "anonymous_security": [
+    {
+      "url": "/settings/preferences",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/settings/users",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/master-data/organization-codes",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/exchangers",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/exchangers/wall-loss-ranking",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/analysis",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/master-data/plants-lines",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/settings/wall-loss-colors",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/settings/system-theme",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/exchangers/new",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/exchangers/67/edit",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/exchangers/67",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/q/exchangers/67",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/remaining-life/tubes",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/exchangers/67/remaining-life-simulation",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/exchangers/67/api510",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/inspections/15/pdf",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/inspections/15",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/inspections",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/inspections/tubes",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/inspections/ml-review",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/inspections/ml-hotspots",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/inspections/ml-patterns",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/inspection-plans",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/tubes/176",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/exchangers/67/tubes/manage",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/exchangers/67/report",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/maintenance",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/maintenance/work-orders/new",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/exchangers/67/tube-map",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/api/exchangers/67/tube-map",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/assets/three.min.js",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/assets/OrbitControls.js",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/assets/TransformControls.js",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/quality-issues",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/imports",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/imports/pdf-review",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/settings/database-monitor",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/settings/backups",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/settings/tube-layout-revisions",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/reports/ai-review",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/inspections/ai-search",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/api/v1/exchangers",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/api/v1/exchangers/67/history",
+      "status": 302,
+      "passed": true
+    },
+    {
+      "url": "/exports/heat-exchangers-tubes.xlsx",
+      "status": 302,
+      "passed": true
+    }
+  ],
+  "skipped": [
+    {
+      "endpoint": "work_order_detail",
+      "rule": "/maintenance/work-orders/<int:order_id>",
+      "reason": "No existing fixture for parameter"
+    }
+  ],
+  "summary": {
+    "checks": 139,
+    "failures": 0,
+    "security_checks": 46,
+    "security_failures": 0
+  }
+}
