@@ -22,6 +22,7 @@
     button.addEventListener("click", () => {
       opener = button;
       title.textContent = button.dataset.metricTitle || "지표 설명";
+      value.parentElement.hidden = button.dataset.metricHelp === "true";
       value.textContent = button.dataset.metricValue || "0";
       definition.textContent = button.dataset.metricDefinition || "";
       basis.textContent = button.dataset.metricBasis || "";

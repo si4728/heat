@@ -1,0 +1,11 @@
+{% set specified = life.specified_tube_count if life.specified_tube_count is defined else life.total_tube_count %}
+{% set projected = life.projected_tube_count|default(0) %}
+{% set registered = life.managed_tube_count|default(0) %}
+{% set chart_end = coverage_chart_end_year|default(life.chart_end_year|default(none)) %}
+<div class="prediction-coverage" aria-label="예측 데이터 범위와 분모">
+  <p>전체 사양 대비 예측 가능: <strong>{{ projected|comma }}/{{ specified|comma if specified else '사양 미확인' }}개{% if specified %}, {{ '%.1f'|format(projected * 100 / specified) }}%{% endif %}</strong></p>
+  <p>개별 등록 대비 예측 가능: <strong>{{ projected|comma }}/{{ registered|comma }}개{% if registered %}, {{ '%.1f'|format(projected * 100 / registered) }}%{% else %}, 비율 산정 불가{% endif %}</strong></p>
+  <p>미등록·평가 제외: <strong>{{ [specified - projected, 0]|max|comma if specified else '사양 미확인' }}{% if specified %}개{% endif %}</strong> <small>(미등록 {{ [specified - registered, 0]|max|comma if specified else '미확인' }}{% if specified %}개{% endif %} · 등록 중 예측 제외 {{ [registered - projected, 0]|max|comma }}개)</small></p>
+  <small>예측 가능한 등록 Tube만 집계하며 실제 완료·기준 도달 Tube도 포함합니다. 미등록 Tube를 평가한 결과가 아니며 전체 설비의 안전 판정이 아닙니다.</small>
+  {% if chart_end is not none %}<p><small>그래프 표시 범위: {{ life.current_year }}~{{ chart_end }}년. 한도 판정은 그래프 종료 연도로 제한하지 않고 가용 예상일 전체를 사용합니다.</small></p>{% endif %}
+</div>

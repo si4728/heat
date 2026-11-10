@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}API 510 계산{% endblock %}
+{% block heading %}API 510 계산{% endblock %}
+{% block content %}
+<article class="panel" style="margin-bottom:18px"><div class="panel-head"><div><p class="eyebrow">Calculation management</p><h2>계산 대상 열교환기 선택</h2></div><small>{{ rows|length|comma }}대</small></div>
+<p class="coverage-basis">열교환기를 선택하면 압력경계 부품 등록, 계산서 생성 및 검토·승인 화면으로 이동합니다.</p>
+<form class="filters" method="get"><input name="search" value="{{ search }}" placeholder="열교환기 코드 또는 설비명" aria-label="열교환기 검색"><button class="button" type="submit">조회</button></form>
+<div class="table-wrap"><table><thead><tr><th>생산공장</th><th>생산라인</th><th>열교환기 코드</th><th>설비명</th><th>계산 관리</th></tr></thead><tbody>
+{% for hx,equipment,unit,plant in rows %}<tr><td>{{ plant.plant_code|plant_display }}</td><td>{{ unit.unit_code }}</td><td>{{ exchanger_codes.get(hx.heat_exchanger_id) or '열교환기 코드 미등록' }}</td><td>{{ equipment.equipment_name }}</td><td><a class="button" href="{{ url_for('api510_management', exchanger_id=hx.heat_exchanger_id) }}">API 510 계산 열기</a></td></tr>{% else %}<tr><td colspan="5">조회 조건에 맞는 열교환기가 없습니다.</td></tr>{% endfor %}
+</tbody></table></div></article>
+{% endblock %}

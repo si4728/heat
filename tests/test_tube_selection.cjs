@@ -1,0 +1,12 @@
+﻿const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync('static/tube-map.js','utf8');
+const initial=source.slice(source.indexOf('  function initialInspectedTube()'),source.indexOf('  function selectTube('));
+const hit=source.slice(source.indexOf('  function hit2d('),source.indexOf('  const tooltip='));
+const state={data:{tubes:[{tube_no:'12-18',row:12,column:18,inspected:true},{tube_no:'2-10',row:2,column:10,inspected:true},{tube_no:'2-4',row:2,column:4,inspected:true},{tube_no:'1-1',row:1,column:1,inspected:false}]},points:[{sx:10,sy:10,radius:9,tube:'first'},{sx:23,sy:10,radius:9,tube:'nearest'}]};
+const ctx={state,canvas:{getBoundingClientRect:()=>({left:100,top:50})},finiteNumber:v=>v==null?null:Number.isFinite(Number(v))?Number(v):null};vm.createContext(ctx);vm.runInContext(initial+hit,ctx);
+assert.equal(ctx.initialInspectedTube().tube_no,'2-4');
+assert.equal(ctx.hit2d({clientX:122,clientY:60}).tube,'nearest');
+assert.equal(ctx.hit2d({clientX:110,clientY:60}).tube,'first');
+assert.equal(ctx.hit2d({clientX:200,clientY:60}),null);
+state.data.tubes=[];assert.equal(ctx.initialInspectedTube(),null);
+console.log('Initial row/column selection, closest overlapping hit, empty space and no inspected tubes passed');

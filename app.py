@@ -74,6 +74,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         SESSION_COOKIE_SAMESITE=SESSION_COOKIE_SAMESITE,
         SESSION_COOKIE_SECURE=SESSION_COOKIE_SECURE,
         CSRF_ENABLED=True,
+        QR_UI_ENABLED=True,  # Visible only to administrators with exchanger access.
     )
     app.config["SESSION_COOKIE_NAME"] = "iris2_session"
     if test_config:

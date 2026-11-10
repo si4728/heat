@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{% block title %}{{ equipment.equipment_code }} Tube Map{% endblock %}
-{% block heading %}2D/3D Tube Map{% endblock %}
-{% block actions %}<a class="button" href="{{ url_for('exchanger_detail', exchanger_id=hx.heat_exchanger_id) }}">{{ equipment.equipment_code }} 상세</a>{% endblock %}
+{% set display_exchanger_code = exchanger_display_code(hx.heat_exchanger_id) %}
+{% block title %}{{ display_exchanger_code }} Tube Map{% endblock %}
+{% block heading %}{{ display_exchanger_code }} · 2D/3D Tube Map{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('exchanger_detail', exchanger_id=hx.heat_exchanger_id) }}">{{ display_exchanger_code }} 상세</a>{% endblock %}
 {% block content %}
 <section id="tube-map-app" class="tube-map-app"
          data-api-url="{{ url_for('api_exchanger_tube_map', exchanger_id=hx.heat_exchanger_id) }}"
@@ -19,6 +20,7 @@
     <label class="map-check"><input type="checkbox" id="tube-map-edit"> 튜브 이동</label>
     <label class="move-reason">이동 사유<input id="tube-map-move-reason" placeholder="도면 확인 등"></label>
   </div>
+  <div class="panel" style="padding:12px 18px"><label for="tube-map-direct-select">튜브 직접 선택</label><select id="tube-map-direct-select" style="width:100%;max-width:560px" aria-label="튜브 직접 선택"></select><small>배열에서 클릭하거나 목록에서 선택하세요. 단일 보기에서도 등록된 다른 튜브로 변경할 수 있습니다.</small></div>
   <div class="map-metrics" aria-label="검사 현황 요약">
     <article><span>설계/예상 튜브</span><strong id="metric-expected">-</strong></article>
     <article><span>좌표 관리 튜브</span><strong id="metric-mapped">-</strong></article>
@@ -30,7 +32,7 @@
     
   </div>
   <article class="panel map-panel">
-    <div class="map-header"><div><p class="eyebrow">{{ equipment.equipment_code }}</p><h2 id="map-title">Tube inspection map</h2></div><div class="map-legend" aria-label="범례"><span><i data-color-key="NORMAL"></i><b id="legend-normal-label">정상</b></span><span><i data-color-key="WARNING"></i><b id="legend-warning-label">주의</b></span><span><i data-color-key="CRITICAL"></i><b id="legend-critical-label">위험</b></span><span><i class="legend-uninspected" data-color-key="NOT_INSPECTED"></i>미검사</span><span class="loss-gradient"><i></i><b id="legend-loss-label">감육률 연속 색상</b></span><span><i class="legend-plugged" data-color-key="PLUGGED"></i>사용중지 (Plugged)</span></div></div>
+    <div class="map-header"><div class="map-heading"><div><p class="eyebrow">{{ display_exchanger_code }}</p><h2 id="map-title">Tube inspection map</h2></div><div class="tube-selection-actions"><button id="extract-tube" type="button" class="button primary" disabled>3D 단일 튜브 분리</button><button id="restore-array" type="button" class="button" hidden>배열로 복귀</button><a id="selected-history" class="button" href="#" hidden>튜브 이력</a></div></div><div class="map-legend" aria-label="감육률 구간별 색상 범례"></div></div>
     <div id="tube-map-loading" class="map-loading">튜브 데이터를 불러오는 중입니다.</div>
     <canvas id="tube-map-2d" role="img" aria-label="튜브 검사 여부와 감육률을 표시한 2D 배열도"></canvas>
     <div id="tube-map-3d" role="img" aria-label="실제 튜브 길이 비율과 감육률 색상을 표시한 회전 가능한 3D 배열도" hidden></div>
@@ -55,13 +57,14 @@
           <button type="button" class="button" id="focus-reset">보기 초기화</button>
         </div>
       </div>
-      <p id="inspect-color-description">색상은 감육률을, 튜브 옆 세로선은 실제 길이 비율을 나타냅니다. 원주각이 있으면 국부 패치로, 없으면 원주 밴드로 표시합니다.</p>
+      <p id="inspect-color-description">색상은 정수 반올림한 감육률의 10% 구간을, 튜브 옆 세로선은 실제 길이 비율을 나타냅니다. 원주각이 있으면 국부 패치로, 없으면 원주 밴드로 표시합니다. Plugging·잔여수명 계산은 원래 측정값을 사용합니다.</p>
       <p class="focus-help">왼쪽 드래그: 회전 · 휠/두 손가락: 확대·축소 · 오른쪽 드래그: 화면 이동</p>
     </aside>
     <div id="map-quality-note" class="map-quality-note" role="status"></div>
     <div id="map-data-note" class="map-data-note" hidden></div>
     <div id="map-interaction-note" class="map-interaction-note" role="status">선택: 튜브 클릭 시 번호·Row/Column 표시 및 축 방향 자동 인출 · 전체 회전: 슬라이더 또는 3D 배경 드래그 · 이동: 편집 모드와 사유 입력 후 실제 튜브 드래그</div>
   </article>
+  <article id="tube-focus-visual" class="panel tube-focus-visual" hidden aria-label="단일 튜브 위치와 감육 비교"></article>
   <article id="tube-selection" class="panel tube-selection" aria-live="polite">
     <div><span>선택 튜브</span><strong id="selected-tube">튜브를 선택하세요</strong></div>
     <div><span>운전 상태</span><strong id="selected-operational">-</strong></div>
@@ -72,7 +75,7 @@
     <div><span>Tube 길이</span><strong id="selected-length">-</strong></div>
     <div><span>부식 유형 / 범위</span><strong id="selected-corrosion">-</strong></div>
     <div><span>결함 지시</span><strong id="selected-indications">-</strong></div>
-    <div class="tube-selection-actions"><button id="extract-tube" type="button" class="button primary" disabled>3D 단일 튜브 분리</button><button id="restore-array" type="button" class="button" hidden>배열로 복귀</button><a id="selected-history" class="button" href="#" hidden>튜브 이력</a></div>
+
   </article>
   <article id="tube-indication-panel" class="panel tube-indication-panel" hidden>
     <div class="panel-head"><div><p class="eyebrow">Inspection indications</p><h2 id="indication-panel-title">검사 위치·측정값</h2></div><small>축 위치는 보고서 기록값이며 0 mm 기준방향이 없으면 임의 추정하지 않습니다.</small></div>
@@ -104,5 +107,5 @@
 <script src="{{ url_for('three_vendor') }}"></script>
 <script src="{{ url_for('orbit_controls_vendor') }}"></script>
 <script src="{{ url_for('transform_controls_vendor') }}"></script>
-<script src="{{ url_for('static', filename='tube-map.js', v='20261023-3d-link') }}"></script>
+<script src="{{ url_for('static', filename='wall-loss-palette.js', v='20261029-tube-size-1') }}"></script><script src="{{ url_for('static', filename='tube-focus-data.js', v='20261029-focus-1') }}"></script><script src="{{ url_for('static', filename='tube-map.js', v='20261029-clear-defect-1') }}"></script>
 {% endblock %}

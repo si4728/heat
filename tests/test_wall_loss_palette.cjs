@@ -1,0 +1,17 @@
+﻿const assert = require('node:assert/strict');
+const p = require('../static/wall-loss-palette.js');
+const cases = [[0,'NOMINAL'],[10.49,'LOSS_10'],[10.5,'LOSS_20'],[20.49,'LOSS_20'],[20.5,'LOSS_30'],[30.49,'LOSS_30'],[30.5,'LOSS_40'],[40.43,'LOSS_40'],[48.01,'LOSS_50'],[50.18,'LOSS_50'],[51.26,'LOSS_60'],[61.73,'LOSS_70'],[80,'LOSS_80'],[90,'LOSS_90'],[99,'LOSS_99'],[100,'LOSS_100'],[null,'NOT_INSPECTED'],['','NOT_INSPECTED']];
+for(const [v,key] of cases)assert.equal(p.grade(v).key,key,String(v));
+const actual=[51.26,50.18,40.43,48.01,61.73,52.35,29.96,27.8,46.93,26.71];
+const counts={};actual.forEach(v=>{const k=p.grade(v).key;counts[k]=(counts[k]||0)+1;});
+assert.deepEqual(counts,{LOSS_60:2,LOSS_50:3,LOSS_40:1,LOSS_70:1,LOSS_30:3});
+assert.equal(new Set(actual.map(v=>p.grade(v).color)).size,5);
+assert.equal(p.tubeGrade({category:'CRITICAL',operational_status:'PLUGGED',wall_loss_percent:61}).key,'PLUGGED');
+assert.equal(p.tubeGrade({category:'NOT_INSPECTED',wall_loss_percent:0}).key,'NOT_INSPECTED');
+assert.equal(p.tubeGrade({category:'NORMAL',wall_loss_percent:0}).key,'NOMINAL');
+console.log('Palette boundaries, five source bands, nulls and operational precedence passed');
+
+assert.equal(p.tubeGrade({managed:false,category:'NOT_INSPECTED',wall_loss_percent:null}).key,'UNREGISTERED');
+assert.equal(p.tubeGrade({managed:true,category:'NOT_INSPECTED',wall_loss_percent:null}).key,'NOT_INSPECTED');
+assert.equal(p.tubeGrade({category:'UNREGISTERED',wall_loss_percent:null}).key,'UNREGISTERED');
+assert.notEqual(p.tubeGrade({managed:false}).color,p.grade(null).color);

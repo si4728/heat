@@ -11,6 +11,7 @@ from .system import register_routes as register_system_routes
 from .layouts import register_routes as register_layout_routes
 from .llm_reports import register_routes as register_llm_report_routes
 from .ai_query import register_routes as register_ai_query_routes
+from .text_to_sql import register_routes as register_text_to_sql_routes
 
 ROUTE_REGISTRARS = (
     register_dashboard_routes,
@@ -25,5 +26,6 @@ ROUTE_REGISTRARS = (
     register_layout_routes,
     register_llm_report_routes,
     register_ai_query_routes,
+    register_text_to_sql_routes,
     register_api_v1_routes,
 )

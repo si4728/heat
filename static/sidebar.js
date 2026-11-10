@@ -32,8 +32,30 @@
     if (persist) savePreference(collapsed);
   }
 
-  applyState(readPreference(), false);
+  const narrow = window.matchMedia('(max-width:1100px)');
+  const pageMode = shell.dataset.sidebarMode || 'auto';
+  let manualState = null;
+  function preferredState() {
+    if (manualState !== null) return manualState;
+    if (pageMode === 'collapsed') return true;
+    if (pageMode === 'expanded') return false;
+    return narrow.matches || readPreference();
+  }
+  const equipmentPicker = document.querySelector('details.analysis-equipment-panel');
+  if (equipmentPicker && narrow.matches) equipmentPicker.open = false;
+  applyState(preferredState(), false);
+  narrow.addEventListener('change', () => {
+    applyState(preferredState(), false);
+    if (equipmentPicker) equipmentPicker.open = !narrow.matches;
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && narrow.matches) {
+      manualState = true;
+      applyState(true, false);
+    }
+  });
   toggle.addEventListener("click", function () {
-    applyState(!shell.classList.contains("sidebar-collapsed"), true);
+    manualState = !shell.classList.contains("sidebar-collapsed");
+    applyState(manualState, true);
   });
 })();

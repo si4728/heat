@@ -1,9 +1,11 @@
 from __future__ import annotations
 import argparse
+import json
 import os
 import socket
 import sys
 from pathlib import Path
+from urllib.request import Request, build_opener, ProxyHandler
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT.parent))
@@ -21,6 +23,22 @@ def create_listener(host, port):
     except Exception:
         listener.close()
         raise
+
+
+def existing_iris2_url(host, port):
+    """Recognize a healthy IRIS2 listener without using a system HTTP proxy."""
+    probe_host = '127.0.0.1' if host in {'0.0.0.0', ''} else '::1' if host == '::' else host
+    authority = f'[{probe_host}]' if ':' in probe_host else probe_host
+    url = f'http://{authority}:{port}'
+    try:
+        opener = build_opener(ProxyHandler({}))
+        with opener.open(Request(url + '/api/health'), timeout=3) as response:
+            health = json.loads(response.read(65536))
+        if health.get('application') == 'iris2' and health.get('status') == 'ok' and health.get('backend') == 'mariadb':
+            return url
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    return None
 
 
 def main():
@@ -43,7 +61,12 @@ def main():
     try:
         listener = create_listener(args.host, args.port)
     except OSError:
-        parser.error('The requested address/port is already in use or unavailable; a second IRIS2 server was not started.')
+        existing_url = existing_iris2_url(args.host, args.port)
+        if existing_url:
+            print(f'IRIS2 is already running: {existing_url}', flush=True)
+            print('Use the existing server; no duplicate server was started.', flush=True)
+            return 0
+        parser.error('The requested address/port is in use by another service or unavailable. Check the port before retrying; no process was stopped.')
     try:
         start_backup_scheduler(ROOT, DB_PATH)
         print(f"IRIS2 MariaDB: http://{args.host}:{args.port}", flush=True)

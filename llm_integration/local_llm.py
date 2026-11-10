@@ -36,6 +36,7 @@ class LocalLlmClient:
         system_prompt: str = "",
         temperature: float = 0.2,
         max_tokens: int = 2048,
+        response_schema: dict | None = None,
     ) -> str:
         prompt = str(prompt or "").strip()
         if not prompt:
@@ -65,6 +66,8 @@ class LocalLlmClient:
                     ],
                     temperature=float(temperature),
                     max_tokens=int(max_tokens),
+                    **({"response_format": {"type": "json_object", "schema": response_schema}}
+                       if response_schema is not None else {}),
                 )
                 content = response["choices"][0]["message"]["content"]
                 return remove_thinking_blocks(content)

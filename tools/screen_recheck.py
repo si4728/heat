@@ -89,13 +89,16 @@ def main():
         if "<" in url:
             skipped.append(dict(endpoint=rule.endpoint, rule=rule.rule, reason="No existing fixture for parameter"))
             continue
-        expected = 403 if rule.endpoint == "pdf_ocr_review_dashboard" else 301 if rule.endpoint == "hanwha_solution_logo_legacy" else 200
+        expected = 301 if rule.endpoint == "hanwha_solution_logo_legacy" else 200
+        if rule.endpoint == "text_to_sql_inspections":
+            expected = 400  # This API requires an explicit exchanger selection.
         check(url, expected)
         if rule.endpoint not in {"login", "api_health", "hanwha_solution_logo", "hanwha_solution_logo_legacy"}:
             response = anonymous.get(url)
             security.append(dict(url=url, status=response.status_code, passed=response.status_code == 302 and "/login" in response.location))
     for unit, row in units.items():
         hx = row["heat_exchanger_id"]
+        check(f"/inspections/text-to-sql/inspections?exchanger_id={hx}", category=unit)
         for url in [f"/exchangers?unit={unit}", f"/exchangers/wall-loss-ranking?unit={unit}", f"/analysis?unit={unit}&exchanger_id={hx}", f"/remaining-life/tubes?unit_code={unit}&target_year=2030", f"/inspections/ml-review?unit_code={unit}", f"/inspections/ml-hotspots?unit_code={unit}", f"/inspections/ml-patterns?unit_code={unit}", f"/exchangers/{hx}", f"/exchangers/{hx}/edit", f"/exchangers/{hx}/tube-map", f"/api/exchangers/{hx}/tube-map", f"/exchangers/{hx}/report", f"/exchangers/{hx}/api510", f"/exchangers/{hx}/remaining-life-simulation?simulate=1&simulation_limit=20&corrosion_rate_percent=100", f"/inspections/{row['inspection_id']}", f"/inspections/{row['inspection_id']}/pdf", f"/inspections/tubes?exchanger_id={hx}&sort_dir=desc&page=2", f"/pdf-reports/2020/{unit}"]:
             check(url, category=unit)
     for url in ["/exchangers?search=NO_SUCH_EQUIPMENT_RECHECK", "/inspections?search=NO_SUCH_EQUIPMENT_RECHECK", "/inspections/ai-search?q=1104421", "/remaining-life/tubes?target_year=invalid", "/inspections/tubes?page=invalid"]:

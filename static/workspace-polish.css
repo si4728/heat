@@ -1,0 +1,87 @@
+/* IRIS2 workspace. Shared chrome only; tube-map/status colours remain domain data.
+   Desktop grid: 218px navigation + remaining canvas; sheet inset 8px,
+   inner gutter 24px. Existing responsive and fullscreen layouts stay in control. */
+:root {
+  --workspace-frame: #141617;
+  --workspace-sheet: #1b1d1e;
+  --workspace-edge: #303334;
+  --workspace-hover: #252829;
+  --workspace-text: #eef0ef;
+  --workspace-muted: #b0b6b3;
+}
+html[data-theme="orange"] {
+  --workspace-frame: #f3f4f3;
+  --workspace-sheet: #fff;
+  --workspace-edge: #e5e8e6;
+  --workspace-hover: #e8ebe9;
+  --workspace-text: #242a27;
+  --workspace-muted: #5e6862;
+}
+@media screen {
+  body { font-family: "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif; font-size:14px; line-height:1.55; }
+  .app-shell:not(.analysis-fullscreen) {
+    background:var(--workspace-frame); color:var(--workspace-text);
+    --ink:var(--workspace-text); --muted:var(--workspace-muted);
+    --line:var(--workspace-edge); --panel:var(--workspace-sheet); --shadow:none;
+  }
+  .sidebar { background:var(--workspace-frame); color:var(--workspace-text); border:0; box-shadow:none; backdrop-filter:none; padding:24px 12px 16px; }
+  .brand { padding:0 12px 28px; }
+  .brand-copy { min-width:0; }
+  .workspace-wordmark { display:block; font-size:28px; line-height:1.1; font-weight:700; letter-spacing:-1px; color:var(--workspace-text); margin-bottom:10px; }
+  .workspace-wordmark>span { color:var(--accent); }
+  .brand strong { font-size:13px; font-weight:600; color:var(--workspace-text); -webkit-text-fill-color:currentColor; background:none; }
+  .brand small { font-size:11px; letter-spacing:0; color:var(--workspace-muted); margin-top:4px; }
+  .sidebar nav { gap:4px; }
+  .sidebar nav a,.sidebar-group-menu summary { min-height:38px; padding:9px 12px; font-size:14px; font-weight:500; color:var(--workspace-muted); border:0; border-radius:6px; }
+  .sidebar nav a:hover,.sidebar nav a.active,.sidebar-group-menu summary:hover,.sidebar-group-menu summary.active {
+    background:var(--workspace-hover); color:var(--workspace-text); border-left:0; border-right:0; box-shadow:none;
+  }
+  .sidebar-submenu { border-color:var(--workspace-edge); }
+  .sidebar nav .sidebar-submenu a { font-size:13px; padding:8px 12px; }
+  .sidebar-toggle { background:var(--workspace-sheet); color:var(--workspace-text); border:1px solid var(--workspace-edge); box-shadow:none; }
+  .current-user,.db-state,.db-state small { color:var(--workspace-muted); border-color:var(--workspace-edge); }
+  .app-shell:not(.analysis-fullscreen)>.main { padding:0 24px 32px; }
+  .app-shell:not(.analysis-fullscreen) .topbar { background:transparent; color:var(--workspace-text); border:0; padding:20px 0; min-height:88px; margin:0; }
+  .topbar h1 { font-size:24px; font-weight:600; line-height:1.35; letter-spacing:-.025em; }
+  .eyebrow,.topbar .eyebrow { text-transform:none; letter-spacing:0; font-weight:400; font-size:12px; color:var(--workspace-muted); }
+  .app-shell:not(.analysis-fullscreen) .content { background:var(--workspace-sheet); border:1px solid var(--workspace-edge); border-radius:16px; padding:24px; }
+  .panel { box-shadow:none; border-color:var(--workspace-edge); border-radius:8px; background:var(--workspace-sheet); }
+  .panel-head { padding:16px 20px; background:transparent; border-color:var(--workspace-edge); }
+  .panel-head h2 { font-size:16px; font-weight:600; line-height:1.5; }
+  .metrics { gap:0; border:1px solid var(--workspace-edge); border-radius:8px; overflow:hidden; background:var(--workspace-sheet); }
+  .metrics article,.metrics article.warning { background:transparent; background-image:none; border:0; border-radius:0; box-shadow:none; padding:16px; border-inline-end:1px solid var(--workspace-edge); }
+  .metrics article:last-child { border-inline-end:0; }
+  .metrics strong { color:var(--workspace-text); font-size:28px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .metrics span,.metrics small { color:var(--workspace-muted); }
+  .button,.top-analysis-tab { min-height:36px; border-radius:6px; font-size:13px; font-weight:500; box-shadow:none; background:var(--workspace-sheet); color:var(--workspace-text); border-color:var(--workspace-edge); }
+  .button.primary { background:var(--workspace-text); border-color:var(--workspace-text); color:var(--workspace-sheet); }
+  .button.primary:hover { background:var(--workspace-muted); color:var(--workspace-sheet); }
+  .top-analysis-tab.active { background:transparent; color:var(--workspace-text); border-color:var(--workspace-edge); border-bottom:2px solid var(--accent); }
+  .summary-card { background:var(--workspace-frame); background-image:none; color:var(--workspace-text); box-shadow:none; border:1px solid var(--workspace-edge); border-radius:8px; }
+  .summary-card h2,.summary-stats strong { color:var(--workspace-text); }
+  .summary-card p,.summary-stats span { color:var(--workspace-muted); }
+  .content table { font-variant-numeric:tabular-nums; font-size:13px; }
+  .content th { background:var(--workspace-sheet); color:var(--workspace-muted); text-transform:none; letter-spacing:0; font-size:12px; font-weight:500; }
+  .content td,.content th { border-bottom-color:var(--workspace-edge); padding:11px 16px; }
+  .content tbody tr:nth-child(even) { background:transparent; }
+  .content tbody tr:hover { background:var(--workspace-hover); }
+  .content input,.content select,.content textarea { font:inherit; }
+  :where(a,button,input,select,textarea,summary):focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+}
+@media screen and (max-width:1100px) {
+  .app-shell:not(.analysis-fullscreen)>.main { padding-inline:16px; }
+  .app-shell:not(.analysis-fullscreen) .content { padding:16px; }
+}
+@media screen and (max-width:760px) {
+  .sidebar { padding:16px 12px; }
+  .brand { padding-bottom:16px; }
+  .workspace-wordmark { font-size:24px; }
+  .app-shell:not(.analysis-fullscreen)>.main { padding:0 12px 24px; }
+  .app-shell:not(.analysis-fullscreen) .content { padding:12px; border-radius:10px; }
+  .app-shell:not(.analysis-fullscreen) .topbar { padding:16px 0; }
+  .topbar h1 { font-size:22px; }
+  .metrics article { border-bottom:1px solid var(--workspace-edge); padding:14px; }
+  .metrics article:nth-child(even) { border-inline-end:0; }
+  .metrics article:last-child:nth-child(odd) { grid-column:1/-1; }
+  .sidebar-collapsed .sidebar-toggle { position:relative; top:8px; left:0; right:auto; margin:0 12px 8px; }
+}

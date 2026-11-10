@@ -1,19 +1,13 @@
 {% extends "base.html" %}
 {% block title %}열교환기 관리{% endblock %}
 {% block heading %}열교환기 관리{% endblock %}
-{% block actions %}<a class="button" href="{{ url_for('imports') }}">JSON 적재</a> <a class="button primary" href="{{ url_for('exchanger_new') }}">열교환기 등록</a>{% endblock %}
+{% block actions %}<a class="button primary" href="{{ url_for('exchanger_new') }}">열교환기 등록</a>{% endblock %}
 {% block content %}
 <form class="filters exchanger-filters" method="get">
   <input name="search" value="{{ filters.search }}" placeholder="열교환기코드 또는 설비명 검색">
   <select name="team" aria-label="생산팀"><option value="">전체 생산팀</option>{% for entry in organization_choices if entry.node.kind == 'TEAM' and (entry.equipment_count or filters.team_code == entry.node.code) %}<option value="{{ entry.node.code }}" {{ 'selected' if filters.team_code == entry.node.code else '' }}>{{ entry.node.label }} · {{ entry.parent_label }}</option>{% endfor %}</select>
   <select name="process" aria-label="공정"><option value="">전체 공정</option>{% for entry in organization_choices if entry.node.kind == 'PROCESS' and (entry.equipment_count or filters.process_code == entry.node.code) %}<option value="{{ entry.node.code }}" {{ 'selected' if filters.process_code == entry.node.code else '' }}>{{ entry.node.label }} · {{ entry.parent_label }}</option>{% endfor %}</select>
-  <select name="unit"><option value="">기존 검사 분류</option>{% for unit in units %}<option {{ 'selected' if filters.unit_code == unit else '' }}>{{ unit }}</option>{% endfor %}</select>
   <select name="status"><option value="">전체 검사 상태</option>{% for value in ['INSPECTED','NEVER_INSPECTED','PLANNED','OVERDUE','NOT_APPLICABLE'] %}<option {{ 'selected' if filters.status == value else '' }}>{{ value }}</option>{% endfor %}</select>
-  <select name="sort_by" aria-label="정렬 기준">
-    <option value="plant" {{ 'selected' if sort_by == 'plant' else '' }}>생산공장 정렬</option>
-    <option value="unit" {{ 'selected' if sort_by == 'unit' else '' }}>생산라인 정렬</option>
-    <option value="equipment" {{ 'selected' if sort_by == 'equipment' else '' }}>열교환기 정렬</option>
-  </select>
   <select name="sort_dir" aria-label="정렬 방향">
     <option value="asc" {{ 'selected' if sort_dir == 'asc' else '' }}>오름차순</option>
     <option value="desc" {{ 'selected' if sort_dir == 'desc' else '' }}>내림차순</option>

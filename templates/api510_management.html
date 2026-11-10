@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% set hx=master[0] %}{% set equipment=master[1] %}{% set unit=master[2] %}{% set plant=master[3] %}
-{% block title %}{{ equipment.equipment_code }} API 510 계산 관리{% endblock %}
-{% block heading %}{{ equipment.equipment_code }} API 510 계산 관리{% endblock %}
-{% block actions %}<a class="button" href="{{ url_for('remaining_life_simulation', exchanger_id=hx.heat_exchanger_id) }}">Tube Plugging 예측</a> <a class="button" href="{{ url_for('exchanger_detail', exchanger_id=hx.heat_exchanger_id) }}">열교환기 상세</a>{% endblock %}
+{% set display_exchanger_code = exchanger_display_code(hx.heat_exchanger_id) %}
+{% block title %}{{ display_exchanger_code }} API 510 계산 관리{% endblock %}
+{% block heading %}{{ display_exchanger_code }} API 510 계산 관리{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('api510_settings') }}">계산 대상 선택</a> <a class="button" href="{{ url_for('remaining_life_simulation', exchanger_id=hx.heat_exchanger_id) }}">Tube Plugging 예측</a> <a class="button" href="{{ url_for('exchanger_detail', exchanger_id=hx.heat_exchanger_id) }}">열교환기 상세</a>{% endblock %}
 {% block content %}
 <div class="simulation-caution"><strong>계산 통제</strong><span>허용응력·용접효율·필요두께의 설계근거를 확인한 뒤 계산서를 생성하십시오. DRAFT/SUBMITTED 결과는 운영 승인값이 아니며 APPROVED 계산서만 보고서 승인 결과로 사용됩니다.</span></div>
 <article class="panel">

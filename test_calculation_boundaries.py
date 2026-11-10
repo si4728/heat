@@ -9,11 +9,44 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from iris2.application.api510_service import _float
-from iris2.life_prediction import calculate_api510_inspection_interval, calculate_tube_plugging_year
+from iris2.life_prediction import calculate_api510_inspection_interval, calculate_tube_plugging_year, summarize_remaining_life
 from iris2.pressure_vessel_calculations import calculate_asme_viii_internal_pressure
 
 
 class CalculationBoundaryTest(unittest.TestCase):
+    def test_subday_rounding_does_not_cross_midnight(self):
+        # Less than a day must remain on the basis date even when timedelta's
+        # fractional-microsecond rounding would otherwise produce the next day.
+        result = calculate_tube_plugging_year(
+            measurement_date='2026-01-01', nominal_thickness_mm=2,
+            current_wall_loss_mm=0, plugging_wall_loss_percent=40,
+            corrosion_rate_mm_per_year=0.8 * 365.2425 / (1 - 1e-12))
+        self.assertEqual(result['plugging_date'], '2026-01-01')
+
+    def test_invalid_speed_multipliers_are_rejected(self):
+        for multiplier in (0,-1,float('inf'),float('nan')):
+            with self.subTest(multiplier=multiplier), self.assertRaises(ValueError):
+                calculate_tube_plugging_year(measurement_date='2026-01-01',
+                    nominal_thickness_mm=2,current_wall_loss_mm=0.1,
+                    corrosion_rate_mm_per_year=0.1,rate_multiplier=multiplier)
+
+    def test_normal_and_critical_limits_and_strict_exceedance(self):
+        rows = [2026] * 10 + [2030]
+        critical = summarize_remaining_life(plugging_years=rows, total_tube_count=100,
+                                           is_critical=True, current_year=2026)
+        normal = summarize_remaining_life(plugging_years=rows, total_tube_count=100,
+                                         is_critical=False, current_year=2026)
+        self.assertEqual(critical['limit_percent'], 10)
+        self.assertEqual(critical['life_reached_year'], 2030)
+        self.assertEqual(critical['remaining_life_years'], 4)
+        self.assertEqual(normal['limit_percent'], 20)
+        self.assertIsNone(normal['life_reached_year'])
+
+    def test_already_exceeded_limit_does_not_return_negative_life(self):
+        result = summarize_remaining_life(plugging_years=[2020] * 11,
+            total_tube_count=100, is_critical=True, current_year=2026)
+        self.assertEqual(result['remaining_life_years'], 0)
+
     def test_unit_bearing_text_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "단위와 분리"):
             _float("1.2 MPa")
@@ -47,6 +80,43 @@ class CalculationBoundaryTest(unittest.TestCase):
             measurement_date="2026-01-01", nominal_thickness_mm=2,
             current_wall_loss_mm=0.1, corrosion_rate_mm_per_year=0,
         ))
+
+    def test_tiny_positive_corrosion_rate_reports_date_range(self):
+        for rate in (1e-12, 1e-300, 1e-320):
+            with self.subTest(rate=rate), self.assertRaisesRegex(ValueError, "날짜 범위"):
+                calculate_tube_plugging_year(
+                    measurement_date="2026-01-01", nominal_thickness_mm=2,
+                    current_wall_loss_mm=0.1, corrosion_rate_mm_per_year=rate,
+                )
+
+    def test_decimal_year_matches_projected_calendar_date(self):
+        result = calculate_tube_plugging_year(
+            measurement_date="2026-01-01", nominal_thickness_mm=2,
+            current_wall_loss_mm=0.1, corrosion_rate_mm_per_year=0.1,
+            plugging_wall_loss_percent=40,
+        )
+        self.assertEqual(result["plugging_date"], "2032-12-31")
+        self.assertEqual(result["years_from_measurement"], 7)
+        self.assertEqual(int(result["exact_year"]), result["plugging_year"])
+        self.assertAlmostEqual(result["exact_year"], 2032 + 365 / 366)
+
+    def test_projection_supports_last_calendar_year(self):
+        for origin in ("9999-01-01", "9999-12-31"):
+            with self.subTest(origin=origin):
+                result = calculate_tube_plugging_year(
+                    measurement_date=origin, nominal_thickness_mm=2,
+                    current_wall_loss_mm=1, corrosion_rate_mm_per_year=0.1,
+                    plugging_wall_loss_percent=40,
+                )
+                self.assertEqual(result["plugging_date"], origin)
+                self.assertEqual(int(result["exact_year"]), 9999)
+
+    def test_future_projection_near_date_max_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "날짜 범위"):
+            calculate_tube_plugging_year(
+                measurement_date="9999-12-31", nominal_thickness_mm=2,
+                current_wall_loss_mm=0.1, corrosion_rate_mm_per_year=0.1,
+            )
 
     def test_api510_equal_required_is_action_required(self):
         result = calculate_api510_inspection_interval(

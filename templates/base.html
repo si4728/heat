@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}대시보드{% endblock %} · 지능형열교환시스템</title>
+  <title>{% block title %}대시보드{% endblock %} · i-HMS</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='modal.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='master-form.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='tube-map.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='tube-map.css', v='20261029-clear-defect-1') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='tube-map-interaction.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='tube-status.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='branding.css') }}">
@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='responsive-scroll.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-metrics.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-metrics.css', v='20261110-corrections-1') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='inspection-detail.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='ml-review.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='hx-v6-theme.css') }}">
@@ -34,34 +34,34 @@
     body{background-color:var(--bg)}
     label,.field-label,.form-label{color:var(--label-color)}
   </style>
-  <script defer src="{{ url_for('static', filename='sidebar.js') }}"></script>
-  <script defer src="{{ url_for('static', filename='plugging-limit-range.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='sidebar.js', v='20261110-analysis-menu-1') }}"></script>
+  <script defer src="{{ url_for('static', filename='plugging-limit-range.js', v='20261028-critical-limit') }}"></script>
   <script defer src="{{ url_for('static', filename='wall-loss-color-sync.js', v='20261023') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='responsive-layout.css', v='20261110-corrections-1') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='workspace-polish.css', v='20261110-corrections-1') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='ui-usability.css', v='20261110-1') }}">
 </head>
 {% set precision_fullscreen = request.endpoint == 'precision_analysis' %}
 <body class="{{ 'precision-fullscreen-page' if precision_fullscreen else '' }}">
-  <div class="app-shell {{ 'analysis-fullscreen' if precision_fullscreen else '' }}">
-    {% if not precision_fullscreen %}
+  <div class="app-shell{{ ' sidebar-collapsed' if request.endpoint == 'precision_analysis' else '' }}" data-sidebar-mode="{{ 'collapsed' if request.endpoint == 'precision_analysis' else 'expanded' if request.endpoint == 'exchanger_detail' else 'auto' }}">
+
     <button class="sidebar-toggle" type="button" aria-controls="app-sidebar" aria-expanded="true" title="왼쪽 메뉴 접기"><span aria-hidden="true">‹</span><span class="sr-only">왼쪽 메뉴 접기</span></button>
     <aside class="sidebar" id="app-sidebar">
       <a class="brand" href="{{ url_for('dashboard') }}">
-        <span class="brand-copy"><strong>지능형열교환기시스템</strong><small>Inteligence Heat Exchnage System</small></span>
+        <span class="brand-copy"><span class="workspace-wordmark">i-HMS</span><strong>지능형 열교환기 관리 시스템</strong></span>
       </a>
       <nav>
         {% if can_screen('DASHBOARD') %}<a class="{{ 'active' if request.endpoint == 'dashboard' else '' }}" href="{{ url_for('dashboard') }}">대시보드</a>{% endif %}
         {% set exchanger_list_active = request.endpoint in ['exchangers','exchanger_detail','exchanger_edit','exchanger_tube_map','tube_management','exchanger_report'] %}
         {% set exchanger_wall_loss_active = request.endpoint == 'exchanger_wall_loss_ranking' %}
         {% set exchanger_input_active = request.endpoint == 'exchanger_new' %}
-        {% set exchanger_import_active = request.endpoint in ['imports','pdf_ocr_review_dashboard','pdf_ocr_source','pdf_ocr_approve'] %}
-        {% set exchanger_life_active = request.endpoint in ['remaining_life_tubes','remaining_life_simulation','api510_management'] %}
-        {% set exchanger_management_active = exchanger_list_active or exchanger_input_active or exchanger_import_active %}
-        {% if can_screen('EXCHANGERS') or can_screen('REMAINING_LIFE') or can_screen('JSON_IMPORT') or can_screen('EXCEL_EXPORT') or can_screen('PDF_OCR_REVIEW') %}<details class="sidebar-group-menu management-menu" {{ 'open' if exchanger_management_active else '' }}>
+        {% set exchanger_life_active = request.endpoint in ['remaining_life_tubes','remaining_life_simulation'] %}
+        {% set exchanger_management_active = exchanger_list_active or exchanger_input_active %}
+        {% if can_screen('EXCHANGERS') or can_screen('REMAINING_LIFE') or can_screen('EXCEL_EXPORT') %}<details class="sidebar-group-menu management-menu" {{ 'open' if exchanger_management_active else '' }}>
           <summary class="{{ 'active' if exchanger_management_active else '' }}">열교환기 관리</summary>
           <div class="sidebar-submenu">
             {% if can_screen('EXCHANGERS') %}<a class="{{ 'active' if exchanger_list_active else '' }}" href="{{ url_for('exchangers') }}">열교환기 목록</a>{% endif %}
             {% if can_screen('EXCHANGERS','edit') %}<a class="{{ 'active' if exchanger_input_active else '' }}" href="{{ url_for('exchanger_new') }}">열교환기 입력</a>{% endif %}
-            {% if can_screen('JSON_IMPORT') %}<a class="{{ 'active' if exchanger_import_active else '' }}" href="{{ url_for('imports') }}">JSON 로드</a>{% endif %}
-            {% if can_screen('PDF_OCR_REVIEW') %}<a class="{{ 'active' if request.endpoint in ['pdf_ocr_review_dashboard','pdf_ocr_source','pdf_ocr_approve'] else '' }}" href="{{ url_for('pdf_ocr_review_dashboard') }}">PDF·OCR 검토</a>{% endif %}
             {% if can_screen('EXCEL_EXPORT') %}<a href="{{ url_for('export_heat_exchangers_tubes') }}">Excel Export</a>{% endif %}
           </div>
         </details>{% endif %}
@@ -83,7 +83,13 @@
           </div>
         </details>{% endif %}
         {% set precision_analysis_active = request.endpoint == 'precision_analysis' or exchanger_wall_loss_active or exchanger_life_active or ml_review_active or ml_hotspot_active or ml_pattern_active or ai_report_active or ai_query_active %}
+        {% if can_screen('REMAINING_LIFE') %}<a class="{{ 'active' if request.endpoint == 'precision_analysis' else '' }}" href="{{ url_for('precision_analysis') }}" {{ 'aria-current=page' if request.endpoint == 'precision_analysis' else '' }}>정밀 분석</a>{% endif %}
         {% if can_screen('MAINTENANCE') %}<a class="{{ 'active' if request.endpoint and request.endpoint.startswith('work_order') or request.endpoint == 'maintenance' else '' }}" href="{{ url_for('maintenance') }}">정비 관리</a>{% endif %}
+        {% if current_user and can_screen('TEXT_TO_SQL') and can_screen('INSPECTIONS') %}<a class="{{ 'active' if request.endpoint and request.endpoint.startswith('text_to_sql') else '' }}" href="{{ url_for('text_to_sql') }}">Text-to-SQL 분석</a>{% endif %}
+        {% set api510_settings_active = request.endpoint in ['api510_settings','api510_management','pressure_component_save','api510_calculation_create','api510_calculation_transition'] %}
+        {% set json_import_settings_active = request.endpoint == 'imports' %}
+        {% set pdf_review_settings_active = request.endpoint in ['pdf_ocr_review_dashboard','pdf_ocr_source','pdf_ocr_approve'] %}
+        {% set data_entry_settings_active = request.endpoint == 'data_entry_status' %}
         {% set plant_settings_active = request.endpoint in ['organization_codes','organization_code_create','organization_code_update','plant_line_master','plant_create','plant_update','production_line_create','production_line_update'] %}
         {% set color_settings_active = request.endpoint in ['wall_loss_colors','wall_loss_colors_reset'] %}
         {% set theme_settings_active = request.endpoint in ['system_theme_settings','system_theme_settings_reset'] %}
@@ -92,9 +98,8 @@
         {% set database_monitor_active=request.endpoint == 'database_monitor' %}
         {% set backup_manager_active=request.endpoint == 'backup_manager' %}
         {% set quality_settings_active = request.endpoint == 'quality_issues' %}
-        {% set layout_settings_active = request.endpoint == 'tube_layout_revisions' %}
-        {% if current_user or can_screen('PLANT_LINES') or can_screen('WALL_LOSS_COLORS') or can_screen('QUALITY') or can_screen('EXCHANGERS') %}<details class="sidebar-group-menu settings-menu" {{ 'open' if plant_settings_active or color_settings_active or theme_settings_active or preference_settings_active or user_settings_active or database_monitor_active or backup_manager_active or quality_settings_active or layout_settings_active else '' }}>
-          <summary class="{{ 'active' if plant_settings_active or color_settings_active or theme_settings_active or preference_settings_active or user_settings_active or database_monitor_active or backup_manager_active or quality_settings_active or layout_settings_active else '' }}">기본 설정</summary>
+        {% if current_user or can_screen('PLANT_LINES') or can_screen('WALL_LOSS_COLORS') or can_screen('QUALITY') or can_screen('EXCHANGERS') %}<details class="sidebar-group-menu settings-menu" {{ 'open' if plant_settings_active or color_settings_active or theme_settings_active or preference_settings_active or user_settings_active or database_monitor_active or backup_manager_active or quality_settings_active or data_entry_settings_active or pdf_review_settings_active or json_import_settings_active or api510_settings_active else '' }}>
+          <summary class="{{ 'active' if plant_settings_active or color_settings_active or theme_settings_active or preference_settings_active or user_settings_active or database_monitor_active or backup_manager_active or quality_settings_active or data_entry_settings_active or pdf_review_settings_active or json_import_settings_active or api510_settings_active else '' }}">기본 설정</summary>
           <div class="sidebar-submenu">
             {% if current_user %}<a class="{{ 'active' if preference_settings_active else '' }}" href="{{ url_for('user_preferences') }}">내 기본 설정</a>{% endif %}
             {% if can_screen('PLANT_LINES') %}<a class="{{ 'active' if plant_settings_active else '' }}" href="{{ url_for('organization_codes') }}">조직 코드 관리</a>{% endif %}
@@ -104,19 +109,21 @@
             {% if current_user and current_user.is_admin %}<a class="{{ 'active' if database_monitor_active else '' }}" href="{{ url_for('database_monitor') }}">DB 상태 점검</a>{% endif %}
             {% if current_user and current_user.is_admin %}<a class="{{ 'active' if backup_manager_active else '' }}" href="{{ url_for('backup_manager') }}">백업 관리</a>{% endif %}
             {% if can_screen('QUALITY') %}<a class="{{ 'active' if quality_settings_active else '' }}" href="{{ url_for('quality_issues') }}">품질 이슈</a>{% endif %}
-            {% if can_screen('EXCHANGERS') %}<a class="{{ 'active' if layout_settings_active else '' }}" href="{{ url_for('tube_layout_revisions') }}">Tube Layout Revision</a>{% endif %}
+            {% if can_screen('REMAINING_LIFE') %}<a class="{{ 'active' if api510_settings_active else '' }}" href="{{ url_for('api510_settings') }}">API 510 계산</a>{% endif %}
+            {% if current_user and current_user.is_admin %}<a class="{{ 'active' if json_import_settings_active else '' }}" href="{{ url_for('imports') }}">JSON 로드</a>{% endif %}
+            {% if current_user and current_user.is_admin and can_screen('PDF_OCR_REVIEW') %}<a class="{{ 'active' if pdf_review_settings_active else '' }}" href="{{ url_for('pdf_ocr_review_dashboard') }}">PDF·OCR 검토</a>{% endif %}
+            {% if current_user and current_user.is_admin %}<a class="{{ 'active' if data_entry_settings_active else '' }}" href="{{ url_for('data_entry_status') }}">데이터 입력 현황</a>{% endif %}
           </div>
         </details>{% endif %}
       </nav>
       {% if current_user %}<div class="current-user"><span class="current-user-id">{{ current_user.username }}</span><form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="current-user-role" type="submit" title="클릭하면 로그아웃됩니다" aria-label="{{ '관리자' if current_user.is_admin else '사용자' }} 계정 로그아웃">{{ '관리자' if current_user.is_admin else '사용자' }}</button></form></div>{% endif %}
-      <div class="db-state"><span class="dot"></span> v3 database<br><small title="{{ database_path }}">{{ database_path }}</small></div>
+      <div class="db-state"><span class="dot"></span> 데이터베이스 연결<br><small title="{{ database_path }}">{{ database_path }}</small></div>
     </aside>
-    {% endif %}
     <main class="main">
       <header class="topbar">
-        <div><p class="eyebrow">Heat Exchanger Management</p><h1>{% block heading %}대시보드{% endblock %}</h1></div>
+        <div><p class="eyebrow">i-HMS</p><h1>{% block heading %}대시보드{% endblock %}</h1></div>
         <div class="topbar-right">
-          {% if can_screen('REMAINING_LIFE') %}
+          {% if can_screen('REMAINING_LIFE') and not precision_fullscreen and request.endpoint != 'exchanger_detail' %}
           <nav class="topbar-navigation" aria-label="상단 업무 메뉴">
             <a class="top-analysis-tab {{ 'active' if precision_analysis_active else '' }}" href="{{ url_for('precision_analysis') }}">정밀 분석</a>
           </nav>

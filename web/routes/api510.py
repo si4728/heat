@@ -12,6 +12,12 @@ from iris2.hx_configuration import API_WRITE_TOKEN, APP_DIR, DB_PATH, UPLOAD_DIR
 
 
 def register_routes(app) -> None:
+    @app.get("/settings/api510")
+    def api510_settings():
+        return render_template("api510_settings.html", **services.list_exchangers(
+            search=request.args.get("search", ""),
+            unit_code=request.args.get("unit", "")))
+
     @app.get("/exchangers/<int:exchanger_id>/api510")
     def api510_management(exchanger_id: int):
         data = services.api510_management_data(exchanger_id)

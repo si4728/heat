@@ -24,6 +24,7 @@ from .hx_configuration import (
     DEGRADATION_POSITION_TOLERANCE_MM,
 )
 from .ml.inspection_priority import confirmed_hotspot_priorities
+from .domain.plugging_summary import plugging_counts
 from .life_prediction import (
     calculate_api510_inspection_interval,
     calculate_tube_plugging_year,
@@ -484,8 +485,8 @@ def _estimated_circular_layout(
             "x": slots[slot_index]["x"], "y": slots[slot_index]["y"], "z": 0,
             "coordinate_quality": "UNKNOWN", "coordinate_source": "ESTIMATED",
             "coordinate_is_verified": False,
-            "lifecycle_no": None, "current_status": "UNKNOWN",
-            "operational_status": "UNKNOWN", "inspection_status": "NOT_INSPECTED",
+            "lifecycle_no": None, "current_status": "IN_SERVICE",
+            "operational_status": "IN_SERVICE", "operational_status_source": "DEFAULT_NO_PLUGGING_INFO", "inspection_status": "NOT_INSPECTED",
             "category": "NOT_INSPECTED", "inspected": False,
             "wall_loss_percent": None, "minimum_wall_thickness_mm": None,
             "wall_loss_depth_mm": None, "corrosion_type": None, "location_mm": None,
@@ -886,7 +887,31 @@ def _registered_tube_coverage(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return summary
 
 
-def dashboard_data() -> dict[str, Any]:
+def exchanger_display_code(exchanger_id: int) -> str:
+    """Public UI label; asset identifiers must never be used as a fallback."""
+    with session_scope(DB_PATH) as session:
+        code = session.scalar(select(HeatExchangerSpecRevision.exchanger_code)
+            .where(HeatExchangerSpecRevision.heat_exchanger_id == exchanger_id)
+            .order_by(HeatExchangerSpecRevision.is_current.desc(),
+                      HeatExchangerSpecRevision.revision_no.desc())
+            .limit(1))
+        return str(code).strip() if code and str(code).strip() else '열교환기 코드 미등록'
+
+
+def data_entry_status_data() -> dict[str, Any]:
+    """Input completeness for the administrator-only master-data screen."""
+    with session_scope(DB_PATH) as session:
+        summary = _dashboard_data_entry_coverage(session)
+        registered_documents = select(IrisInspection.source_document_id).where(
+            IrisInspection.heat_exchanger_id.in_(select(HeatExchanger.heat_exchanger_id)))
+        summary["open_issues"] = session.scalar(
+            select(func.count()).select_from(DataQualityIssue).where(
+                DataQualityIssue.status == "OPEN",
+                DataQualityIssue.source_document_id.in_(registered_documents))) or 0
+        return summary
+
+
+def dashboard_data(life_unit: str = '', life_band_filter: str = '') -> dict[str, Any]:
     with session_scope(DB_PATH) as session:
         registered_exchangers = select(HeatExchanger.heat_exchanger_id)
         registered_inspections = select(IrisInspection.iris_inspection_id).where(
@@ -1006,7 +1031,39 @@ def dashboard_data() -> dict[str, Any]:
         ).all()
         return {"counts": counts, "units": units, "yearly_rows": yearly_rows,
                 "recent": recent, "batches": batches, "upcoming_plans": upcoming_plans,
-                "data_entry_coverage": data_entry_coverage}
+                "data_entry_coverage": data_entry_coverage,
+                "life_dashboard": dashboard_remaining_life(life_unit, life_band_filter)}
+
+
+def dashboard_remaining_life(unit='', band=''):
+    from .application.life_dashboard import life_band, group_life_rows
+    rows = []
+    as_of = remaining_life_as_of_date()
+    with session_scope(DB_PATH) as session:
+        masters = session.execute(select(HeatExchanger, Equipment, ProcessUnit)
+            .join(Equipment, Equipment.equipment_id == HeatExchanger.equipment_id)
+            .join(ProcessUnit, ProcessUnit.unit_id == Equipment.unit_id)
+            .where(ProcessUnit.unit_code.in_(['VCM1', 'VCM2']))).all()
+        ids = [h.heat_exchanger_id for h, e, u in masters]
+        bundles = session.scalars(select(TubeBundle).where(TubeBundle.heat_exchanger_id.in_(ids))).all()
+        criteria = {r.heat_exchanger_id: r for r in session.scalars(select(HeatExchangerManagementCriteria)
+                    .where(HeatExchangerManagementCriteria.heat_exchanger_id.in_(ids))).all()}
+        specs = {r.heat_exchanger_id: r.exchanger_code for r in session.scalars(select(HeatExchangerSpecRevision)
+                 .where(HeatExchangerSpecRevision.heat_exchanger_id.in_(ids), HeatExchangerSpecRevision.is_current.is_(True))).all()}
+        for hx, equipment, process in masters:
+            identifier = hx.heat_exchanger_id
+            life = _remaining_life_projection(session, identifier, equipment,
+                [b for b in bundles if b.heat_exchanger_id == identifier], criteria.get(identifier), as_of_date=as_of)
+            rows.append({'heat_exchanger_id': identifier, 'equipment_code': equipment.equipment_code,
+                'exchanger_code': specs.get(identifier), 'equipment_name': equipment.equipment_name,
+                'unit_code': process.unit_code, 'band': life_band(life),
+                'remaining_life_years': max(0, life['remaining_life_years']) if life.get('remaining_life_years') is not None else None,
+                'latest_inspection_date': life['equipment_summary'].get('latest_inspection_date'),
+                'projection_coverage_percent': life.get('projection_coverage_percent'),
+                'status': life['status']})
+    result = group_life_rows(rows, unit, band)
+    result['as_of_date'] = as_of.isoformat()
+    return result
 
 
 def list_exchangers(search: str = "", plant_code: str = "", unit_code: str = "",
@@ -1288,6 +1345,35 @@ def precision_analysis_data(
         )
         detail["remaining_life"] = detail["remaining_life_simulation"]
     tube_map = tube_map_data(selected_id) if selected_id is not None else None
+    if detail and tube_map:
+        detail['remaining_life']['tube_histories'] = precision_tube_histories(selected_id)
+        pdf_reports = []
+        pdf_urls = {}
+        for inspection, _scope in detail["inspections"]:
+            pdf = find_inspection_pdf(inspection.iris_inspection_id)
+            if pdf:
+                url = f"/inspections/{inspection.iris_inspection_id}/pdf"
+                if pdf["page"]:
+                    url += f"#page={pdf['page']}"
+                pdf_urls[inspection.iris_inspection_id] = url
+            measured = _effective_inspection_date(inspection)
+            pdf_reports.append({"inspection_id": inspection.iris_inspection_id,
+                "date": measured.date().isoformat() if isinstance(measured, datetime) else str(measured or '-'),
+                "report_number": inspection.report_number or '-',
+                "pdf_url": pdf_urls.get(inspection.iris_inspection_id)})
+        for history in detail['remaining_life']['tube_histories'].values():
+            for item in history:
+                item['pdf_url'] = pdf_urls.get(item['inspection_id'])
+        for row in detail['remaining_life']['defect_rows']:
+            row['pdf_url'] = pdf_urls.get(row.get('inspection_id'))
+        detail['analysis_pdf_reports'] = pdf_reports
+        geometry = tube_map.get('layout', {}).get('pdf_geometry') or {}
+        map_inspection_id = geometry.get('inspection_id')
+        map_pdf = find_inspection_pdf(map_inspection_id) if map_inspection_id else None
+        detail['map_pdf_url'] = (f"/inspections/{map_inspection_id}/pdf#page={int(geometry['source_page'])}"
+            if map_pdf and geometry.get('source_page') else None)
+
+
     return {
         "analysis_rows": analysis_rows,
         "selected_exchanger_id": selected_id,
@@ -1298,6 +1384,30 @@ def precision_analysis_data(
         "search": str(search or ""),
         "corrosion_rate_multiplier": corrosion_rate_multiplier,
     }
+
+
+def precision_tube_histories(exchanger_id):
+    """Return original measurements, including explicitly marked old installations."""
+    histories = {}
+    with session_scope(DB_PATH) as session:
+        equipment = session.scalar(select(Equipment).join(HeatExchanger,
+            HeatExchanger.equipment_id == Equipment.equipment_id).where(HeatExchanger.heat_exchanger_id == exchanger_id))
+        rows = session.execute(select(IrisTubeResult, IrisInspection, HeatExchangerTube)
+            .join(IrisInspection, IrisInspection.iris_inspection_id == IrisTubeResult.iris_inspection_id)
+            .join(HeatExchangerTube, HeatExchangerTube.tube_id == IrisTubeResult.tube_id)
+            .where(IrisInspection.heat_exchanger_id == exchanger_id,
+                or_(IrisTubeResult.quality_status.is_(None), IrisTubeResult.quality_status != 'NOT_IN_LATEST_JSON'))
+            .order_by(func.coalesce(IrisInspection.inspection_date, IrisInspection.report_date), IrisTubeResult.iris_tube_result_id)).all()
+        for result, inspection, tube in rows:
+            measured = _effective_inspection_date(inspection)
+            histories.setdefault(str(tube.tube_id), []).append({
+                'inspection_id': inspection.iris_inspection_id,
+                'result_id': result.iris_tube_result_id,
+                'date': measured.date().isoformat() if isinstance(measured, datetime) else measured.isoformat() if measured else None,
+                'thickness_mm': result.minimum_wall_thickness_mm,
+                'historical': not is_current_installation_inspection(measured, equipment.install_date, tube.installed_at),
+            })
+    return histories
 
 
 def _resolve_tube_length(session, exchanger_id: int,
@@ -1562,9 +1672,7 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
     if not 0.1 <= corrosion_rate_multiplier <= 3.0:
         raise ValueError("시뮬레이션 부식속도 배율은 10%에서 300% 사이여야 합니다.")
     plugging_wall_loss_percent = float(
-        (criteria.critical_wall_loss_percent
-         if criteria and criteria.critical_wall_loss_percent is not None
-         else REMAINING_LIFE_PLUGGING_WALL_LOSS_PERCENT)
+        40.0
         if plugging_wall_loss_percent is None else plugging_wall_loss_percent
     )
     if not 0 < plugging_wall_loss_percent <= 100:
@@ -1640,6 +1748,10 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         .order_by(HeatExchangerSpecRevision.is_current.desc(),
                   HeatExchangerSpecRevision.revision_no.desc())
     )
+    # Use the same current specification denominator in calculations and UI.
+    # Historical report totals remain available as source evidence only.
+    if master_spec is not None and master_spec.tube_count and master_spec.tube_count > 0:
+        expected_count = int(master_spec.tube_count)
     latest_inspection = max(
         (inspection for _result, inspection in latest_results.values()),
         key=lambda inspection: _effective_inspection_date(inspection),
@@ -1665,11 +1777,8 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
             if latest_snapshot is not None and latest_snapshot.summary_inspected_tubes is not None
             else len(latest_results)
         ),
-        "total_tube_count": (
-            latest_snapshot.summary_total_tubes
-            if latest_snapshot is not None and latest_snapshot.summary_total_tubes is not None
-            else expected_count
-        ),
+        "total_tube_count": expected_count,
+        "reported_total_tube_count": latest_snapshot.summary_total_tubes if latest_snapshot else None,
         "shell_fluid": master_spec.shell_fluid if master_spec else None,
         "tube_fluid": master_spec.tube_fluid if master_spec else None,
         "tube_material": (
@@ -1699,11 +1808,8 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         latest = latest_results.get(tube.tube_id)
         if normalize_tube_status(tube.current_status) == "PLUGGED":
             plugged_result, plugged_inspection = latest if latest else (None, None)
-            plugged_date = (
-                _effective_inspection_date(plugged_inspection).date()
-                if plugged_inspection and _effective_inspection_date(plugged_inspection)
-                else as_of_date
-            )
+            plugged_date = (tube.plugging_date.date() if isinstance(tube.plugging_date, datetime)
+                            else tube.plugging_date) or as_of_date
             projections.append({
                 "tube_id": tube.tube_id, "tube_no": tube.tube_no,
                 "row_no": tube.row_no, "column_no": tube.column_no,
@@ -1768,6 +1874,7 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
             plugging_wall_loss_percent=plugging_wall_loss_percent,
             rate_multiplier=corrosion_rate_multiplier,
             installation_precision=precision,
+            as_of_date=as_of_date,
         )
         if "plugging_date" not in calculation:
             reason_counts["NO_POSITIVE_CORROSION_RATE" if calculation["status"] == "NO_POSITIVE_WALL_LOSS"
@@ -1784,6 +1891,7 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         projections.append({
             "tube_id": tube.tube_id, "tube_no": tube.tube_no,
             "row_no": tube.row_no, "column_no": tube.column_no,
+            "inspection_id": inspection.iris_inspection_id,
             "measurement_date": _effective_inspection_date(inspection).date().isoformat(),
             "wall_loss_percent": float(loss_percent) if loss_percent is not None else None,
             "minimum_wall_thickness_mm": result.minimum_wall_thickness_mm,
@@ -1794,6 +1902,7 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
             "long_term_corrosion_rate_mm_per_year": rate_profile.get("long_term_rate_mm_per_year"),
             "corrosion_rate_selection_basis": rate_profile.get("selection_basis"),
             **calculation,
+            "plugging_threshold_reached": float(loss_percent) >= plugging_wall_loss_percent if loss_percent is not None else False,
             "basis": "CALCULATED",
         })
 
@@ -1817,16 +1926,13 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         allowable_plugging_percent=(
             allowable_plugging_percent
             if allowable_plugging_percent is not None
-            else (
-                criteria.allowable_plugging_percent
-                if criteria and criteria.allowable_plugging_percent in REMAINING_LIFE_ALLOWABLE_PLUGGING_OPTIONS
-                else REMAINING_LIFE_DEFAULT_ALLOWABLE_PLUGGING_PERCENT
-            )
+            else (10.0 if equipment.is_critical else 20.0)
         ),
     )
     summary.update({
         "total_tube_count": expected_count,
         "managed_tube_count": len(tubes),
+        "specified_tube_count": int(master_spec.tube_count) if master_spec and master_spec.tube_count and master_spec.tube_count > 0 else None,
         "projected_tube_count": len(projections),
         "unprojectable_tube_count": max(len(tubes) - len(projections), 0),
         "projection_coverage_percent": round(len(projections) / len(tubes) * 100, 2) if tubes else 0.0,
@@ -1840,9 +1946,13 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         ),
         "as_of_date": as_of_date.isoformat(),
         "corrosion_rate_multiplier": corrosion_rate_multiplier,
-        "formula": "최근 검사일 + (기준 감육률 − 최근 감육률) ÷ (최근 감육률 / 설치 후 검사일까지의 사용연수 × 속도 배율)",
+        "formula": "현재 계산 기준일 + (공칭두께 × 판정 감육률 − 최근 검사 감육량) ÷ 적용 부식속도",
+        "projection_anchor": "CURRENT_BASIS_DATE",
         "calculation_method": "LATEST_INSPECTION_INSTALLATION_AVERAGE",
     })
+    summary.update(plugging_counts(tubes, latest_results, projections,
+                                  plugging_wall_loss_percent, as_of_date,
+                                  int(master_spec.tube_count) if master_spec and master_spec.tube_count and master_spec.tube_count > 0 else None))
     projection_by_tube = {item["tube_id"]: item for item in projections}
     defect_rows = []
     for tube in tubes:
@@ -1863,6 +1973,7 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
             "tube_no": tube.tube_no,
             "row_no": tube.row_no,
             "column_no": tube.column_no,
+            "inspection_id": inspection.iris_inspection_id,
             "measurement_date": _effective_inspection_date(inspection).date().isoformat(),
             "wall_loss_percent": float(wall_loss_percent),
             "minimum_wall_thickness_mm": result.minimum_wall_thickness_mm,
@@ -1902,6 +2013,7 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
             "life_reached": year == summary["life_reached_year"],
         })
     summary["chart_series"] = chart_series
+    summary["chart_end_year"] = chart_end_year
     return summary
 
 
@@ -2312,6 +2424,7 @@ def tube_map_data(exchanger_id: int, campaign_id: int | None = None) -> dict[str
                 boundary_geometry = None
             pdf_geometry = {
                 "geometry_revision_id": selected_geometry.geometry_revision_id,
+                "inspection_id": selected_geometry.iris_inspection_id,
                 "shape_code": selected_geometry.shape_code,
                 "geometry_source": selected_geometry.geometry_source,
                 "shape_confidence": selected_geometry.shape_confidence,
@@ -2684,8 +2797,9 @@ def tube_map_data(exchanger_id: int, campaign_id: int | None = None) -> dict[str
                         "coordinate_source": "APPROVED_LAYOUT",
                         "coordinate_is_verified": True,
                         "position_locked": True,
-                        "lifecycle_no": None, "current_status": "UNKNOWN",
-                        "operational_status": "UNKNOWN",
+                        "lifecycle_no": None, "current_status": "IN_SERVICE",
+                        "operational_status": "IN_SERVICE",
+                        "operational_status_source": "DEFAULT_NO_PLUGGING_INFO",
                         "inspection_status": "NOT_INSPECTED",
                         "category": "NOT_INSPECTED", "inspected": False,
                         "wall_loss_percent": None,
@@ -2731,20 +2845,35 @@ def tube_map_data(exchanger_id: int, campaign_id: int | None = None) -> dict[str
                 shape_code=effective_shape_code,
                 width_height_ratio=effective_width_height_ratio,
             )
+        pdf_vector_applied = False
+        if (not approved_layout_rows and selected_geometry
+                and selected_geometry.review_status in {"REVIEWED", "APPROVED"}
+                and selected_geometry.verification_status == "PASS"
+                and selected_geometry.tube_count_match
+                and selected_geometry.expected_tube_count == expected_count
+                and any(row[0].geometry_revision_id == selected_geometry.geometry_revision_id
+                        and row.campaign_id == selected_campaign_id for row in geometry_rows)):
+            source_pdf = find_inspection_pdf(selected_geometry.iris_inspection_id)
+            if source_pdf:
+                from .application.pdf_map_display import pdf_vector_display
+                vector_items = pdf_vector_display(source_pdf["path"], selected_geometry.source_page,
+                    expected_count, selected_geometry.source_pdf_sha256, tube_items)
+                if vector_items is not None:
+                    display_items = vector_items
+                    pdf_vector_applied = True
         selected_campaign = next(
             (row for row in campaigns if row["campaign_id"] == selected_campaign_id), None
         )
         display_counts = {key: 0 for key in counts}
         for item in display_items:
-            display_counts[item["category"]] += 1
+            display_counts[item["category"]] = display_counts.get(item["category"], 0) + 1
         virtual_count = 0 if approved_layout_rows else max(len(display_items) - len(tube_items), 0)
-        display_operational_counts = {**operational_counts, "UNKNOWN": virtual_count}
-        if approved_layout_rows:
-            display_operational_counts["UNKNOWN"] = unlinked_layout_count
+        display_operational_counts = {key: 0 for key in TUBE_OPERATION_STATUSES}
+        for item in display_items:
+            status = item["operational_status"]
+            display_operational_counts[status] = display_operational_counts.get(status, 0) + 1
         display_inspection_counts = dict(inspection_counts)
-        display_inspection_counts["NOT_INSPECTED"] += (
-            unlinked_layout_count if approved_layout_rows else virtual_count
-        )
+        display_inspection_counts["UNREGISTERED"] = sum(item.get("managed") is False for item in display_items)
         detailed_indications = [
             indication
             for item in tube_items
@@ -2794,7 +2923,7 @@ def tube_map_data(exchanger_id: int, campaign_id: int | None = None) -> dict[str
                 "report_grid_count": sum(
                     item["coordinate_source"] == "REPORT_ROW_COLUMN" for item in tube_items
                 ),
-                "estimated_display_count": virtual_count,
+                "estimated_display_count": 0 if pdf_vector_applied else virtual_count,
                 "indication_count": len(detailed_indications),
                 "measured_axial_position_count": sum(
                     item["position_quality"] == "MEASURED"
@@ -2835,17 +2964,19 @@ def tube_map_data(exchanger_id: int, campaign_id: int | None = None) -> dict[str
                 "layout_coordinates_complete": bool(approved_layout_rows),
             },
             "layout": {
-                "shape": "SOURCE_LAYOUT_GRID" if approved_layout_rows else (
+                "shape": "PDF_VECTOR_DISPLAY" if pdf_vector_applied else "SOURCE_LAYOUT_GRID" if approved_layout_rows else (
                     f"{effective_shape_code}_ESTIMATE" if selected_geometry else "CIRCULAR_ESTIMATE"
                 ),
                 "arrangement_basis": (
                     "APPROVED_LAYOUT_COORDINATES" if approved_layout_rows
+                    else "PDF_VECTOR_COORDINATES" if pdf_vector_applied
                     else "PDF_GEOMETRY_SHAPE" if selected_geometry
                     else "CIRCULAR_FALLBACK"
                 ),
                 "pdf_geometry": pdf_geometry,
-                "is_estimated": False if approved_layout_rows else virtual_count > 0,
-                "estimated_position_count": virtual_count,
+                "is_estimated": False if approved_layout_rows or pdf_vector_applied else virtual_count > 0,
+                "pdf_vector_display_applied": pdf_vector_applied,
+                "estimated_position_count": 0 if pdf_vector_applied else virtual_count,
                 "orientation": (
                     approved_layout_revision.source_section_name
                     if approved_layout_revision else map_orientation
@@ -3497,7 +3628,7 @@ def save_exchanger(data: dict[str, Any], exchanger_id: int | None = None,
         if not criteria:
             criteria = HeatExchangerManagementCriteria(heat_exchanger_id=hx.heat_exchanger_id)
             session.add(criteria)
-        criteria.allowable_plugging_percent = allowable_plugging
+        criteria.allowable_plugging_percent = 10.0 if equipment.is_critical else 20.0
         criteria.warning_wall_loss_percent = warning_loss
         criteria.critical_wall_loss_percent = critical_loss
         criteria.minimum_wall_thickness_mm = _float(data.get("minimum_wall_thickness_mm"))
@@ -3852,6 +3983,14 @@ def inspection_plans_data(
             .join(Plant, Plant.plant_id == ProcessUnit.plant_id)
             .order_by(Plant.plant_code, ProcessUnit.unit_code, Equipment.equipment_code)
         ).all()
+        exchanger_codes = {}
+        for identifier, code in session.execute(select(
+            HeatExchangerSpecRevision.heat_exchanger_id, HeatExchangerSpecRevision.exchanger_code)
+            .order_by(HeatExchangerSpecRevision.is_current.desc(), HeatExchangerSpecRevision.revision_no.desc())):
+            exchanger_codes.setdefault(identifier, str(code).strip() if code and str(code).strip() else '열교환기 코드 미등록')
+        exchangers = sorted(exchangers, key=lambda row: (
+            exchanger_codes.get(row[0].heat_exchanger_id, '열교환기 코드 미등록').casefold(),
+            row[2].unit_code, row[1].equipment_code))
         plans = session.execute(stmt).all()
         plan_ids = [plan.inspection_plan_id for plan, *_ in plans]
         target_rows = session.scalars(
@@ -3898,7 +4037,7 @@ def inspection_plans_data(
                 tube_status_counts[normalized] = tube_status_counts.get(normalized, 0) + 1
         return {
             "plans": plans,
-            "exchangers": exchangers,
+            "exchanger_codes": exchanger_codes, "exchangers": exchangers,
             "status_filter": status,
             "today": datetime.now(),
             "selected_exchanger_id": selected_id,
@@ -4153,7 +4292,19 @@ def tube_management_data(exchanger_id: int, search: str = "", status: str = "") 
             .where(TubeBundle.heat_exchanger_id == exchanger_id)
             .group_by(HeatExchangerTube.current_status)
         ).all())
-        return {**detail, "tubes": tubes, "latest": latest, "status_counts": counts,
+        registered_count = sum(counts.values())
+        spec = detail.get("spec")
+        specified_count = int(spec.tube_count) if spec and spec.tube_count is not None and spec.tube_count > 0 else None
+        default_in_service_count = max(specified_count - registered_count, 0) if specified_count is not None else 0
+        normalized_counts = {key: 0 for key in TUBE_OPERATION_STATUSES}
+        for key, count in counts.items():
+            normalized = normalize_tube_status(key)
+            normalized_counts[normalized] = normalized_counts.get(normalized, 0) + count
+        display_counts = dict(normalized_counts)
+        return {**detail, "tubes": tubes, "latest": latest, "status_counts": display_counts,
+                "registered_status_counts": normalized_counts,
+                "registered_tube_count": registered_count, "specified_tube_count": specified_count,
+                "default_in_service_count": default_in_service_count,
                 "search": search, "status_filter": status, "tube_statuses": TUBE_OPERATION_STATUSES}
 
 

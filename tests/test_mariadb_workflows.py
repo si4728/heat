@@ -70,6 +70,25 @@ class MariaDBWorkflowTests(unittest.TestCase):
         self.assertIn('data-unconnected="true"',option)
         self.assertIn('hidden disabled',option)
         self.assertIn('show-unconnected-processes',form)
+    def test_current_tube_total_is_used_for_display_and_allowance(self):
+        with self.engine.connect() as conn:
+            row=conn.execute(text('''SELECT i.heat_exchanger_id,s.iris_inspection_id,s.summary_total_tubes,r.tube_count
+                FROM iris_inspection_spec_snapshot s JOIN iris_inspection i ON i.iris_inspection_id=s.iris_inspection_id
+                JOIN heat_exchanger_spec_revision r ON r.heat_exchanger_id=i.heat_exchanger_id AND r.is_current=1
+                JOIN heat_exchanger h ON h.heat_exchanger_id=i.heat_exchanger_id
+                JOIN equipment e ON e.equipment_id=h.equipment_id JOIN process_unit u ON u.unit_id=e.unit_id
+                WHERE r.tube_count>0 AND u.unit_code IN ('VCM1','VCM2') ORDER BY i.inspection_date DESC LIMIT 1''')).first()
+        self.assertIsNotNone(row)
+        try:
+            with self.engine.begin() as conn:
+                conn.execute(text('UPDATE iris_inspection_spec_snapshot SET summary_total_tubes=9999 WHERE iris_inspection_id=:id'),{'id':row[1]})
+            life=services.exchanger_detail(row[0])['remaining_life']
+            self.assertEqual(life['total_tube_count'],row[3])
+            self.assertEqual(life['equipment_summary']['total_tube_count'],row[3])
+        finally:
+            with self.engine.begin() as conn:
+                conn.execute(text('UPDATE iris_inspection_spec_snapshot SET summary_total_tubes=:n WHERE iris_inspection_id=:id'),{'id':row[1],'n':row[2]})
+
     def test_master_creation_revision_and_duplicate_protection(self):
         code='MIGTEST-'+uuid.uuid4().hex[:10]
         data={'unit_id':self.unit,'equipment_code':code,'equipment_name':'MariaDB integration test','exchanger_type_code':'ST','tube_count':10,'tube_nominal_thickness_mm':2.11}

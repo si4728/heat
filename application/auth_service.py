@@ -17,6 +17,7 @@ SCREEN_DEFINITIONS = (
     ("EXCHANGERS", "열교환기 관리", "열교환기 목록·상세·등록·수정·Tube Map"),
     ("REMAINING_LIFE", "Tube Plugging/API 510", "Tube Plugging 예측 및 API 510 계산 관리"),
     ("INSPECTIONS", "검사 관리", "검사 이력·튜브별 이력·검사계획·PDF 보고서"),
+    ("TEXT_TO_SQL", "Text-to-SQL", "검사 데이터 SQL 생성·읽기 전용 실행·결과 조회 (검사 관리 조회 권한 필요)"),
     ("MAINTENANCE", "정비 관리", "작업지시와 정비·교체 이력"),
     ("QUALITY", "품질 이슈", "데이터 품질 이슈 조회"),
     ("PLANT_LINES", "조직 코드 설정", "공장·생산팀·공정의 코드와 Label 관리"),
@@ -132,8 +133,8 @@ def user_can(profile: dict[str, Any] | None, screen_key: str,
              edit: bool = False) -> bool:
     if not profile:
         return False
-    if screen_key == "PDF_OCR_REVIEW":
-        return bool(profile.get("is_active")) and str(profile.get("username") or "").strip().lower() == "silicon@gmail.com"
+    if screen_key in {"PDF_OCR_REVIEW", "JSON_IMPORT"}:
+        return bool(profile.get("is_active")) and bool(profile.get("is_admin"))
     if profile.get("is_admin"):
         return True
     permission = profile.get("permissions", {}).get(screen_key, {})

@@ -109,8 +109,8 @@ def _date_value(value: date | datetime | str) -> date:
 
 def _decimal_year(value: date) -> float:
     start = date(value.year, 1, 1)
-    next_start = date(value.year + 1, 1, 1)
-    return value.year + (value - start).days / (next_start - start).days
+    days_in_year = (date(value.year, 12, 31) - start).days + 1
+    return value.year + (value - start).days / days_in_year
 
 
 def calculate_tube_plugging_year(*, current_year: int | None = None,
@@ -118,18 +118,22 @@ def calculate_tube_plugging_year(*, current_year: int | None = None,
                                   nominal_thickness_mm: float,
                                   current_wall_loss_mm: float,
                                   corrosion_rate_mm_per_year: float | None,
-                                  plugging_wall_loss_percent: float | None = None) -> dict | None:
+                                  plugging_wall_loss_percent: float | None = None,
+                                  rate_multiplier: float = 1.0) -> dict | None:
     """Calculate the Plugging date from the tube's actual measurement date."""
     try:
         nominal_thickness_mm = float(nominal_thickness_mm)
         current_wall_loss_mm = float(current_wall_loss_mm)
         rate = None if corrosion_rate_mm_per_year is None else float(corrosion_rate_mm_per_year)
+        multiplier = float(rate_multiplier)
     except (TypeError, ValueError) as exc:
         raise ValueError("Tube 잔여수명 입력값은 숫자여야 합니다.") from exc
     if not all(math.isfinite(value) for value in (nominal_thickness_mm, current_wall_loss_mm)):
         raise ValueError("Tube 잔여수명 입력값은 유한한 숫자여야 합니다.")
     if rate is not None and not math.isfinite(rate):
         raise ValueError("부식속도는 유한한 숫자여야 합니다.")
+    if not math.isfinite(multiplier) or multiplier <= 0:
+        raise ValueError("부식속도 배율은 유한한 양수여야 합니다.")
     if nominal_thickness_mm <= 0 or current_wall_loss_mm < 0:
         return None
     if measurement_date is None:
@@ -151,16 +155,25 @@ def calculate_tube_plugging_year(*, current_year: int | None = None,
     remaining_loss_mm = plugging_loss_mm - current_wall_loss_mm
     if remaining_loss_mm <= 0:
         years_to_limit = 0.0
-        exact_year = _decimal_year(origin)
         plugging_date = origin
-        plugging_year = origin.year
     elif rate is None or rate <= 0:
         return None
     else:
-        years_to_limit = remaining_loss_mm / rate
-        exact_year = _decimal_year(origin) + years_to_limit
-        plugging_date = origin + timedelta(days=years_to_limit * 365.2425)
-        plugging_year = plugging_date.year
+        # Keep the same operation order as the browser slider: baseline years / multiplier.
+        years_to_limit = (remaining_loss_mm / rate) / multiplier
+        days_to_limit = years_to_limit * 365.2425
+        if not math.isfinite(days_to_limit):
+            raise ValueError("예상 도달일이 지원 가능한 날짜 범위를 초과합니다.")
+        whole_days = math.floor(days_to_limit)
+        if whole_days > (date.max - origin).days:
+            raise ValueError("예상 도달일이 지원 가능한 날짜 범위를 초과합니다.")
+        # This is a date prediction, not a timestamp. Explicitly discard subdays
+        # rather than letting timedelta round fractional microseconds across midnight.
+        plugging_date = origin + timedelta(days=whole_days)
+    # Derive both representations from the same calendar date. Adding decimal
+    # years separately can disagree with the day-based projection at year end.
+    exact_year = _decimal_year(plugging_date)
+    plugging_year = plugging_date.year
     return {
         "plugging_loss_mm": plugging_loss_mm,
         "remaining_loss_mm": max(remaining_loss_mm, 0.0),
@@ -176,8 +189,9 @@ def calculate_latest_installation_projection(*, installation_date, measurement_d
                                              nominal_thickness_mm, wall_loss_percent,
                                              plugging_wall_loss_percent,
                                              rate_multiplier=1.0,
-                                             installation_precision="DAY") -> dict:
-    """Linear lifetime-average estimate, anchored to the latest measurement.
+                                             installation_precision="DAY",
+                                             as_of_date=None) -> dict:
+    """Lifetime-average rate with remaining allowance projected from the basis date.
 
     Installation is assumed to have zero wall loss. This is not an approval
     to operate until the predicted limit date. YEAR dates are estimates.
@@ -185,6 +199,7 @@ def calculate_latest_installation_projection(*, installation_date, measurement_d
     try:
         measured = _date_value(measurement_date)
         installed = _date_value(installation_date)
+        origin = _date_value(as_of_date) if as_of_date is not None else remaining_life_as_of_date()
         nominal, loss, limit, multiplier = map(float, (
             nominal_thickness_mm, wall_loss_percent,
             plugging_wall_loss_percent, rate_multiplier,
@@ -201,28 +216,39 @@ def calculate_latest_installation_projection(*, installation_date, measurement_d
         return {"status": "INSTALLATION_NOT_BEFORE_INSPECTION"}
     elapsed = (measured - installed).days / 365.2425
     percent_rate = loss / elapsed
-    rate = nominal * percent_rate / 100.0 * multiplier
+    base_rate = nominal * (loss / 100.0) / elapsed
+    rate = base_rate * multiplier
+    scaled_percent_rate = percent_rate * multiplier
+    if not all(math.isfinite(value) for value in (rate, scaled_percent_rate)):
+        return {"status": "INVALID_DERIVED_CORROSION_RATE"}
     common = {
         "installation_date_used": installed.isoformat(),
         "installation_precision": installation_precision,
         "measurement_date": measured.isoformat(),
+        "projection_basis_date": origin.isoformat(),
+        "projection_anchor": "CURRENT_BASIS_DATE",
         "elapsed_service_years": elapsed,
-        "wall_loss_rate_percentage_points_per_year": percent_rate * multiplier,
+        "wall_loss_rate_percentage_points_per_year": scaled_percent_rate,
         "corrosion_rate_mm_per_year": rate,
         "calculation_method": "LATEST_INSPECTION_INSTALLATION_AVERAGE",
         "assumption": "NO_TUBE_REPLACEMENT_ZERO_INITIAL_LOSS_CONSTANT_AVERAGE_RATE",
     }
     if loss == 0:
         return {**common, "status": "NO_POSITIVE_WALL_LOSS"}
+    if rate <= 0 and loss < limit:
+        return {**common, "status": "NO_POSITIVE_CORROSION_RATE"}
     try:
         result = calculate_tube_plugging_year(
-            measurement_date=measured, nominal_thickness_mm=nominal,
+            measurement_date=origin, nominal_thickness_mm=nominal,
             current_wall_loss_mm=nominal * loss / 100.0,
-            corrosion_rate_mm_per_year=rate,
+            corrosion_rate_mm_per_year=base_rate,
             plugging_wall_loss_percent=limit,
+            rate_multiplier=multiplier,
         )
     except (ValueError, OverflowError):
         return {**common, "status": "PROJECTION_OUT_OF_DATE_RANGE"}
+    if result is None:
+        return {**common, "status": "NO_POSITIVE_CORROSION_RATE"}
     return {**common, **result,
             "status": "ESTIMATED_INSTALLATION_YEAR" if installation_precision == "YEAR"
             else "CALCULATED_INSTALLATION_AVERAGE"}
@@ -314,7 +340,7 @@ def summarize_remaining_life(*, plugging_years: Iterable[int], total_tube_count:
     """Aggregate projected Plugging years and find the first limit-exceeding year."""
     base_year = int(current_year if base_year is None else base_year)
     limit_percent = (
-        DEFAULT_PLUGGING_LIMIT_PERCENT
+        (10.0 if is_critical else 20.0)
         if allowable_plugging_percent is None
         else float(allowable_plugging_percent)
     )
@@ -343,6 +369,6 @@ def summarize_remaining_life(*, plugging_years: Iterable[int], total_tube_count:
         "limit_percent": limit_percent,
         "allowable_plugging_count": allowable_count,
         "life_reached_year": life_reached_year,
-        "remaining_life_years": life_reached_year - base_year if life_reached_year is not None else None,
+        "remaining_life_years": max(0, life_reached_year - base_year) if life_reached_year is not None else None,
         "yearly": yearly,
     }

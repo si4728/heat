@@ -1,0 +1,10 @@
+<div class="plugging-counts" aria-label="Plugging 상태와 예측 구분">
+  <span>실제 Plugging 완료 수량 <strong>{{ life.actual_plugged_count|comma }}개</strong></span>
+  <span>Plugging 기준 도달 대상 수량 <strong>{{ life.threshold_reached_count|comma }}개</strong></span>
+  <span>향후 Plugging 예상 수량 <strong>{{ life.future_plugging_count|comma }}개</strong></span>
+  <small>예측 가능한 등록 튜브 중 향후 추가 도달 대상 {{ life.future_plugging_count|comma }}개이며, {% if life.unregistered_tube_count is not none %}미등록 {{ life.unregistered_tube_count|comma }}개는 평가에서 제외됩니다.{% else %}미등록 수량은 미확인이며 평가에서 제외됩니다.{% endif %}</small>
+  {% set inspection_summary = life.equipment_summary|default({}) %}
+  <small>설비 최근 검사일: <strong>{{ inspection_summary.latest_inspection_date|default('미확인', true) }}</strong> · 계산 기준일: <strong>{{ life.as_of_date|default('미확인', true) }}</strong>. 기준 도달 수량은 각 튜브의 최근 검사값에 따른 판정이며, 실제 작업 완료나 계산 기준일의 재측정 결과를 뜻하지 않습니다. 튜브별 검사일은 상세 검사 이력을 확인하세요.</small>
+  <small>실제 완료: 등록 상태 PLUGGED. 기준 도달: 실제 완료를 제외한 최근 검사 감육률 {{ life.plugging_wall_loss_percent }}% 이상. 향후 예상: 미완료·미도달 중 계산 기준일 이후 예측 가능한 Tube이며, 전체 수량에 대한 확정 예측이 아닙니다.</small>
+  <small>사용 중(등록 상태): {{ life.registered_in_service_count|comma }}개 · 미검사(등록 Tube 중 현재 설치기간 검사결과 없음): {{ life.uninspected_registered_count|comma }}개 · 등록되지 않은 튜브: {{ life.unregistered_tube_count|comma if life.unregistered_tube_count is not none else '사양 수량 미확인' }}{% if life.unregistered_tube_count is not none %}개{% endif %}. 운전 상태와 검사 여부는 별개이며 미등록 Tube의 상태는 미확인입니다.</small>
+</div>
