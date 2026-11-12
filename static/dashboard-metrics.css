@@ -94,3 +94,32 @@
     padding-top: 3px;
   }
 }
+
+/* Keep hidden links out of flex layout even when button themes set display. */
+#dashboard-metric-modal [hidden]{display:none!important;}
+#dashboard-metric-modal .modal-footer{gap:10px;align-items:center;flex-wrap:wrap;}
+#dashboard-metric-modal .modal-footer .button{flex:0 0 auto;width:auto;min-width:88px;height:40px;min-height:40px;max-height:40px;padding:0 20px;font-size:14px;line-height:1;white-space:nowrap;box-sizing:border-box;}
+
+/* One fixed table grid keeps all life-band boundaries aligned. */
+#remaining-life-dashboard .life-band-table { width:100%; min-width:630px; table-layout:fixed; border-collapse:collapse; }
+#remaining-life-dashboard .life-band-table th,#remaining-life-dashboard .life-band-table td { width:14.2857%; text-align:center; vertical-align:middle; white-space:normal; overflow-wrap:break-word; border-right:1px solid var(--line,#d9dfe2); padding:12px 8px; }
+#remaining-life-dashboard .life-band-table thead th { height:64px; line-height:1.5; }
+#remaining-life-dashboard .life-band-table a { color:var(--accent,#006b70);font-weight:600; }
+#remaining-life-dashboard .life-band-total th,#remaining-life-dashboard .life-band-total td { background:var(--accent2,#edf5f4); font-weight:700; }
+.plugging-counts { display:flex;flex-wrap:wrap;gap:12px 24px;padding:14px 0; }
+.plugging-counts>span { display:block; }
+.plugging-counts>small { flex-basis:100%;line-height:1.7;color:var(--muted,#52616a); }
+.quick-grid>.plugging-counts { grid-column:1/-1; }
+.life-chart-summary>.plugging-counts { flex-basis:100%; }
+
+.prediction-coverage { padding:12px;line-height:1.7;overflow-wrap:anywhere; }
+.prediction-coverage p { margin:4px 0; }
+.quick-grid>.prediction-coverage { grid-column:1/-1; }
+
+.prediction-coverage { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 16px; }
+.prediction-coverage>small,.prediction-coverage>p:has(>small:only-child) { grid-column:1/-1; }
+.simulation-identity:has(+.prediction-coverage-panel) { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.prediction-coverage-panel { margin:16px 0; }
+.grid.two.life-tables { grid-template-columns:minmax(0,1fr); }
+.life-tables>section:last-child td:last-child { white-space:normal;min-width:250px; }
+@media(max-width:760px){.prediction-coverage,.simulation-identity:has(+.prediction-coverage-panel){grid-template-columns:minmax(0,1fr);}}

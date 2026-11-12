@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% set tube=master[0] %}{% set bundle=master[1] %}{% set hx=master[2] %}{% set equipment=master[3] %}
-{% block title %}{{ equipment.equipment_code }} / {{ tube.tube_no }}{% endblock %}{% block heading %}튜브 이력{% endblock %}
-{% block actions %}<a class="button" href="{{ url_for('exchanger_detail', exchanger_id=hx.heat_exchanger_id) }}">{{ equipment.equipment_code }}</a>{% endblock %}
+{% set display_exchanger_code = exchanger_display_code(hx.heat_exchanger_id) %}
+{% block title %}{{ display_exchanger_code }} / {{ tube.tube_no }}{% endblock %}{% block heading %}튜브 이력{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('exchanger_detail', exchanger_id=hx.heat_exchanger_id) }}">{{ display_exchanger_code }}</a>{% endblock %}
 {% block content %}
-<div class="summary-card"><div><p class="eyebrow">{{ equipment.equipment_code }} / {{ bundle.bundle_code }}</p><h2>Tube {{ tube.tube_no }}</h2><p>Row {{ tube.row_no or '-' }} · Column {{ tube.column_no or '-' }} · Lifecycle {{ tube.lifecycle_no }}</p></div><div class="summary-stats"><span>운전 상태 <strong>{{ tube_statuses[normalized_status] }}</strong></span><span>Plugging date <strong>{{ tube.plugging_date.strftime('%Y-%m-%d') if tube.plugging_date else '-' }}</strong></span><span>검사 결과 <strong>{{ history|length }}</strong></span><span>감육 평가 <strong>{{ degradation|length }}</strong></span></div></div>
+<div class="summary-card"><div><p class="eyebrow">{{ display_exchanger_code }} / {{ bundle.bundle_code }}</p><h2>Tube {{ tube.tube_no }}</h2><p>Row {{ tube.row_no or '-' }} · Column {{ tube.column_no or '-' }} · Lifecycle {{ tube.lifecycle_no }}</p></div><div class="summary-stats"><span>운전 상태 <strong>{{ tube_statuses[normalized_status] }}</strong></span><span>Plugging date <strong>{{ tube.plugging_date.strftime('%Y-%m-%d') if tube.plugging_date else '-' }}</strong></span><span>검사 결과 <strong>{{ history|length }}</strong></span><span>감육 평가 <strong>{{ degradation|length }}</strong></span></div></div>
 <article class="panel form-panel tube-status-panel"><div class="panel-head"><div><p class="eyebrow">Operating status</p><h2>튜브 운전 상태 관리</h2></div><span class="status tube-status-{{ normalized_status|lower }}">{{ tube_statuses[normalized_status] }}</span></div>
   <form method="post" action="{{ url_for('tube_status_update', tube_id=tube.tube_id) }}" class="form-grid tube-status-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>현재 상태<select name="current_status" required>{% for code,label in tube_statuses.items() %}<option value="{{ code }}" {{ 'selected' if normalized_status == code else '' }}>{{ label }} ({{ code }})</option>{% endfor %}</select></label>

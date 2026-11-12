@@ -1,3 +1,4 @@
+{% from 'life_display.html' import remaining_label, projection_date %}
 <!doctype html>
 <html lang="ko">
 <head>
@@ -8,12 +9,14 @@
   {% set latest=inspections[0][0] if inspections else none %}
   {% set latest_pdf=inspection_pdf_links.get(latest.iris_inspection_id) if latest else none %}
   {% set open_pdf_in_new_window=not current_user or current_user.pdf_open_mode != 'CURRENT' %}
-  <title>{{ equipment.equipment_code }} · QR 간편조회</title>
+  {% set display_exchanger_code = exchanger_display_code(hx.heat_exchanger_id) %}
+  <title>{{ display_exchanger_code }} · QR 간편조회 · i-HMS</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='qr-exchanger-lookup.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='dashboard-metrics.css', v='20261110-corrections-1') }}">
 </head>
 <body>
   <header class="qr-header">
-    <a class="brand" href="{{ url_for('dashboard') }}">지능형열교환시스템</a>
+    <a class="brand" href="{{ url_for('dashboard') }}">i-HMS · 지능형 열교환기 관리 시스템</a>
     <form method="post" action="{{ url_for('logout') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit">로그아웃</button>
@@ -23,7 +26,7 @@
   <main class="qr-main">
     <section class="asset-hero">
       <p>{{ plant.plant_code|plant_display }} / {{ (equipment.process_code|organization_label('PROCESS', plant.plant_code, equipment.production_team_code)) if equipment.process_code else unit.unit_name }}</p>
-      <h1>{{ equipment.equipment_code }}</h1>
+      <h1>{{ display_exchanger_code }}</h1>
       <strong>{{ equipment.equipment_name }}</strong>
       <span>{{ spec.exchanger_code if spec and spec.exchanger_code else '열교환기 코드 미등록' }} · {{ hx.service_name or '서비스 정보 미등록' }}</span>
       <div class="badges">
@@ -43,9 +46,9 @@
     <section class="quick-grid" aria-label="열교환기 주요 현황">
       <article><span>최근 검사일</span><strong>{{ summary.latest_inspection_date or '미등록' }}</strong></article>
       <article><span>최대 감육률</span><strong>{{ '%.1f%%'|format(latest.reported_maximum_wall_loss_percent) if latest and latest.reported_maximum_wall_loss_percent is not none else '-' }}</strong></article>
-      <article><span>물리 Tube</span><strong>{{ tube_count|comma }}개</strong></article>
-      <article><span>현재 Plugging</span><strong>{{ remaining_life.current_plugging_count|comma }}개</strong></article>
-      <article><span>잔여수명</span><strong>{{ remaining_life.remaining_life_years if remaining_life.remaining_life_years is not none else '-' }}년</strong></article>
+      <article><span>개별 등록 튜브</span><strong>{{ tube_count|comma }}개</strong></article>
+      {% set life = remaining_life %}{% include "plugging_counts.html" %}{% include "prediction_coverage.html" %}
+      <article><span>잔여수명</span><strong>{{ remaining_label(remaining_life) }}</strong></article>
       <article><span>검사 이력</span><strong>{{ inspections|length }}건</strong></article>
     </section>
 

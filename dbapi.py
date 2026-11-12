@@ -92,10 +92,13 @@ def bind_qmarks(sql):
 
 class Connection:
     row_factory=Row
-    def __init__(self,selector,readonly=False):
+    def __init__(self,selector,readonly=False,readonly_profile=None):
         self.schema=schema_for(selector)
         self.readonly=readonly
-        config=load_database_config(path=APP_DIR/'config/database-readonly.conf') if readonly else load_database_config()
+        if readonly_profile not in (None, 'text_to_sql') or (readonly_profile and not readonly):
+            raise ValueError('Invalid read-only connection profile')
+        filename = 'database-text-to-sql.conf' if readonly_profile == 'text_to_sql' else 'database-readonly.conf'
+        config=load_database_config(path=APP_DIR/'config'/filename) if readonly else load_database_config()
         self.raw=pymysql.connect(host=config['host'],port=config['port'],user=config['user'],password=config['password'],database=self.schema,charset=config['charset'],autocommit=False,connect_timeout=5,read_timeout=60)
         if readonly:
             with self.raw.cursor() as cursor:cursor.execute('SET SESSION TRANSACTION READ ONLY')
@@ -121,5 +124,5 @@ class Connection:
         finally:self.close()
 
 
-def connect(database, *, uri=False, readonly=False, **kwargs):
-    return Connection(database,readonly=readonly or 'mode=ro' in str(database))
+def connect(database, *, uri=False, readonly=False, readonly_profile=None, **kwargs):
+    return Connection(database,readonly=readonly or 'mode=ro' in str(database),readonly_profile=readonly_profile)

@@ -1,0 +1,12 @@
+/* Final shared overrides: retain navigation on analysis screens and avoid menu stacking. */
+.brand-copy strong { white-space:normal; font-size:12px; line-height:1.6; word-break:keep-all; }
+.brand-copy .workspace-wordmark { white-space:nowrap; }
+@media screen and (max-width:1100px) {
+  .app-shell:not(.analysis-fullscreen),.app-shell.sidebar-collapsed { display:block; }
+  .app-shell>.sidebar { position:fixed;inset:0 auto 0 0;width:min(300px,85vw);height:100dvh;max-height:100dvh;overflow:auto;z-index:100;box-shadow:6px 0 24px #0002;box-sizing:border-box; }
+  .app-shell.sidebar-collapsed>.sidebar { display:none; }
+  .app-shell>.sidebar nav { display:grid;grid-template-columns:1fr;overflow:visible; }
+  .app-shell>.sidebar-toggle,.app-shell.sidebar-collapsed>.sidebar-toggle { position:fixed;top:10px;left:12px;right:auto;z-index:110;margin:0;width:40px;height:40px; }
+  .app-shell:not(.sidebar-collapsed)>.sidebar-toggle { left:min(250px,70vw); }
+  .app-shell:not(.analysis-fullscreen)>.main,.app-shell.sidebar-collapsed>.main { width:100%;padding-top:56px; }
+}

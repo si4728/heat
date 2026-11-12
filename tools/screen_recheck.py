@@ -89,7 +89,7 @@ def main():
         if "<" in url:
             skipped.append(dict(endpoint=rule.endpoint, rule=rule.rule, reason="No existing fixture for parameter"))
             continue
-        expected = 403 if rule.endpoint == "pdf_ocr_review_dashboard" else 301 if rule.endpoint == "hanwha_solution_logo_legacy" else 200
+        expected = 301 if rule.endpoint == "hanwha_solution_logo_legacy" else 200
         check(url, expected)
         if rule.endpoint not in {"login", "api_health", "hanwha_solution_logo", "hanwha_solution_logo_legacy"}:
             response = anonymous.get(url)

@@ -14,4 +14,9 @@ from iris2.hx_configuration import API_WRITE_TOKEN, APP_DIR, DB_PATH, UPLOAD_DIR
 def register_routes(app) -> None:
     @app.get("/")
     def dashboard():
-        return render_template("dashboard.html", **services.dashboard_data())
+        return render_template("dashboard.html", **services.dashboard_data(
+            request.args.get('life_unit', ''), request.args.get('life_band', '')))
+
+    @app.get("/master-data/data-entry-status")
+    def data_entry_status():
+        return render_template("data_entry_status.html", data_entry_coverage=services.data_entry_status_data())

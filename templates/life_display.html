@@ -1,0 +1,14 @@
+{% macro remaining_label(life) -%}
+{%- if life.status == 'LIMIT_NOT_REACHED' -%}가용 데이터에서 한도 미도달
+{%- elif life.status == 'CALCULATED' and life.remaining_life_years is not none -%}{{ life.remaining_life_years }}년
+{%- else -%}산정 불가 (데이터 부족)
+{%- endif -%}
+{%- endmacro %}
+
+{% macro projection_date(tube) -%}
+{%- if tube.basis == 'ALREADY_PLUGGED' or tube.plugging_complete -%}실제 Plugging 완료
+{%- elif tube.plugging_threshold_reached -%}최근 검사에서 기준 도달 확인 — 실제 도달일 미상
+{%- elif tube.plugging_date -%}{{ tube.plugging_year }}년 ({{ tube.plugging_date }}) · 예상일
+{%- else -%}산정 불가 (데이터 부족)
+{%- endif -%}
+{%- endmacro %}

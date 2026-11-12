@@ -12,6 +12,7 @@ runtime/
 config/database.conf
 config/database-admin.conf
 config/database-readonly.conf
+config/database-text-to-sql.conf
 config/*.cnf
 outputs/
 tmp/

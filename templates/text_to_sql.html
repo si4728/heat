@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Text-to-SQL 분석{% endblock %}
+{% block heading %}Text-to-SQL 분석{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='text-to-sql.css', v='20261110-code-1') }}">{% endblock %}
+{% block content %}
+<div class="text-sql" id="text-sql" data-csrf="{{ csrf_token }}"
+     data-inspections-url="{{ url_for('text_to_sql_inspections') }}"
+     data-generate-url="{{ url_for('text_to_sql_generate') }}"
+     data-execute-url="{{ url_for('text_to_sql_execute') }}"
+     data-tube-url="{{ url_for('tube_detail', tube_id=0) }}"
+     data-exchanger-url="{{ url_for('exchanger_detail', exchanger_id=0) }}"
+     data-inspection-url="{{ url_for('inspection_detail', inspection_id=0) }}">
+  <p class="sql-intro">VCM1 · VCM2 검사 데이터 · 여러 교환기 또는 공정의 검사 데이터를 함께 분석합니다.</p>
+  {% if catalog_error %}<p class="sql-error" role="alert">{{ catalog_error }}</p>{% endif %}
+  <form id="sql-question-form">
+    <div class="sql-scope">
+      <label for="sql-mode">조회 범위
+        <select id="sql-mode"><option value="equipment">교환기 선택</option><option value="unit">공정 전체</option></select>
+      </label>
+      <fieldset id="sql-units" hidden><legend>분석 공정</legend>
+        <label><input type="checkbox" value="VCM1"> VCM1</label>
+        <label><input type="checkbox" value="VCM2"> VCM2</label>
+      </fieldset>
+      <div id="sql-equipment-picker">
+        <label for="sql-filter">교환기 검색<input type="search" id="sql-filter" placeholder="공정 · 설비명 · Tag 검색"></label>
+        <div class="sql-selection-actions"><button type="button" id="sql-select-visible">검색 결과 전체 선택</button><button type="button" id="sql-clear-selection">선택 해제</button><span id="sql-selection-count" role="status">0대 선택</span></div>
+        <div id="sql-equipment" class="sql-equipment-list" role="group" aria-label="분석 교환기 복수 선택">
+          {% for row in equipment %}<label><input type="checkbox" value="{{ row.heat_exchanger_id }}" data-unit="{{ row.unit_code }}"><span>{{ row.unit_code }} · {{ row.equipment_tag or row.equipment_code }} · {{ row.equipment_name }}</span></label>{% endfor %}
+        </div>
+      </div>
+      <label for="sql-inspection">검사 회차
+        <select id="sql-inspection" disabled><option value="">먼저 교환기를 선택하세요</option></select>
+      </label>
+    </div>
+    <p class="sql-scope-note" id="sql-scope-note">Tube 조회는 설비별 최근 유효 검사를 합쳐 분석하며 단일 교환기는 회차를 지정할 수 있습니다. 공정 조회의 검사 없음·날짜 없음·최근 회차 중복 설비는 제외 목록에 표시합니다. 검사 횟수 순위는 선택 회차와 관계없이 기간 내 IRIS 이력을 집계합니다.</p>
+    <div class="sql-workspace">
+      <section class="panel sql-question-panel" aria-labelledby="sql-question-title">
+        <div class="panel-head"><h2 id="sql-question-title">검사 데이터 질문</h2></div>
+        <div class="sql-panel-body">
+          <label for="sql-question">질문 내용</label>
+          <textarea id="sql-question" maxlength="500" rows="4" required placeholder="예: 최근 IRIS 검사 결과를 요약해 줘."></textarea>
+          <div class="sql-examples" aria-label="예시 질문">
+            <button type="button" data-question="검사 결과를 요약해 줘.">검사 요약</button>
+            <button type="button" data-question="감육이 가장 심한 Tube 5개를 알려줘.">감육 상위 5개</button>
+            <button type="button" data-question="감육률 30% 이상인 Tube를 보여줘.">감육률 30% 이상</button>
+            <button type="button" data-question="최근 IRIS 검사를 제일 많이 수행한 열교환기를 리스트해줘.">IRIS 검사 횟수 순위</button>
+          </div>
+          <div class="sql-actions"><button id="sql-generate" class="button primary" type="submit" disabled>SQL 생성</button><span id="sql-generate-status" role="status" aria-live="polite">교환기 또는 공정을 선택하세요.</span></div>
+          <p class="sql-help">현재 지원: 검사 요약, 상위 Tube, 감육률 조건, 설비별 IRIS 검사 횟수 순위. 횟수 순위는 선택 회차 대신 기간 내 이력을 집계하며 기본 최근 5년·상위 20대입니다. 수명·차기검사·검사이력 비교는 아직 지원하지 않습니다.</p>
+        </div>
+      </section>
+      <section class="panel sql-code-panel" aria-labelledby="sql-code-title">
+        <div class="panel-head"><h2 id="sql-code-title">생성 SQL</h2><button class="button" id="sql-copy" type="button" disabled>SQL 복사</button></div>
+        <div class="sql-panel-body">
+          <label class="sr-only" for="sql-code">검증된 읽기 전용 SQL</label>
+          <textarea id="sql-code" class="sql-code" readonly rows="7" spellcheck="false" placeholder="질문에서 생성한 SQL이 여기에 표시됩니다."></textarea>
+          <p class="sql-parameters">바인딩 값 <code id="sql-parameters">—</code></p>
+          <div class="sql-actions"><button class="button" id="sql-execute" type="button" disabled>SQL 실행 · 결과 보기</button><span id="sql-execute-status" role="status" aria-live="polite">생성한 SQL을 확인한 뒤 실행하세요.</span></div>
+        </div>
+      </section>
+    </div>
+  </form>
+  <p class="sql-error" id="sql-error" role="alert" tabindex="-1" hidden></p>
+  <section class="panel sql-results" aria-labelledby="sql-result-title" id="sql-result-panel">
+    <div class="panel-head"><h2 id="sql-result-title">실행 결과</h2><span id="sql-result-count">미실행</span></div>
+    <p class="sql-result-note">밑줄이 있는 Tube 번호·교환기 코드·검사 ID를 선택하면 상세 정보를 새 탭에서 조회합니다.</p>
+    <p class="sql-result-scope" id="sql-result-scope">조회 결과는 선택한 검사 회차의 Tube 상세 데이터를 기준으로 표시됩니다.</p>
+    <details class="sql-scope-details" id="sql-scope-details" hidden><summary>분석 대상·제외 설비 확인</summary><div id="sql-scope-list"></div></details>
+    <div class="sql-result-table table-wrap" tabindex="0" role="region" aria-label="SQL 실행 결과 표">
+      <table id="sql-result-table" hidden><caption class="sr-only">SQL 실행 결과 · Tube 번호와 교환기 코드를 선택하면 상세 정보를 새 탭에서 조회합니다.</caption><thead></thead><tbody></tbody></table>
+      <p class="sql-empty" id="sql-empty">SQL을 생성하고 실행하면 결과를 확인할 수 있습니다.</p>
+    </div>
+    <p class="sql-result-note" id="sql-result-note">읽기 전용 · 최대 100행 · SQL 실행 제한 5초 · 생성 SQL 유효시간 15분</p>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script defer src="{{ url_for('static', filename='text-to-sql-links.js', v='20261112-tag-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql.js', v='20261110-code-1') }}"></script>{% endblock %}

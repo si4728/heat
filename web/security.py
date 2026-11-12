@@ -32,6 +32,10 @@ def register_security(app) -> None:
         return catalog()["labels"].get((kind, root, team_code if kind == "PROCESS" else "", code), code or "-")
 
     endpoint_permissions = dict(ENDPOINT_PERMISSIONS)
+    for endpoint in ('text_to_sql', 'text_to_sql_inspections', 'text_to_sql_generate', 'text_to_sql_execute'):
+        endpoint_permissions[endpoint] = 'TEXT_TO_SQL'
+    read_only_post_endpoints = {'text_to_sql_generate', 'text_to_sql_execute'}
+    endpoint_permissions["api510_settings"] = endpoint_permissions.get("api510_management", "REMAINING_LIFE")
     pdf_review_endpoints = {"pdf_ocr_review_dashboard", "pdf_ocr_source", "pdf_ocr_approve"}
     for endpoint in pdf_review_endpoints:
         endpoint_permissions[endpoint] = "PDF_OCR_REVIEW"
@@ -92,7 +96,9 @@ def register_security(app) -> None:
             next_path = request.full_path.rstrip("?")
             return redirect(url_for("login", next=next_path))
         g.current_user = profile
-        if endpoint in {"users_admin", "database_monitor", "backup_manager"}:
+        if endpoint in pdf_review_endpoints and not profile["is_admin"]:
+            abort(403)
+        if endpoint in {"users_admin", "database_monitor", "backup_manager", "data_entry_status", "imports"}:
             if not profile["is_admin"]:
                 abort(403)
             return None
@@ -103,7 +109,7 @@ def register_security(app) -> None:
             # Fail closed when a newly added endpoint has no explicit access
             # classification.  Authentication alone is not authorization.
             abort(403)
-        edit_required = request.method not in {"GET", "HEAD", "OPTIONS"} or endpoint in edit_page_endpoints
+        edit_required = (request.method not in {"GET", "HEAD", "OPTIONS"} and endpoint not in read_only_post_endpoints) or endpoint in edit_page_endpoints
         if not services.user_can(profile, screen_key, edit=edit_required):
             abort(403)
         return None
@@ -112,10 +118,15 @@ def register_security(app) -> None:
     def globals_for_templates():
         def can_screen(screen_key: str, action: str = "view") -> bool:
             if screen_key == "PDF_OCR_REVIEW":
-                return services.user_can(g.get("current_user"), screen_key, edit=action == "edit")
+                return bool(g.get("current_user") and g.current_user.get("is_admin")) and services.user_can(g.get("current_user"), screen_key, edit=action == "edit")
             if app.config.get("AUTH_DISABLED"):
                 return True
             return services.user_can(g.get("current_user"), screen_key, edit=action == "edit")
+        display_codes = {}
+        def exchanger_display_code(exchanger_id):
+            if exchanger_id not in display_codes:
+                display_codes[exchanger_id] = services.exchanger_display_code(exchanger_id)
+            return display_codes[exchanger_id]
         csrf_token = session.get("csrf_token")
         if not csrf_token:
             csrf_token = secrets.token_urlsafe(32)
@@ -123,6 +134,7 @@ def register_security(app) -> None:
         return {"database_path": "MariaDB / iris2", "now": datetime.now(),
                 "csrf_token": csrf_token,
                 "current_user": g.get("current_user"), "can_screen": can_screen,
+                "exchanger_display_code": exchanger_display_code,
                 "active_theme": services.active_theme_data(),
                 "organization_choices": catalog()["entries"]}
 

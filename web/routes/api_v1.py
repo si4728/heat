@@ -20,6 +20,7 @@ def register_routes(app) -> None:
         except Exception:
             return jsonify(status="unavailable",backend="mariadb"),503
         public_health = {
+            "application": "iris2",
             "status": "ok" if health["integrity_check"] == "ok" else "error",
             "schema_version": health["schema_version"],
             "backend": "mariadb",
