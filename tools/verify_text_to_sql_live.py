@@ -71,7 +71,13 @@ def main():
                 if kind == 'summary':
                     item['passed'] = rows == [summary]
                 elif kind == 'top5':
-                    item['passed'] = rows == top
+                    # Detail results include server-attached equipment identity.
+                    item['passed'] = (
+                        [{key: row.get(key) for key in expected} for row, expected in zip(rows, top)] == top
+                        and len(rows) == len(top)
+                        and all(row.get('heat_exchanger_id') == exchanger_id
+                                and row.get('equipment_code') for row in rows)
+                    )
                 elif kind == 'threshold':
                     item['passed'] = [r.get('tube_id') for r in rows] == threshold
                 else:
