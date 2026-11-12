@@ -41,7 +41,14 @@
     cell.replaceChildren(anchor);
   }
   function equipmentContexts(row, result) {
-    if (identifier(row.heat_exchanger_id)) return [{...row}];
+    if (identifier(row.heat_exchanger_id)) {
+      const id = identifier(row.heat_exchanger_id);
+      const scope = (result.scopes || []).find(scope =>
+        identifier(scope.heat_exchanger_id ?? scope.equipment?.heat_exchanger_id) === id);
+      const equipment = scope?.equipment ||
+        (identifier(result.heat_exchanger_id) === id ? result.equipment : null);
+      return [{...equipment, ...row, equipment_tag:row.equipment_tag || equipment?.equipment_tag}];
+    }
     if (identifier(result.heat_exchanger_id) && result.equipment) {
       return [{...result.equipment, heat_exchanger_id:result.heat_exchanger_id}];
     }
@@ -56,11 +63,11 @@
   function equipmentCell(cell, row, result, urls) {
     const contexts = equipmentContexts(row, result);
     cell.replaceChildren();
-    if (!contexts.length) { cell.textContent = row.equipment_code || '—'; return; }
+    if (!contexts.length) { cell.textContent = row.equipment_tag || '—'; return; }
     contexts.forEach((equipment, index) => {
       if (index) cell.append(cell.ownerDocument.createTextNode(' · '));
       const span = cell.ownerDocument.createElement('span');
-      span.textContent = equipment.equipment_code || equipment.equipment_tag || `ID ${equipment.heat_exchanger_id}`;
+      span.textContent = equipment.equipment_tag || '—';
       decorate(span, 'equipment_code', {...equipment, equipment_code:span.textContent}, result, urls);
       cell.append(span);
     });
