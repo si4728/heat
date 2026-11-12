@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}정밀 분석{% endblock %}
 {% block heading %}정밀 분석{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='precision-analysis.css', v='20261110-registration-2') }}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='precision-analysis.css', v='20261110-registration-2') }}"><link rel="stylesheet" href="{{ url_for('static', filename='sample-wall-loss.css', v='20261112-1') }}">{% endblock %}
 {% block actions %}
   {% if selected_exchanger_id %}<a class="button" href="{{ url_for('exchanger_detail', exchanger_id=selected_exchanger_id) }}">열교환기 상세</a>{% endif %}
 {% endblock %}
@@ -58,6 +58,7 @@
         <div><span>부식속도 (mm/yr)</span><strong class="warning-value">{{ '%.3f'|format(summary.representative_corrosion_rate_mm_per_year) if summary.representative_corrosion_rate_mm_per_year is not none else '-' }}</strong></div>
       </div>
 
+      {% include 'sample_wall_loss_estimate.html' %}
       <div id="precision-panel-layout" class="analysis-main-grid">
         <article id="precision-map-panel" class="analysis-map-panel">
           <div class="precision-map-toolbar">

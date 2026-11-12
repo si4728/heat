@@ -1693,6 +1693,7 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
     )
 
     latest_results: dict[int, tuple[IrisTubeResult, IrisInspection]] = {}
+    result_rows = []
     tubes_by_id = {tube.tube_id: tube for tube in tubes}
     historical_result_count = 0
     if tube_ids:
@@ -1954,6 +1955,18 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
     summary.update(plugging_counts(tubes, latest_results, projections,
                                   plugging_wall_loss_percent, as_of_date,
                                   int(master_spec.tube_count) if master_spec and master_spec.tube_count and master_spec.tube_count > 0 else None))
+    process = session.get(ProcessUnit, equipment.unit_id)
+    if process and process.unit_code in ('VCM1', 'VCM2'):
+        from .application.sample_wall_loss import build_sample_estimate
+        sample_bundle_ids = [bundle.bundle_id for bundle in bundles if bundle.retired_at is None]
+        sample_inspections = session.scalars(select(IrisInspection).where(
+            IrisInspection.heat_exchanger_id == exchanger_id,
+            IrisInspection.superseded_by_inspection_id.is_(None),
+            or_(IrisInspection.bundle_id.in_(sample_bundle_ids), IrisInspection.bundle_id.is_(None)),
+        )).all() if sample_bundle_ids else []
+        summary['sample_wall_loss_estimate'] = build_sample_estimate(
+            result_rows, tubes_by_id, equipment, master_spec,
+            threshold_percent=plugging_wall_loss_percent, inspections=sample_inspections)
     projection_by_tube = {item["tube_id"]: item for item in projections}
     defect_rows = []
     for tube in tubes:
