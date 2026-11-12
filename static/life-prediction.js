@@ -72,9 +72,11 @@
       svg.appendChild(label);
     });
 
-    const limitY = y(data.allowable);
-    svg.appendChild(create("line", { x1: margin.left, y1: limitY,
-      x2: width - margin.right, y2: limitY, class: "life-limit-line" }));
+    if (data.allowable != null) {
+      const limitY = y(data.allowable);
+      svg.appendChild(create("line", { x1: margin.left, y1: limitY,
+        x2: width - margin.right, y2: limitY, class: "life-limit-line" }));
+    }
     host.appendChild(svg);
   }
 

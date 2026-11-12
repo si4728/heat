@@ -22,7 +22,7 @@ with services.session_scope(services.DB_PATH) as session:
             issues.append({'id':identifier,'error':'DISPLAY_TOTAL_MISMATCH'})
         if spec and spec.tube_count and baseline['total_tube_count']!=spec.tube_count:
             issues.append({'id':identifier,'error':'SPEC_TOTAL_MISMATCH'})
-        if baseline['limit_percent']!=(10 if equipment.is_critical else 20):
+        if baseline['limit_percent']!=services.configured_plugging_limit(bool(equipment.is_critical)):
             issues.append({'id':identifier,'error':'CRITICAL_LIMIT_MISMATCH'})
         if baseline['plugging_wall_loss_percent']!=40:
             issues.append({'id':identifier,'error':'THRESHOLD_MISMATCH'})

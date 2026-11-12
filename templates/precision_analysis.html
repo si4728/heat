@@ -3,7 +3,6 @@
 {% block heading %}열교환기 분석{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='precision-analysis.css', v='20261112-analysis-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='sample-wall-loss.css', v='20261112-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='precision-analysis-integrated.css', v='20261112-1') }}">{% endblock %}
 {% block actions %}
-  {% if current_user and can_screen('TEXT_TO_SQL') and can_screen('INSPECTIONS') %}<a class="button" href="{{ url_for('text_to_sql') }}">Text-to-SQL 분석</a>{% endif %}
   {% if can_screen('MAINTENANCE') %}<a class="button" href="{{ url_for('maintenance') }}">정비 관리</a>{% endif %}
   {% if selected_exchanger_id %}<a class="button" href="{{ url_for('exchanger_detail', exchanger_id=selected_exchanger_id) }}">열교환기 상세</a>{% endif %}
 {% endblock %}
@@ -49,7 +48,7 @@
         <div><span>열교환기코드</span><strong>{{ exchanger_display_code(selected_exchanger_id) }}</strong></div>
         <div><span>생산공장 / 공정</span><strong>{{ plant.plant_code|plant_display }} / {{ (equipment.process_code|organization_label('PROCESS', plant.plant_code, equipment.production_team_code)) if equipment.process_code else unit.unit_name }}</strong></div>
         <div><span>검사일</span><strong>{{ summary.latest_inspection_date or '-' }}</strong></div>
-        <div><span>검사수량 / 총수량</span><strong>{{ summary.inspected_tube_count or 0 }} / {{ summary.total_tube_count or 0 }}</strong></div>
+        <div><span>검사수량 / 승인 설계 수량</span><strong>{{ summary.inspected_tube_count or 0 }} / {{ summary.total_tube_count if summary.total_tube_count is not none else '미등록' }}</strong></div>
         <div><span>Shell 유체</span><strong>{{ summary.shell_fluid or '-' }}</strong></div>
         <div><span>Tube 유체</span><strong>{{ summary.tube_fluid or '-' }}</strong></div>
         <div><span>Tube 재질</span><strong>{{ summary.tube_material or '-' }}</strong></div>
@@ -101,7 +100,7 @@
       <section id="remaining-life-help-dialog" class="analysis-inline-help" aria-labelledby="remaining-life-help-title">
         <div class="analysis-help-header"><h2 id="remaining-life-help-title">열교환기 잔여수명 분석 항목 설명</h2></div>
         <dl class="analysis-help-definitions">
-          <dt>허용 Plugging 한도</dt><dd>일반 설비는 20%, Critical 설비는 10%를 자동 적용합니다. 전체 튜브 수에 해당 비율을 적용한 튜브 개수입니다. 소수점 이하는 버립니다. 예를 들어 20% (129개)는 허용 개수가 129개라는 뜻이며, 누적 대상이 130개 이상이면 한도를 초과합니다.<code>허용 개수 = 전체 튜브 수 × 허용 비율 ÷ 100 (소수점 이하 버림)</code></dd>
+          <dt>허용 Plugging 한도</dt><dd>기본 비율은 일반·Critical 모두 20%이며 중요도별 설정으로 관리합니다. 현재 승인 설계 튜브 수에 해당 비율을 적용하고 소수점 이하는 버립니다. 예를 들어 20% (129개)는 누적 대상이 130개 이상이면 한도를 초과한다는 뜻입니다. 승인 설계 수량이 없으면 허용 수량과 설비 잔여수명은 산정 불가입니다.<code>허용 개수 = 현재 승인 설계 수량 × 설정 비율 ÷ 100 (소수점 이하 버림)</code></dd>
           <dt>기준일 누적 예측 대상 (실제 완료 포함)</dt><dd>이미 Plugging 처리된 튜브와, 계산상 Plugging 예상 시점이 기준일까지 도래한 튜브를 합산한 수량입니다. 실제 막음 처리 완료 수량과는 다릅니다. 감육속도 배율을 바꾸면 예상 시점과 이 수량도 달라질 수 있습니다.<code>계산 기준일: {{ life.as_of_date or '-' }}</code></dd>
           <dt>실제 Plugging 완료 수량 / 기준 도달 / 향후 예상</dt><dd>실제 완료는 PLUGGED 등록 상태만 집계합니다. 기준 도달은 실제 완료를 제외한 최근 검사 감육률 기준 도달 Tube입니다. 향후 예상은 미완료·미도달 중 기준일 이후 예측 가능한 Tube이며 실제 작업 수량이 아닙니다.</dd><dt>선택 Tube 예상</dt><dd>현재 계산 기준일부터 잔여기간을 더해 감육률 40%에 도달할 것으로 예상되는 연도입니다. 최근 검사 감육량을 현재 감육량으로 간주합니다. ‘처리 완료’는 등록된 튜브 상태가 PLUGGED인 경우입니다. ‘판정 기준 도달’은 최근 검사 감육률이 판정 기준 이상인 경우이며, 실제 막음 처리 완료를 의미하지 않습니다. ‘산정 불가’는 예측에 필요한 데이터가 부족한 상태입니다.<code>현재 계산 기준일 + (공칭두께 × 0.4 − 최근 검사 감육량) ÷ 적용 감육속도</code></dd>
           <dt>열교환기 예상 잔여수명</dt><dd>튜브별 Plugging 예상 연도를 누적 집계하여 허용 개수를 처음 초과하는 연도까지 남은 연수입니다. ‘한도 미도달’은 계산 가능한 튜브의 예측 결과에서 한도 초과 시점이 나오지 않았다는 뜻입니다. 데이터가 부족한 튜브는 예측 집계에서 제외되므로 무한 수명이라는 의미는 아닙니다.<code>잔여수명 = 한도 최초 초과 연도 − 기준 연도 (최소 0년)</code></dd>
@@ -114,8 +113,8 @@
         <dl class="analysis-help-definitions">
           <dt>단기 감육속도</dt><dd>최근 두 번의 검사 사이에서 감소한 두께를 검사 간 경과연수로 나눈 값입니다. 최근 부식 추세를 보여줍니다.<code>(직전 검사 두께 − 최근 검사 두께) ÷ 검사 간 경과연수</code></dd>
           <dt>장기 감육속도</dt><dd>설치 시점 또는 최초 측정 시점부터 최근 검사까지의 두께 감소를 연간 평균으로 환산한 기준값입니다. 슬라이더 배율을 바꿔도 이 값은 유지됩니다.<code>(초기 두께 − 최근 검사 두께) ÷ 경과연수</code></dd>
-          <dt>감육속도(mm/년)</dt><dd>현재 예측에는 장기 감육속도에 슬라이더 배율을 곱한 값을 사용합니다. 단기 속도는 최근 측정 추세를 함께 확인하는 값이며 자동으로 적용 속도를 바꾸지 않습니다. 배율은 0.1~2.0이고 기본값은 1.0입니다.<code>감육속도 = 장기 감육속도 × 배율</code></dd>
-          <dt>산정 근거</dt><dd>적용 감육속도를 계산하거나 선택한 기준입니다. <code>LATEST_INSPECTION_INSTALLATION_AVERAGE</code>는 ‘설치 후 최근 검사 평균’을 뜻합니다. 설치 당시 감육량을 0으로 가정하고, 최근 검사 감육량을 설치 후 검사일까지의 경과연수로 나눕니다.<code>(공칭두께 × 최근 감육률 ÷ 100) ÷ 설치 후 검사일까지의 경과연수</code>튜브 교체 없이 평균 감육속도가 일정하게 유지된다고 가정합니다.</dd>
+          <dt>감육속도(mm/년)</dt><dd>현재 설치 이후 유효 측정일이 3회 이상이면 두께·검사일의 선형 회귀 추세값을 적용합니다. 2회 이하이면 양수인 단기·장기 감육속도 중 큰 값을 적용합니다. 선택한 회귀값 또는 단기값이 0 이하이면 측정 편차로 보고 양의 장기 감육속도로 전환합니다. 배율은 0.1~2.0이고 기본값은 1.0입니다.<code>감육속도 = 선정 감육속도 × 배율</code></dd>
+          <dt>산정 근거</dt><dd>‘추세(n회)’, ‘단기’, ‘장기’, ‘단기 0 이하 → 장기’, ‘추세 0 이하 → 장기’로 선정 기준을 표시합니다. 같은 날짜의 복수 결과는 최소 유효 두께 한 건으로 집계하고 설치 이전·무효·대체된 검사 결과는 선정에서 제외합니다. 장기 감육속도는 설치 당시 감육량 0을 가정한 설치 후 평균입니다.<code>장기 = (공칭두께 × 최근 감육률 ÷ 100) ÷ 설치 후 검사일까지의 경과연수</code>장기값도 유효한 양수가 아니면 산정 불가로 표시합니다.</dd>
         </dl>
         <p class="analysis-help-note">mm/년은 연간 두께 감소량입니다. ‘-’는 데이터 부족 또는 미산정을 의미하며 0과 구분합니다. 단기 속도가 0 이하이면 측정 편차를 확인해야 하며 음수 값을 두께 회복이나 수명 연장으로 적용하지 않습니다. 같은 직전 검사일에 복수 유효 측정이 있으면 최소 두께를 사용합니다.</p>
       </section>
@@ -132,4 +131,4 @@
   </section>
 </div>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='tube-thickness-trend.js', v='20261112-1') }}"></script><script src="{{ url_for('static', filename='wall-loss-palette.js', v='20261110-corrections-1') }}"></script><script defer src="{{ url_for('static', filename='precision-analysis.js', v='20261112-analysis-1') }}"></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='tube-thickness-trend.js', v='20261112-1') }}"></script><script src="{{ url_for('static', filename='wall-loss-palette.js', v='20261110-corrections-1') }}"></script><script defer src="{{ url_for('static', filename='precision-analysis.js', v='20261112-decisions-2') }}"></script>{% endblock %}

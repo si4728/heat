@@ -29,7 +29,7 @@ def main():
         response = client.get(url)
         html = response.get_data(as_text=True)
         assert response.status_code == 200
-        workspace = html.split('<main class="main">', 1)[1].split('</main>', 1)[0]
+        workspace = html.split('<div class="precision-analysis-shell">', 1)[1].split('</main>', 1)[0]
         assert '<dialog' not in workspace and '<details' not in workspace and 'role="tab"' not in workspace
         assert '단기 감육속도' in html and 'tube-thickness-trend.js' in html
         output = ROOT / 'reports/exchanger-analysis-20261112'

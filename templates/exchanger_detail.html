@@ -8,8 +8,8 @@
 {% block content %}
 {% include 'sample_wall_loss_estimate.html' %}
 <details class="exchanger-calculation-guide">
-  <summary><strong>잔여수명 계산 기준</strong><span>일반 20% · Critical 10%</span><small>계산식 및 적용 가정 보기</small></summary>
-  <div><p class="analysis-quality-note">기본 Tube 예측: 현재 계산 기준일 + (공칭두께 × 0.4 − 최근 검사 감육량) ÷ 적용 부식속도. 일반 허용 한도 20%, Critical 10%. 잔여수명은 한도 최초 초과 연도에서 기준연도를 뺀 값(최소 0년)입니다. 최근 검사 감육량을 기준일의 현재 감육량으로 간주합니다. 별도 Simulation의 사용자 조건은 기본 산식을 저장·변경하지 않습니다. API 510 검사주기는 별도 계산입니다.</p></div>
+  <summary><strong>잔여수명 계산 기준</strong><span>중요도별 설정 비율 (기본 모두 20%)</span><small>계산식 및 적용 가정 보기</small></summary>
+  <div><p class="analysis-quality-note">기본 Tube 예측: 현재 계산 기준일 + (공칭두께 × 0.4 − 최근 검사 감육량) ÷ 적용 부식속도. 허용 한도는 중요도별 설정을 적용하며 기본값은 모두 20%입니다. 잔여수명은 한도 최초 초과 연도에서 기준연도를 뺀 값(최소 0년)입니다. 최근 검사 감육량을 기준일의 현재 감육량으로 간주합니다. 별도 Simulation의 사용자 조건은 기본 산식을 저장·변경하지 않습니다. API 510 검사주기는 별도 계산입니다.</p></div>
 </details>
 {% set equipment_info=remaining_life.equipment_summary %}
 <div class="equipment-summary-scroll" aria-label="설비 주요 정보">
@@ -91,7 +91,7 @@
             <td>{{ '%.4f'|format(defect.short_term_corrosion_rate_mm_per_year) if defect.short_term_corrosion_rate_mm_per_year is not none else '-' }}</td>
             <td>{{ '%.4f'|format(defect.long_term_corrosion_rate_mm_per_year) if defect.long_term_corrosion_rate_mm_per_year is not none else '-' }}</td>
             <td>{{ '%.4f'|format(defect.corrosion_rate_mm_per_year) if defect.corrosion_rate_mm_per_year is not none and defect.corrosion_rate_mm_per_year > 0 else '-' }}</td>
-            <td>{{ '설치 후 최근 검사 평균' if defect.corrosion_rate_selection_basis == 'LATEST_INSPECTION_INSTALLATION_AVERAGE' else (defect.corrosion_rate_selection_basis or '-') }}</td>
+            <td>{{ defect.corrosion_rate_selection_label|default('산정 불가') }}</td>
             <td>{% if defect.plugging_complete %}<strong class="plugging-forecast complete" title="등록된 튜브 상태: PLUGGED">처리 완료</strong>{% elif defect.plugging_threshold_reached %}<strong class="plugging-forecast complete" title="감육률이 Plugging 판정 기준 이상입니다. 실제 처리 완료를 뜻하지 않습니다.">최근 검사에서 기준 도달 확인 — 실제 도달일 미상</strong>{% elif defect.plugging_year %}<strong class="plugging-forecast {{ 'near' if defect.plugging_year <= life.current_year + 10 else 'long' }}">{{ defect.plugging_year }}년</strong>{% else %}<button type="button" class="plugging-forecast long plugging-help-trigger" data-plugging-help>산정 불가</button>{% endif %}</td>
           </tr>
         {% else %}<tr><td colspan="11" class="empty">감육 결함 데이터가 없습니다.</td></tr>{% endfor %}</tbody>
@@ -102,14 +102,14 @@
   <div class="life-metrics">
     <div><span>현재 / 기준 연도</span><strong>{{ life.current_year }} / {{ life.base_year }}</strong></div>
     <div><span>총 튜브 수</span><strong>{{ life.total_tube_count|comma }}</strong></div>
-    <div><span>허용 한도</span><strong>{{ life.allowable_plugging_count|comma }}개 · {{ life.limit_percent|int }}%</strong><small>열교환기별 설정</small></div>
+    <div><span>허용 한도</span><strong>{{ life.allowable_plugging_count|comma }}개 · {{ life.limit_percent|int }}%</strong><small>중요도별 설정</small></div>
     <div><span>수명 도달 연도</span><strong>{{ life.life_reached_year or '-' }}</strong></div>
     <div class="life-result"><span>잔여수명</span><strong>{{ remaining_label(life) }}</strong><small>{% if life.life_reached_year %}{{ life.life_reached_year }} − {{ life.base_year }}{% else %}예상일이 계산되는 Tube만 평가 · 안전 판정 아님{% endif %}</small></div>
   </div>
   {% include "prediction_coverage.html" %}
   <div class="life-note">최근 검사 감육률과 설치 후 사용기간으로 평균 속도를 계산합니다. 튜브 교체 없음·설치 당시 감육 0·일정한 평균 속도를 가정한 추정입니다. 설치연도만 있으면 해당 연도 7월 1일을 계산 기준으로 사용합니다. 산정 제외: 검사 없음 {{ life.reason_counts.NO_INSPECTION|comma }}개 · 두께/감육량 부족 {{ life.reason_counts.NO_NOMINAL_THICKNESS|comma }}개 · 양의 감육 없음 {{ life.reason_counts.NO_POSITIVE_CORROSION_RATE|comma }}개 · 설치일 등 입력 확인 필요 {{ life.reason_counts.INVALID_INSTALLATION_DATE|default(0)|comma }}개.</div>
   <div class="grid two life-tables">
-    <section><h3>연도별 누적 Plugging 대상(예측 포함)</h3><p>실제 처리된 튜브와 판정 기준에 도달할 것으로 예측되는 튜브를 합산합니다. 수량 한도 판정이며, 운전 가능 여부를 뜻하지 않습니다.</p><div class="table-wrap life-scroll"><table><thead><tr><th>대상 집계 연도</th><th>해당 연도 추가 대상(개)</th><th>누적 대상(개)</th><th>허용 수량(개)</th><th>수량 한도 판정</th></tr></thead><tbody>{% for row in life.yearly %}<tr class="{{ 'limit-row' if row.limit_exceeded else '' }}"><td>{{ row.year }}</td><td>{{ row.new_plugging_count|comma }}</td><td>{{ row.cumulative_plugging_count|comma }}</td><td>{{ life.allowable_plugging_count|comma }}</td><td>{{ '수량 한도 최초 초과' if row.limit_exceeded and row.year == life.life_reached_year else ('수량 한도 초과' if row.limit_exceeded else '수량 한도 이내') }}</td></tr>{% else %}<tr><td colspan="5" class="empty">예측 가능한 튜브가 없습니다.</td></tr>{% endfor %}</tbody></table></div></section>
+    <section><h3>연도별 누적 Plugging 대상(예측 포함)</h3><p>실제 처리된 튜브와 판정 기준에 도달할 것으로 예측되는 튜브를 합산합니다. 수량 한도 판정이며, 운전 가능 여부를 뜻하지 않습니다.</p><div class="table-wrap life-scroll"><table><thead><tr><th>대상 집계 연도</th><th>해당 연도 추가 대상(개)</th><th>누적 대상(개)</th><th>허용 수량(개)</th><th>수량 한도 판정</th></tr></thead><tbody>{% for row in life.yearly %}<tr class="{{ 'limit-row' if row.limit_exceeded else '' }}"><td>{{ row.year }}</td><td>{{ row.new_plugging_count|comma }}</td><td>{{ row.cumulative_plugging_count|comma }}</td><td>{{ life.allowable_plugging_count|comma }}</td><td>{{ '승인 설계 수량 미등록' if life.allowable_plugging_count is none else '수량 한도 최초 초과' if row.limit_exceeded and row.year == life.life_reached_year else ('수량 한도 초과' if row.limit_exceeded else '수량 한도 이내') }}</td></tr>{% else %}<tr><td colspan="5" class="empty">예측 가능한 튜브가 없습니다.</td></tr>{% endfor %}</tbody></table></div></section>
     <section><h3>튜브별 Plugging 판정 기준 도달 예상</h3><div class="table-wrap life-scroll"><table><thead><tr><th>Tube</th><th>측정일</th><th>공칭두께</th><th>현재 감육량</th><th>적용 부식속도</th><th>기준 도달 상태 / 향후 예상일</th></tr></thead><tbody>{% for tube in life.tube_projections %}<tr><td><a class="strong-link" href="{{ url_for('tube_detail', tube_id=tube.tube_id) }}">{{ tube.tube_no }}</a></td><td>{{ tube.measurement_date or '-' }}</td><td>{{ '%.3f'|format(tube.nominal_thickness_mm) if tube.nominal_thickness_mm is not none else '-' }}</td><td>{{ '%.3f'|format(tube.current_wall_loss_mm) if tube.current_wall_loss_mm is not none else '-' }}</td><td>{{ '%.4f'|format(tube.corrosion_rate_mm_per_year) if tube.corrosion_rate_mm_per_year is not none else '-' }}</td><td>{{ projection_date(tube) }}</td></tr>{% else %}<tr><td colspan="6" class="empty">산정 가능한 튜브가 없습니다.</td></tr>{% endfor %}</tbody></table></div></section>
   </div>
 </article>
@@ -120,7 +120,7 @@
     <footer class="modal-footer"><button type="button" class="button primary" data-plugging-help-close>확인</button></footer>
   </section>
 </div>
-<script src="{{ url_for('static', filename='life-prediction.js') }}"></script>
+<script src="{{ url_for('static', filename='life-prediction.js', v='20261112-decisions-2') }}"></script>
 <article class="panel"><div class="panel-head"><div><p class="eyebrow">Multi-year</p><h2>검사 이력</h2></div></div><div class="table-wrap"><table><thead><tr><th>검사일</th><th>보고서</th><th>원본 설비명</th><th>범위</th><th>튜브 결과</th><th>최대 감육률</th><th>상태</th></tr></thead><tbody>
 {% for inspection,scope in inspections %}<tr><td>{{ inspection.report_date.strftime('%Y-%m-%d') if inspection.report_date else '-' }}</td><td><a class="strong-link" href="{{ url_for('inspection_detail', inspection_id=inspection.iris_inspection_id) }}">{{ inspection.report_number or ('Report '+inspection.report_sequence|string) }}</a></td><td>{{ inspection.original_equipment_id }}</td><td><span class="tag">{{ scope.scope_code if scope else 'ALL' }}</span></td><td>{{ inspection.extracted_tube_result_count }}</td><td>{{ '%.2f%%'|format(inspection.reported_maximum_wall_loss_percent) if inspection.reported_maximum_wall_loss_percent is not none else '-' }}</td><td>{{ inspection.report_status }}</td></tr>{% else %}<tr><td colspan="7" class="empty">아직 IRIS 검사 이력이 없습니다.</td></tr>{% endfor %}
 </tbody></table></div></article>

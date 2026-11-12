@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import threading
+import time
+from datetime import datetime
+from http import HTTPStatus
+from uuid import uuid4
 from iris2 import dbapi
 
-from flask import abort, g, jsonify, render_template, request
+from flask import abort, g, jsonify, render_template, request, session
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from iris2 import services
 from iris2.application import text_to_sql_service as analysis
 from iris2.application import inspection_frequency as frequency
+from iris2.application import text_to_sql_usage_log as usage_log
+from iris2.hx_configuration import APP_DIR
 from iris2.llm_integration.text_to_sql import (
     QueryRejected, execute_proposal, validate_proposal, validate_question_contract,
 )
@@ -16,6 +22,38 @@ from iris2.llm_integration.text_to_sql import (
 
 def register_routes(app):
     generation_lock = threading.Lock()
+
+    def usage_record():
+        if not hasattr(g, 'text_sql_usage'):
+            profile = g.get('current_user') or {}
+            data = request.get_json(silent=True)
+            g.text_sql_usage = dict(schema_version=1, usage_id=uuid4().hex,
+                event_id=uuid4().hex, event=request.endpoint.rsplit('_', 1)[-1],
+                requested_at=datetime.now(usage_log.KST).isoformat(timespec='milliseconds'),
+                actor={key: profile.get(key) for key in ('user_id', 'username', 'is_admin')},
+                input=usage_log.input_context(data), query_kind='tube_analysis',
+                scopes=[], excluded=[], sql=None, parameters=[], result=None)
+            g.text_sql_usage['actor']['user_id'] = profile.get('user_id', session.get('user_id'))
+            g.text_sql_started = time.monotonic()
+        return g.text_sql_usage
+
+    def record_scopes(scopes, excluded=None):
+        usage_record()['scopes'] = scopes
+        if excluded is not None:
+            usage_record()['excluded'] = excluded
+
+    def signed_usage(signed):
+        record = usage_record()
+        record['usage_id'] = signed.get('usage_id', record['usage_id'])
+        record['input'] = signed.get('usage_input', usage_log.input_context(
+            dict(question=signed.get('question'), exchanger_id=signed.get('exchanger_id'),
+                 inspection_id=signed.get('inspection_id'))))
+        record['query_kind'] = signed.get('query_kind', 'tube_analysis')
+        usage_log.proposal_context(record, signed.get('proposal'))
+        pairs = signed.get('scopes') or ([(signed['exchanger_id'], signed['inspection_id'])]
+            if 'exchanger_id' in signed else [])
+        record_scopes([dict(equipment=dict(heat_exchanger_id=i),
+                            inspection=dict(iris_inspection_id=j)) for i, j in pairs])
 
     def authorize():
         profile = g.get('current_user')
@@ -41,6 +79,8 @@ def register_routes(app):
         return value
 
     def fail(exc):
+        if request.endpoint in ('text_to_sql_generate', 'text_to_sql_execute'):
+            usage_record()['error_type'] = type(exc).__name__
         if isinstance(exc, PermissionError):
             return jsonify(error=str(exc)), 403
         if isinstance(exc, QueryRejected):
@@ -86,6 +126,7 @@ def register_routes(app):
 
     @app.post('/inspections/text-to-sql/generate')
     def text_to_sql_generate():
+        record = usage_record()
         profile = authorize()
         try:
             data = body()
@@ -93,6 +134,7 @@ def register_routes(app):
             if not isinstance(question, str) or not 1 <= len(question.strip()) <= 500:
                 raise QueryRejected('질문은 1~500자로 입력하세요.')
             if frequency.matches(question):
+                record['query_kind'] = 'inspection_frequency'
                 catalog = analysis.catalog()
                 ids = data.get('exchanger_ids')
                 units = data.get('unit_codes')
@@ -113,10 +155,14 @@ def register_routes(app):
                 else:
                     selected = catalog
                 ids = [row['heat_exchanger_id'] for row in selected]
+                record_scopes([dict(equipment=row, inspection=None) for row in selected])
                 period = frequency.options(question)
+                record['period'] = period
                 proposal = frequency.proposal(ids,period)
+                usage_log.proposal_context(record, proposal)
                 token = serializer().dumps(dict(actor=profile['user_id'],query_kind='inspection_frequency',
-                    ids=ids,period=period,proposal=proposal))
+                    ids=ids,period=period,proposal=proposal, question=question,
+                    usage_id=record['usage_id'],usage_input=record['input']))
                 return jsonify(proposal=proposal,token=token,query_kind='inspection_frequency',period=period,
                                equipment_list=selected)
             multi = 'exchanger_ids' in data or 'unit_codes' in data
@@ -132,17 +178,21 @@ def register_routes(app):
                     identifier(data.get('exchanger_id')),
                     identifier(data.get('inspection_id'), optional=True))
                 scopes, excluded = [dict(equipment=equipment, inspection=inspection)], []
+            record_scopes(scopes, excluded)
             if not generation_lock.acquire(blocking=False):
                 return jsonify(error='다른 SQL을 생성 중입니다. 잠시 후 다시 시도하세요.'), 429
             try:
                 proposal = analysis.generate_in_worker(question.strip())
+                usage_log.proposal_context(record, proposal)
             finally:
                 generation_lock.release()
             sql, parameters = validate_proposal(proposal)
             validate_question_contract(question, proposal)
             proposal = dict(sql=sql, parameters=parameters)
+            usage_log.proposal_context(record, proposal)
             token = serializer().dumps(dict(
                 actor=profile['user_id'], question=question.strip(), proposal=proposal,
+                usage_id=record['usage_id'],usage_input=record['input'],
                 exchanger_id=equipment['heat_exchanger_id'], inspection_id=inspection['iris_inspection_id'],
                 scopes=[(s['equipment']['heat_exchanger_id'], s['inspection']['iris_inspection_id']) for s in scopes] if multi else None))
             app.logger.info('Text-to-SQL generated actor=%s exchanger=%s inspection=%s',
@@ -154,6 +204,7 @@ def register_routes(app):
 
     @app.post('/inspections/text-to-sql/execute')
     def text_to_sql_execute():
+        record = usage_record()
         profile = authorize()
         try:
             token = body().get('token')
@@ -161,26 +212,45 @@ def register_routes(app):
                 raise QueryRejected('먼저 SQL을 생성하세요.')
             try:
                 signed = serializer().loads(token, max_age=900)
-            except (BadSignature, SignatureExpired) as exc:
+            except SignatureExpired as exc:
+                expired = serializer().loads(token)
+                if expired.get('actor') == profile['user_id']:
+                    signed_usage(expired)
+                raise QueryRejected('SQL이 변경되었거나 15분이 지났습니다. 다시 생성하세요.') from exc
+            except BadSignature as exc:
                 raise QueryRejected('SQL이 변경되었거나 15분이 지났습니다. 다시 생성하세요.') from exc
             if signed['actor'] != profile['user_id']:
                 raise PermissionError('다른 사용자가 생성한 SQL은 실행할 수 없습니다.')
+            signed_usage(signed)
             if signed.get('query_kind') == 'inspection_frequency':
-                allowed = {row['heat_exchanger_id'] for row in analysis.catalog()}
-                return jsonify(result=frequency.execute(signed['ids'],signed['period'],signed['proposal'],allowed))
+                catalog = analysis.catalog()
+                allowed = {row['heat_exchanger_id'] for row in catalog}
+                record_scopes([dict(equipment=row, inspection=None) for row in catalog
+                               if row['heat_exchanger_id'] in signed['ids']])
+                record['period'] = signed['period']
+                result = frequency.execute(signed['ids'],signed['period'],signed['proposal'],allowed)
+                record['result'] = {key: result.get(key) for key in ('result_count', 'query_sha256', 'limit_reached')}
+                return jsonify(result=result)
             pairs = signed.get('scopes')
             if pairs:
-                allowed = frozenset(row['heat_exchanger_id'] for row in analysis.catalog())
+                catalog = {row['heat_exchanger_id']: row for row in analysis.catalog()}
+                allowed = frozenset(catalog)
+                record_scopes([dict(equipment=catalog.get(i, dict(heat_exchanger_id=i)),
+                    inspection=dict(iris_inspection_id=j)) for i, j in pairs])
                 # Each signed pair is rechecked inside the read-only execution snapshot.
                 equipment = dict(heat_exchanger_id=pairs[0][0])
                 inspection = dict(iris_inspection_id=pairs[0][1])
             else:
                 equipment, inspection, allowed = analysis.select_scope(
                     signed['exchanger_id'], signed['inspection_id'])
+                record_scopes([dict(equipment=equipment, inspection=inspection)])
             validate_question_contract(signed['question'], signed['proposal'])
             options = dict(scopes=pairs) if pairs else {}
             result = execute_proposal(signed['proposal'], exchanger_id=equipment['heat_exchanger_id'],
                 inspection_id=inspection['iris_inspection_id'], authorized_exchanger_ids=allowed, **options)
+            if result.get('scopes'):
+                record_scopes(result['scopes'])
+            record['result'] = {key: result.get(key) for key in ('result_count', 'query_sha256', 'limit_reached')}
             app.logger.info('Text-to-SQL executed actor=%s exchanger=%s inspection=%s query=%s rows=%s',
                 profile['user_id'], equipment['heat_exchanger_id'], inspection['iris_inspection_id'],
                 result['query_sha256'], result['result_count'])
@@ -192,4 +262,27 @@ def register_routes(app):
     def protect_text_to_sql_response(response):
         if request.endpoint and request.endpoint.startswith('text_to_sql'):
             response.headers['Cache-Control'] = 'no-store'
+        if request.endpoint in ('text_to_sql_generate', 'text_to_sql_execute'):
+            try:
+                record = usage_record()
+                payload = response.get_json(silent=True) or {}
+                succeeded = 200 <= response.status_code < 300
+                record.update(status='success' if succeeded else 'error',
+                    http_status=response.status_code,
+                    duration_ms=round((time.monotonic() - g.text_sql_started) * 1000, 3),
+                    error=(dict(type=record.pop('error_type', 'HTTPError'),
+                        message=payload.get('error') or HTTPStatus(response.status_code).phrase)
+                        if not succeeded else None))
+                directory = app.config.get('TEXT_TO_SQL_USAGE_LOG_DIR') or (
+                    APP_DIR / 'tmp' / 'text_to_sql-test-usage' if app.testing
+                    else APP_DIR / 'logs' / 'text_to_sql')
+                usage_log.append_usage(record, directory=directory)
+                response.headers['X-Text-to-SQL-Usage-ID'] = record['usage_id']
+            except Exception as exc:
+                # Raw exception strings may contain database credentials or paths.
+                app.logger.error('Text-to-SQL usage history write failed (%s)', type(exc).__name__)
+                if response.status_code < 400:
+                    response = jsonify(error='사용 이력을 저장하지 못했습니다. 잠시 후 다시 시도하거나 관리자에게 문의하세요.')
+                    response.status_code = 503
+                    response.headers['Cache-Control'] = 'no-store'
         return response

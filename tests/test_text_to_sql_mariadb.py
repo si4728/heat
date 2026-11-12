@@ -38,7 +38,9 @@ class TextToSqlMariaDBTests(unittest.TestCase):
             client=self.client()
             page=client.get('/inspections/text-to-sql')
             self.assertEqual(page.status_code,200)
-            self.assertIn('href="/inspections/text-to-sql"',page.get_data(as_text=True))
+            # The common LLM shortcut is administrator-only; existing explicit
+            # Text-to-SQL read permissions still authorize this direct endpoint.
+            self.assertNotIn('llm-shortcut',page.get_data(as_text=True))
             generated=client.post('/inspections/text-to-sql/generate',json={
                 'exchanger_id':151,'inspection_id':389,'question':'검사 결과 요약'},
                 headers={'X-CSRF-Token':'integration-csrf'})

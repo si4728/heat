@@ -249,10 +249,23 @@ if REMAINING_LIFE_DEFAULT_ALLOWABLE_PLUGGING_PERCENT not in REMAINING_LIFE_ALLOW
         f"[remaining_life] default_allowable_plugging_percent must be one of "
         f"allowable_plugging_options in {CONFIG_PATH}"
     )
-if REMAINING_LIFE_DEFAULT_ALLOWABLE_PLUGGING_PERCENT != 20.0:
-    raise RuntimeError(
-        f"[remaining_life] default_allowable_plugging_percent must be 20 in {CONFIG_PATH}"
-    )
+# Defaults apply equally to normal and Critical assets. Separate settings retain
+# the ability to approve different importance-based limits later.
+def _importance_plugging_limit(option):
+    try:
+        value = CONFIG.getfloat('remaining_life', option,
+                                fallback=REMAINING_LIFE_DEFAULT_ALLOWABLE_PLUGGING_PERCENT)
+    except ValueError as exc:
+        raise RuntimeError(f'[remaining_life] {option} must be numeric') from exc
+    if value not in REMAINING_LIFE_ALLOWABLE_PLUGGING_OPTIONS:
+        raise RuntimeError(f'[remaining_life] {option} must be an integer from 1 through 20')
+    return value
+
+
+REMAINING_LIFE_NORMAL_ALLOWABLE_PLUGGING_PERCENT = _importance_plugging_limit(
+    'normal_allowable_plugging_percent')
+REMAINING_LIFE_CRITICAL_ALLOWABLE_PLUGGING_PERCENT = _importance_plugging_limit(
+    'critical_allowable_plugging_percent')
 if not 0 < API510_INTERVAL_FRACTION <= 1:
     raise RuntimeError(
         f"[remaining_life] api510_interval_fraction must be greater than 0 and no more than 1 in {CONFIG_PATH}"

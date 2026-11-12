@@ -1,6 +1,9 @@
 {% if current_user and current_user.is_admin %}
 <details class="administrator-settings" id="administrator-settings">
-  <summary><span aria-hidden="true">⚙</span> 관리자 설정</summary>
+  <summary class="admin-icon-button" aria-label="관리자 설정" title="관리자 설정">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 2h4l.6 2.4 2.1 1.2 2.4-.7 2 3.5-1.8 1.7v3.8l1.8 1.7-2 3.5-2.4-.7-2.1 1.2L14 22h-4l-.6-2.4-2.1-1.2-2.4.7-2-3.5 1.8-1.7v-3.8L2.9 8.4l2-3.5 2.4.7 2.1-1.2z"/><circle cx="12" cy="12" r="3"/></svg>
+    <span class="sr-only">관리자 설정</span>
+  </summary>
   <nav class="administrator-settings-links" aria-label="관리자 설정">
     <h2>데이터 적재</h2>
     <a href="{{ url_for('imports') }}">JSON 로드</a>

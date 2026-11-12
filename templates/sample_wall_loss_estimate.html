@@ -27,6 +27,6 @@
   <p class="sample-estimate-formula">최대값은 F = 1 − 1 / 전체 수량, 상위 20% 경계값은 F = 0.8로 계산합니다; 추정 감육률 상한은 100%이며 추정 최대값은 실측 최대값보다 작게 적용하지 않습니다.</p>
   <p class="sample-estimate-formula">도달 예상일 = 최근 검사일 + (기준 감육률 − 추정 감육률) / (추정 감육률 / 설치 후 사용연수) · 설치 기준일 {{ estimate.installation_date or '미등록' }}{% if estimate.installation_precision == 'YEAR' %} (연도만 있어 7월 1일 기준){% endif %}.</p>
   {% endif %}
-  <p class="sample-estimate-context">상위 20% 경계값의 도달 연도는 전체 튜브 약 20%가 기준에 도달하는 통계 추정이며, 실제 Plugging 완료 수량이나 기존 Critical 10% 한도 판정과 다릅니다. 추정 연도는 검사일·설치 후 평균 추세 기준으로 튜브별 배율 시뮬레이션과 별도입니다.</p>
+  <p class="sample-estimate-context">상위 20% 경계값의 도달 연도는 전체 튜브 약 20%가 기준에 도달하는 통계 추정이며, 실제 Plugging 완료 수량이나 설비의 허용 수량 최초 초과 판정과 구분합니다. 추정 연도는 검사일·설치 후 평균 추세 기준으로 튜브별 감육속도 선정·배율 시뮬레이션과 별도입니다.</p>
 </section>
 {% endif %}

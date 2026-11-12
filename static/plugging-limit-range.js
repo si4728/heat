@@ -3,7 +3,9 @@
   const automaticLimit = document.getElementById('management-plugging-limit-range');
   if (criticality && automaticLimit) {
     const synchronize = () => {
-      automaticLimit.value = criticality.value === 'CRITICAL' ? '10' : '20';
+      automaticLimit.value = criticality.value === 'CRITICAL'
+        ? (automaticLimit.dataset?.criticalLimit || '20')
+        : (automaticLimit.dataset?.normalLimit || '20');
       automaticLimit.dispatchEvent(new Event('input', {bubbles: true}));
     };
     criticality.addEventListener('change', synchronize);

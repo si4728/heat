@@ -18,6 +18,11 @@ console.log('PASS: green/yellow/red boundaries, slider forecast dates, actual pl
 const dates=['2024-12-31','2026-01-01','2026-12-31','2027-01-01','2055-01-01'];
 const input=dates.map(d=>({projectedDate:Date.parse(d+'T00:00:00Z')}));input.push({projectedDate:NaN});
 const rows=context.build(input,2026,2027);
+const limitBody=source.slice(source.indexOf('  function limitExceedanceDate'),source.indexOf('  function updateRateAnalysis'));
+vm.runInNewContext(limitBody+'\nglobalThis.exceed=limitExceedanceDate;',context);
+assert.equal(context.exceed(input,null),null);
+assert.equal(context.exceed(input,0),Date.parse('2024-12-31T00:00:00Z'));
+assert.equal(context.exceed(input,3),Date.parse('2027-01-01T00:00:00Z'));
 assert.equal(rows[0].cumulative,3);assert.equal(rows[0].added,2);
 assert.equal(rows[1].cumulative,4);assert.equal(rows[1].added,1);
 assert.equal(context.build([],2026,2026)[0].cumulative,0);

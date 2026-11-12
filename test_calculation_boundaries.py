@@ -36,14 +36,16 @@ class CalculationBoundaryTest(unittest.TestCase):
                                            is_critical=True, current_year=2026)
         normal = summarize_remaining_life(plugging_years=rows, total_tube_count=100,
                                          is_critical=False, current_year=2026)
-        self.assertEqual(critical['limit_percent'], 10)
-        self.assertEqual(critical['life_reached_year'], 2030)
-        self.assertEqual(critical['remaining_life_years'], 4)
+        self.assertEqual(critical['limit_percent'], 20)
+        self.assertIsNone(critical['life_reached_year'])
+        custom = summarize_remaining_life(plugging_years=rows, total_tube_count=100,
+            is_critical=True, current_year=2026, allowable_plugging_percent=10)
+        self.assertEqual(custom['life_reached_year'], 2030)
         self.assertEqual(normal['limit_percent'], 20)
         self.assertIsNone(normal['life_reached_year'])
 
     def test_already_exceeded_limit_does_not_return_negative_life(self):
-        result = summarize_remaining_life(plugging_years=[2020] * 11,
+        result = summarize_remaining_life(plugging_years=[2020] * 21,
             total_tube_count=100, is_critical=True, current_year=2026)
         self.assertEqual(result['remaining_life_years'], 0)
 

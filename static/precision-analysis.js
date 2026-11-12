@@ -230,6 +230,7 @@
     return count > limit ? '#dc2626' : count > limit * 0.7 ? '#d97706' : '#0d9488';
   }
   function limitExceedanceDate(projections, allowableCount) {
+    if (allowableCount == null) return null;
     const count = Number(allowableCount);
     if (!Number.isInteger(count) || count < 0) return null;
     const dates = projections.map(row => row.projectedDate).filter(Number.isFinite).sort((a, b) => a - b);
@@ -238,16 +239,17 @@
   function updateRateAnalysis() {
     const multiplier = Number(rateSlider?.value || 1);
     const defect = defectByTube.get(selectedTubeId);
-    const baseRate = defect?.long_term_corrosion_rate_mm_per_year;
+    const baseRate = defect?.selected_base_corrosion_rate_mm_per_year;
     const rate = baseRate == null ? null : Number(baseRate) * multiplier;
-    document.getElementById('long-term-rate').textContent = fmt(baseRate,4);
+    document.getElementById('long-term-rate').textContent = fmt(defect?.long_term_corrosion_rate_mm_per_year,4);
     const applied = document.getElementById('applied-corrosion-rate');
     applied.textContent = fmt(rate,4);
     applied.className = rate == null ? '' : rate >= .08 ? 'danger' : rate >= .04 ? 'warn' : 'good';
     const projections = projectTubeDates(lifeData.tube_projections || [], multiplier);
     const reachedDate = limitExceedanceDate(projections, lifeData.allowable_plugging_count);
     const reachedYear = reachedDate == null ? null : new Date(reachedDate).getUTCFullYear();
-    const reachedDateText = reachedDate == null ? '가용 데이터에서 한도 미도달' : new Date(reachedDate).toISOString().slice(0, 10);
+    const reachedDateText = lifeData.allowable_plugging_count == null ? '승인 설계 수량 미등록'
+      : reachedDate == null ? '가용 데이터에서 한도 미도달' : new Date(reachedDate).toISOString().slice(0, 10);
     const remaining = reachedYear == null ? null : Math.max(reachedYear - Number(lifeData.current_year), 0);
     const asOf = Date.parse(`${lifeData.as_of_date}T00:00:00Z`);
     const currentCount = projections.filter(row => row.projectedDate <= asOf).length;
@@ -262,7 +264,7 @@
       metric('향후 Plugging 예상 수량', `${futureCount}개`),
       metric('기준일 누적 예측 대상 (실제 완료 포함)', `${currentCount}개`),
       metric('선택 Tube 예상', plugYear, defect?.plugging_complete || defect?.plugging_threshold_reached ? 'danger' : 'warn'),
-      metric('열교환기 예상 잔여수명', remaining == null ? (projections.length ? '가용 데이터에서 한도 미도달' : '산정 불가') : `${remaining}년`, remaining == null ? '' : remaining <= 5 ? 'danger' : 'good'),
+      metric('열교환기 예상 잔여수명', lifeData.allowable_plugging_count == null ? '산정 불가 · 승인 설계 수량 미등록' : remaining == null ? (projections.length ? '가용 데이터에서 한도 미도달' : '산정 불가') : `${remaining}년`, remaining == null ? '' : remaining <= 5 ? 'danger' : 'good'),
       metric('배율 적용 후 날짜 범위 밖', `${(lifeData.tube_projections || []).length - projections.length}개`),
       metric('한도 초과 예상일', reachedDateText, reachedDate != null && reachedDate <= asOf ? 'danger' : ''),
       metric('계산 기준일', lifeData.as_of_date || '-'),
@@ -282,12 +284,12 @@
       // Measurement results stay unchanged when the prediction multiplier changes.
       row.classList.toggle('is-worst-loss', item?.wall_loss_percent === worstWallLoss);
       const appliedCell = row.querySelector('[data-applied-rate]');
-      if (appliedCell) appliedCell.textContent = fmt(item?.long_term_corrosion_rate_mm_per_year == null ? null : item.long_term_corrosion_rate_mm_per_year * multiplier,4);
+      if (appliedCell) appliedCell.textContent = fmt(item?.selected_base_corrosion_rate_mm_per_year == null ? null : item.selected_base_corrosion_rate_mm_per_year * multiplier,4);
       const forecastCell = row.querySelector('[data-analysis-forecast]');
       const projected = projections.find(p => Number(p.tube_id) === Number(row.dataset.analysisTube));
       if (forecastCell) forecastCell.textContent = item?.plugging_complete ? '처리 완료' : item?.plugging_threshold_reached ? '검사 시 기준 도달' : projected ? `${projected.projectedYear}년` : '산정 불가';
     });
-    const rates = projections.filter(row => row.calculation_method === 'LATEST_INSPECTION_INSTALLATION_AVERAGE' && row.corrosion_rate_mm_per_year > 0).map(row => row.corrosion_rate_mm_per_year * multiplier).sort((a, b) => a - b);
+    const rates = projections.filter(row => row.basis === 'CALCULATED' && row.corrosion_rate_mm_per_year > 0).map(row => row.corrosion_rate_mm_per_year * multiplier).sort((a, b) => a - b);
     const middle = Math.floor(rates.length / 2);
     const representative = rates.length ? rates.length % 2 ? rates[middle] : (rates[middle - 1] + rates[middle]) / 2 : null;
     const infoRate = document.querySelector('.analysis-info-bar .warning-value');
@@ -310,6 +312,11 @@
     if (!node || !table) return;
     if (!projections.length) {
       node.textContent = '계산 가능한 Tube 예측 데이터가 없습니다.';
+      table.replaceChildren();
+      return;
+    }
+    if (allowable == null) {
+      node.textContent = '승인 설계 수량이 없어 허용 수량 한도와 누적 비교를 계산할 수 없습니다.';
       table.replaceChildren();
       return;
     }
@@ -447,8 +454,9 @@
       ['감육률 (%)',fmt(defect?.wall_loss_percent ?? tube.wall_loss_percent,2)],
       ['단기 감육속도(mm/년)',fmt(defect?.short_term_corrosion_rate_mm_per_year,4),'short-term-rate'],
       ['장기 감육속도(mm/년)','-','long-term-rate'],
+      ['회귀 추세 감육속도(mm/년)',fmt(defect?.regression_corrosion_rate_mm_per_year,4)],
       ['감육속도(mm/년)','-','applied-corrosion-rate'],
-      ['선정 근거',defect?.corrosion_rate_selection_basis ? '장기 평균 × 배율' : '산정 불가'],
+      ['선정 근거',defect?.corrosion_rate_selection_label || '산정 불가'],
     ];
     for (const [label,value,id] of fields) {
       const row = document.createElement('tr'), heading = document.createElement('th'), cell = document.createElement('td'), number = document.createElement('b');

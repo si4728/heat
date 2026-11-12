@@ -49,7 +49,7 @@
       const scenario = data[item.key];
       const points = scenario.series.map(row => `${x(row.year)},${y(row.cumulative_plugging_count)}`).join(" ");
       svg.appendChild(create("polyline", { points, fill: "none", stroke: item.color, "stroke-width": 3, "stroke-dasharray": item.dash }));
-      svg.appendChild(create("line", { x1: margin.left, y1: y(scenario.limit), x2: width - margin.right, y2: y(scenario.limit), stroke: item.color, "stroke-width": 1.5, "stroke-dasharray": "3 5", opacity: .8 }));
+      if (scenario.limit != null) svg.appendChild(create("line", { x1: margin.left, y1: y(scenario.limit), x2: width - margin.right, y2: y(scenario.limit), stroke: item.color, "stroke-width": 1.5, "stroke-dasharray": "3 5", opacity: .8 }));
       scenario.series.forEach(row => {
         const point = create("circle", { cx: x(row.year), cy: y(row.cumulative_plugging_count), r: row.life_reached ? 5 : 2.5, fill: item.color });
         const title = create("title");

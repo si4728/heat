@@ -16,6 +16,8 @@ from .hx_configuration import (
     REMAINING_LIFE_DEFAULT_ALLOWABLE_PLUGGING_PERCENT,
     REMAINING_LIFE_FIXED_AS_OF_DATE,
     REMAINING_LIFE_PLUGGING_WALL_LOSS_PERCENT,
+    REMAINING_LIFE_NORMAL_ALLOWABLE_PLUGGING_PERCENT,
+    REMAINING_LIFE_CRITICAL_ALLOWABLE_PLUGGING_PERCENT,
 )
 
 PLUGGING_WALL_LOSS_FRACTION = REMAINING_LIFE_PLUGGING_WALL_LOSS_PERCENT / 100.0
@@ -254,6 +256,72 @@ def calculate_latest_installation_projection(*, installation_date, measurement_d
             else "CALCULATED_INSTALLATION_AVERAGE"}
 
 
+def configured_plugging_limit(is_critical: bool) -> float:
+    return (REMAINING_LIFE_CRITICAL_ALLOWABLE_PLUGGING_PERCENT if is_critical
+            else REMAINING_LIFE_NORMAL_ALLOWABLE_PLUGGING_PERCENT)
+
+
+def calculate_history_projection(*, history, current_thickness_mm=None, **kwargs) -> dict:
+    """Select regression/short/long rate, then use the existing reporting-date anchor."""
+    from .domain.corrosion_rate_selection import select_corrosion_rate
+
+    try:
+        multiplier = float(kwargs.get('rate_multiplier', 1.0))
+    except (TypeError, ValueError, OverflowError):
+        return {'status': 'INVALID_OR_MISSING_INPUT'}
+    if not math.isfinite(multiplier) or multiplier <= 0:
+        return {'status': 'INVALID_OR_MISSING_INPUT'}
+    baseline = calculate_latest_installation_projection(**{**kwargs, 'rate_multiplier': 1.0})
+    profile = select_corrosion_rate(
+        dict(date=kwargs['measurement_date'], thickness_mm=current_thickness_mm), history,
+        installed_at=baseline.get('installation_date_used', kwargs.get('installation_date')),
+        long_term_rate=baseline.get('corrosion_rate_mm_per_year'))
+    base_rate = profile['selected_rate_mm_per_year']
+    common = {**baseline,
+        'calculation_method': 'HISTORY_SELECTED_CORROSION_RATE',
+        'corrosion_rate_mm_per_year': None if base_rate is None else base_rate * multiplier,
+        'selected_base_corrosion_rate_mm_per_year': base_rate,
+        'long_term_corrosion_rate_mm_per_year': profile['long_term_rate_mm_per_year'],
+        'short_term_corrosion_rate_mm_per_year': profile['short_term_rate_mm_per_year'],
+        'regression_corrosion_rate_mm_per_year': profile['regression_rate_mm_per_year'],
+        'corrosion_rate_selection_basis': profile['selection_basis'],
+        'corrosion_rate_selection_label': profile['selection_label'],
+        **{key: value for key, value in profile.items() if key.startswith('short_term_')},
+        'corrosion_measurement_count': profile['measurement_count']}
+    # A failed long-term calculation must not leave an old forecast in the payload.
+    for key in ('plugging_date', 'plugging_year', 'years_from_measurement', 'exact_year'):
+        common.pop(key, None)
+    try:
+        nominal, loss, limit = (float(kwargs[key]) for key in (
+            'nominal_thickness_mm', 'wall_loss_percent', 'plugging_wall_loss_percent'))
+        if (not all(math.isfinite(v) for v in (nominal, loss, limit)) or nominal <= 0
+                or not 0 <= loss <= 100 or not 0 < limit <= 100):
+            return {**common, 'status': 'INVALID_OR_MISSING_INPUT'}
+        origin = _date_value(kwargs.get('as_of_date') or remaining_life_as_of_date())
+        measured = _date_value(kwargs['measurement_date'])
+        rate = common['corrosion_rate_mm_per_year']
+        if rate is not None and not math.isfinite(rate):
+            return {**common, 'corrosion_rate_mm_per_year': None,
+                    'status': 'INVALID_DERIVED_CORROSION_RATE'}
+        percent_rate = None if rate is None else rate / nominal * 100
+        if percent_rate is not None and not math.isfinite(percent_rate):
+            return {**common, 'status': 'INVALID_DERIVED_CORROSION_RATE'}
+        common.update(measurement_date=measured.isoformat(),
+            projection_basis_date=origin.isoformat(), projection_anchor='CURRENT_BASIS_DATE',
+            wall_loss_rate_percentage_points_per_year=percent_rate,
+            assumption='CURRENT_INSTALLATION_VALID_MEASUREMENTS_SELECTED_RATE')
+        result = calculate_tube_plugging_year(
+            measurement_date=origin, nominal_thickness_mm=nominal,
+            current_wall_loss_mm=nominal * loss / 100.0,
+            corrosion_rate_mm_per_year=base_rate,
+            plugging_wall_loss_percent=limit, rate_multiplier=multiplier)
+    except (TypeError, ValueError, OverflowError):
+        return {**common, 'status': 'PROJECTION_OUT_OF_DATE_RANGE'}
+    if result is None:
+        return {**common, 'status': 'NO_POSITIVE_CORROSION_RATE'}
+    return {**common, **result, 'status': 'CALCULATED_SELECTED_RATE'}
+
+
 def calculate_api510_inspection_interval(
     *,
     actual_thickness_mm: float,
@@ -340,7 +408,7 @@ def summarize_remaining_life(*, plugging_years: Iterable[int], total_tube_count:
     """Aggregate projected Plugging years and find the first limit-exceeding year."""
     base_year = int(current_year if base_year is None else base_year)
     limit_percent = (
-        (10.0 if is_critical else 20.0)
+        configured_plugging_limit(is_critical)
         if allowable_plugging_percent is None
         else float(allowable_plugging_percent)
     )

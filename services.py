@@ -30,6 +30,8 @@ from .life_prediction import (
     calculate_api510_inspection_interval,
     calculate_tube_plugging_year,
     calculate_latest_installation_projection,
+    calculate_history_projection,
+    configured_plugging_limit,
     remaining_life_as_of_date,
     summarize_remaining_life,
     summarize_corrosion_rates,
@@ -1665,9 +1667,9 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         .order_by(HeatExchangerTube.tube_no)
     ).all() if bundle_ids else []
     tube_ids = [tube.tube_id for tube in tubes]
-    expected_count = max(
-        [bundle.expected_tube_count or 0 for bundle in active_bundles] + [len(tubes)]
-    )
+    expected_count = None  # Only a current approved specification defines population.
+    process = session.get(ProcessUnit, equipment.unit_id)
+    short_rate_enabled = bool(process and process.unit_code in ('VCM1', 'VCM2'))
 
     latest_results: dict[int, tuple[IrisTubeResult, IrisInspection]] = {}
     result_rows = []
@@ -1692,6 +1694,10 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
             )
         ).all()
         for result, inspection in result_rows:
+            if short_rate_enabled and (inspection.superseded_by_inspection_id is not None
+                    or result.result_status not in (None, 'VALID')
+                    or result.quality_status not in (None, 'VALID')):
+                continue
             if not is_current_installation_inspection(
                 _effective_inspection_date(inspection), equipment.install_date,
                 tubes_by_id[result.tube_id].installed_at,
@@ -1707,11 +1713,8 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
                 if new_loss is not None and (old_loss is None or new_loss > old_loss):
                     latest_results[result.tube_id] = (result, inspection)
 
-    # This forecast uses the current measurement and installation age;
-    # previous-result assessments remain available in the inspection history.
+    # Select rates from valid measurements of the current installation only.
     rate_profiles: dict[int, dict[str, Any]] = {}
-    process = session.get(ProcessUnit, equipment.unit_id)
-    short_rate_enabled = bool(process and process.unit_code in ('VCM1', 'VCM2'))
     from .domain.short_term_corrosion import short_term_corrosion_rate
     short_histories = {}
     for result, inspection in result_rows:
@@ -1746,7 +1749,8 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         }
     master_spec = session.scalar(
         select(HeatExchangerSpecRevision)
-        .where(HeatExchangerSpecRevision.heat_exchanger_id == exchanger_id)
+        .where(HeatExchangerSpecRevision.heat_exchanger_id == exchanger_id,
+               HeatExchangerSpecRevision.is_current.is_(True))
         .order_by(HeatExchangerSpecRevision.is_current.desc(),
                   HeatExchangerSpecRevision.revision_no.desc())
     )
@@ -1868,7 +1872,10 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         precision = inspection.installation_or_replacement_date_precision or "DAY"
         if inspection.installation_or_replacement_year is not None and precision == "YEAR":
             installed = current_installation_date(installed, date(inspection.installation_or_replacement_year, 7, 1))
-        calculation = calculate_latest_installation_projection(
+        calculator = calculate_history_projection if short_rate_enabled else calculate_latest_installation_projection
+        history_inputs = dict(history=short_histories.get(tube.tube_id, []),
+                              current_thickness_mm=result.minimum_wall_thickness_mm) if short_rate_enabled else {}
+        calculation = calculator(
             installation_date=installed,
             measurement_date=_effective_inspection_date(inspection),
             nominal_thickness_mm=nominal,
@@ -1877,12 +1884,23 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
             rate_multiplier=corrosion_rate_multiplier,
             installation_precision=precision,
             as_of_date=as_of_date,
+            **history_inputs,
         )
+        if short_rate_enabled and (inspection.superseded_by_inspection_id is not None
+                or result.result_status not in (None, 'VALID') or result.quality_status not in (None, 'VALID')):
+            calculation = {'status': 'INVALID_CURRENT_MEASUREMENT'}
         corrosion_rate = calculation.get('corrosion_rate_mm_per_year')
         rate_profile = {
             "selected_rate_mm_per_year": corrosion_rate,
-            "long_term_rate_mm_per_year": corrosion_rate / corrosion_rate_multiplier if corrosion_rate is not None else None,
-            "selection_basis": "LATEST_INSPECTION_INSTALLATION_AVERAGE" if corrosion_rate is not None else None,
+            "long_term_rate_mm_per_year": calculation.get('long_term_corrosion_rate_mm_per_year',
+                corrosion_rate / corrosion_rate_multiplier if corrosion_rate is not None else None),
+            "selection_basis": calculation.get('corrosion_rate_selection_basis',
+                "LATEST_INSPECTION_INSTALLATION_AVERAGE" if corrosion_rate is not None else None),
+            "selection_label": calculation.get('corrosion_rate_selection_label', '장기' if corrosion_rate is not None else '산정 불가'),
+            "selected_base_corrosion_rate_mm_per_year": calculation.get('selected_base_corrosion_rate_mm_per_year',
+                corrosion_rate / corrosion_rate_multiplier if corrosion_rate is not None else None),
+            "regression_corrosion_rate_mm_per_year": calculation.get('regression_corrosion_rate_mm_per_year'),
+            "corrosion_measurement_count": calculation.get('corrosion_measurement_count', 0),
             **short_profiles.get(tube.tube_id, {}),
         }
         rate_profiles[tube.tube_id] = rate_profile
@@ -1912,7 +1930,7 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
 
     projections.sort(key=lambda item: (item["plugging_year"], item["tube_no"]))
     installation_rates = [p["corrosion_rate_mm_per_year"] for p in projections
-                          if p.get("calculation_method") == "LATEST_INSPECTION_INSTALLATION_AVERAGE"
+                          if p.get("calculation_method") in {"LATEST_INSPECTION_INSTALLATION_AVERAGE", "HISTORY_SELECTED_CORROSION_RATE"}
                           and p["corrosion_rate_mm_per_year"] > 0]
     equipment_summary["representative_corrosion_rate_mm_per_year"] = (
         median(installation_rates) if installation_rates else None
@@ -1923,14 +1941,14 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
     )
     summary = summarize_remaining_life(
         plugging_years=[item["plugging_year"] for item in projections],
-        total_tube_count=expected_count,
+        total_tube_count=expected_count or 0,
         is_critical=bool(equipment.is_critical),
         current_year=current_year,
         base_year=current_year,
         allowable_plugging_percent=(
             allowable_plugging_percent
             if allowable_plugging_percent is not None
-            else (10.0 if equipment.is_critical else 20.0)
+            else configured_plugging_limit(bool(equipment.is_critical))
         ),
     )
     summary.update({
@@ -1952,8 +1970,15 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         "corrosion_rate_multiplier": corrosion_rate_multiplier,
         "formula": "현재 계산 기준일 + (공칭두께 × 판정 감육률 − 최근 검사 감육량) ÷ 적용 부식속도",
         "projection_anchor": "CURRENT_BASIS_DATE",
-        "calculation_method": "LATEST_INSPECTION_INSTALLATION_AVERAGE",
+        "calculation_method": "HISTORY_SELECTED_CORROSION_RATE" if short_rate_enabled else "LATEST_INSPECTION_INSTALLATION_AVERAGE",
+        "total_count_source": "CURRENT_APPROVED_SPECIFICATION",
     })
+    if expected_count is None:
+        summary.update(status='INSUFFICIENT_DATA', life_reached_year=None,
+                       remaining_life_years=None, allowable_plugging_count=None)
+        summary['reason_counts']['NO_APPROVED_TUBE_COUNT'] = 1
+        for row in summary['yearly']:
+            row['limit_exceeded'] = None
     summary.update(plugging_counts(tubes, latest_results, projections,
                                   plugging_wall_loss_percent, as_of_date,
                                   int(master_spec.tube_count) if master_spec and master_spec.tube_count and master_spec.tube_count > 0 else None))
@@ -1999,6 +2024,10 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
             "short_term_corrosion_rate_mm_per_year": rate_profile.get("short_term_rate_mm_per_year"),
             "long_term_corrosion_rate_mm_per_year": rate_profile.get("long_term_rate_mm_per_year"),
             "corrosion_rate_selection_basis": rate_profile.get("selection_basis"),
+            "corrosion_rate_selection_label": rate_profile.get("selection_label", "산정 불가"),
+            "selected_base_corrosion_rate_mm_per_year": rate_profile.get("selected_base_corrosion_rate_mm_per_year"),
+            "regression_corrosion_rate_mm_per_year": rate_profile.get("regression_corrosion_rate_mm_per_year"),
+            "corrosion_measurement_count": rate_profile.get("corrosion_measurement_count", 0),
             **short_profiles.get(tube.tube_id, {}),
             "plugging_complete": plugging_complete,
             "plugging_threshold_reached": plugging_threshold_reached,
@@ -2029,7 +2058,8 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         chart_series.append({
             "year": year,
             "cumulative_plugging_count": cumulative,
-            "limit_exceeded": cumulative > summary["allowable_plugging_count"],
+            "limit_exceeded": (cumulative > summary["allowable_plugging_count"]
+                               if summary['allowable_plugging_count'] is not None else None),
             "life_reached": year == summary["life_reached_year"],
         })
     summary["chart_series"] = chart_series
@@ -3164,6 +3194,8 @@ def _validate_exchanger_master_mandatory(data: dict[str, Any]) -> None:
 
 
 def exchanger_form_data(exchanger_id: int | None = None) -> dict[str, Any] | None:
+    plugging_limits = {key: configured_plugging_limit(critical)
+                       for key, critical in [('NORMAL', False), ('CRITICAL', True)]}
     with session_scope(DB_PATH) as session:
         plants = session.scalars(select(Plant).order_by(Plant.plant_code)).all()
         units = session.execute(
@@ -3172,11 +3204,12 @@ def exchanger_form_data(exchanger_id: int | None = None) -> dict[str, Any] | Non
             .order_by(Plant.plant_code, ProcessUnit.unit_code)
         ).all()
         if exchanger_id is None:
-            return {"plants": plants, "units": units, "editing": False,
+              return {"plants": plants, "units": units, "editing": False,
                     "hx": None, "equipment": None, "unit": None, "plant": None,
                     "spec": None, "criteria": None, "bundle": None,
                     "shell_side": None, "head_side": None, "tube_side": None,
-                    "tube_status_counts": {"db": 0, "in_service": 0, "plugged": 0}}
+                      "tube_status_counts": {"db": 0, "in_service": 0, "plugged": 0},
+                      "plugging_limits": plugging_limits}
         master = session.execute(
             select(HeatExchanger, Equipment, ProcessUnit, Plant)
             .join(Equipment, Equipment.equipment_id == HeatExchanger.equipment_id)
@@ -3229,7 +3262,7 @@ def exchanger_form_data(exchanger_id: int | None = None) -> dict[str, Any] | Non
                 "shell_side": side_specs.get("SHELL"),
                 "head_side": side_specs.get("HEAD"),
                 "tube_side": side_specs.get("TUBE"),
-                "tube_status_counts": tube_counts}
+                  "tube_status_counts": tube_counts, "plugging_limits": plugging_limits}
 
 
 def _normalize_master_code(value: Any, label: str) -> str:
@@ -3648,7 +3681,7 @@ def save_exchanger(data: dict[str, Any], exchanger_id: int | None = None,
         if not criteria:
             criteria = HeatExchangerManagementCriteria(heat_exchanger_id=hx.heat_exchanger_id)
             session.add(criteria)
-        criteria.allowable_plugging_percent = 10.0 if equipment.is_critical else 20.0
+        criteria.allowable_plugging_percent = configured_plugging_limit(bool(equipment.is_critical))
         criteria.warning_wall_loss_percent = warning_loss
         criteria.critical_wall_loss_percent = critical_loss
         criteria.minimum_wall_thickness_mm = _float(data.get("minimum_wall_thickness_mm"))

@@ -27,15 +27,39 @@ try{
           svg:!!document.querySelector('#thickness-trend svg')});
       }
       if(ids.length){rows.find(row=>row.dataset.analysisTube===ids[0]).click();}
+      const life=JSON.parse(document.querySelector('#precision-life-data').textContent);
+      const checks=life.analysis_tube_rows.filter(row=>['14-4','7-16'].includes(row.tube_no)).map(row=>{
+        document.querySelector(`[data-analysis-tube="${row.tube_id}"]`).click();
+        const slider=document.querySelector('#corrosion-rate-slider');
+        slider.value='2';slider.dispatchEvent(new Event('input',{bubbles:true}));
+        const result={tube:row.tube_no,label:row.corrosion_rate_selection_label,
+          actualLabel:[...document.querySelectorAll('#corrosion-analysis tr')].find(tr=>tr.querySelector('th')?.textContent==='선정 근거')?.querySelector('td').textContent,
+          expectedRate:(row.selected_base_corrosion_rate_mm_per_year*2).toFixed(4),
+          selectedRate:document.querySelector('#applied-corrosion-rate').textContent,
+          tableRate:document.querySelector(`[data-analysis-tube="${row.tube_id}"] [data-applied-rate]`).textContent,
+          longRate:document.querySelector('#long-term-rate').textContent,
+          expectedLong:row.long_term_corrosion_rate_mm_per_year.toFixed(4)};
+        slider.value='1';slider.dispatchEvent(new Event('input',{bubbles:true}));
+        return result;
+      });
+      if(ids.length){rows.find(row=>row.dataset.analysisTube===ids[0]).click();}
       return {overflow:document.documentElement.scrollWidth>innerWidth,rows:rows.length,results,
+        rateChecks:checks,
         reverseSelected:document.querySelector('.precision-tube[aria-pressed="true"]')?.dataset.tubeId,
-        forbidden:document.querySelectorAll('.main dialog,.main details,.main [role="tab"]').length};
+        forbidden:document.querySelectorAll('.analysis-workspace dialog,.analysis-workspace details,.analysis-workspace [role="tab"]').length};
     });
     assert.equal(state.overflow,false,JSON.stringify({width,state}));
     assert.equal(state.forbidden,0);
     assert.ok(state.results.length===2,JSON.stringify(state));
     for(const result of state.results){assert.equal(result.graph,result.id);assert.equal(result.table,result.id);assert.equal(result.selected,result.id);assert.ok(result.svg);}
     assert.equal(state.reverseSelected,state.results[0].id);
+    assert.equal(state.rateChecks.length,2);
+    for(const check of state.rateChecks){
+      assert.equal(check.actualLabel,check.label);
+      assert.equal(check.selectedRate,check.expectedRate);
+      assert.equal(check.tableRate,check.expectedRate);
+      assert.equal(check.longRate,check.expectedLong);
+    }
     await page.eval(()=>document.querySelector('#precision-results-panel').scrollIntoView({block:'start'}));
     await page.screenshot({path:resolve(output,`analysis-${width}.png`),format:'png'});
     checks.push({width,...state,passed:true});
