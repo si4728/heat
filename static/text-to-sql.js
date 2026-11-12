@@ -23,7 +23,7 @@
   const el = id => document.getElementById(`sql-${id}`);
   let token = null, busy = false, inspectionRequest = 0;
   const labels = {
-    heat_exchanger_id:'열교환기 ID', unit_code:'공정', equipment_tag:'설비 Tag',
+    tube_no:'튜브번호', bundle_code:'번들', heat_exchanger_id:'열교환기 ID', unit_code:'공정', equipment_tag:'설비 Tag',
     equipment_code:'열교환기 코드', equipment_name:'설비명', inspection_count:'IRIS 검사 횟수',
     latest_inspection_date:'최근 검사일',
     inspected_tubes:'검사 Tube 수', valid_loss_tubes:'유효 감육률 Tube 수',
@@ -144,7 +144,7 @@
       el('copy').disabled = false;
       el('generate-status').textContent = 'SQL 검증 완료. 내용을 확인한 뒤 실행하세요.';
       if (payload.query_kind === 'inspection_frequency') {
-        el('result-scope').textContent = `${payload.period.start} ~ ${payload.period.end} · ${payload.equipment_list.length}대 범위 · IRIS 검사 회차 수 내림차순 · 상위 ${payload.period.limit}대 · 검사일 없으면 보고일 기준`;
+        el('result-scope').textContent = `${payload.period.all_history ? '전체 이력' : payload.period.start + ' ~ ' + payload.period.end} · ${payload.equipment_list.length}대 범위 · IRIS 검사 회차 수 내림차순 · 상위 ${payload.period.limit}${payload.period.target === 'tube' ? '개 튜브' : '대'} · 검사일 없으면 보고일 기준`;
         el('scope-list').textContent = payload.equipment_list.map(s => `${s.unit_code} · ${s.equipment_tag || s.equipment_code}`).join('\n');
         el('scope-details').hidden = false;
         return;
@@ -193,7 +193,9 @@
       el('result-note').textContent = `${result.limit_reached ? '100행 제한에 도달했습니다. 조건을 좁혀 조회하세요. · ' : ''}결측값은 —로 표시합니다. 평균 감육률은 유효 Tube의 산술평균입니다. · 조회 ${new Date(result.generated_at).toLocaleString('ko-KR')}`;
       if (result.query_kind === 'inspection_frequency') {
         el('empty').textContent = '선택 범위와 기간에 해당하는 IRIS 검사 이력이 없습니다.';
-        el('result-note').textContent = `IRIS 검사 ID별 1회 집계 · 대체된 검사 제외 · 동률은 최근 검사일, 설비 ID 순 · 최대 ${result.period.limit}대`;
+        el('result-note').textContent = result.period.target === 'tube'
+          ? `설비·번들·튜브번호별 1행 · 유효 결과를 검사 ID별 1회 집계 · 대체된 검사 제외 · 동률은 공정·설비 태그·설비 ID·번들·튜브번호순 · 최대 ${result.period.limit}개`
+          : `IRIS 검사 ID별 1회 집계 · 대체된 검사 제외 · 동률은 최근 검사일, 설비 ID 순 · 최대 ${result.period.limit}대`;
       }
     } catch (exc) { error(exc.message); el('execute-status').textContent = 'SQL을 실행하지 못했습니다.'; el('empty').textContent = '조회에 실패했습니다. 오류 내용을 확인한 뒤 다시 시도하세요.'; el('result-count').textContent = '실행 실패'; }
     finally { setBusy(false); }

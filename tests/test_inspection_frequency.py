@@ -13,6 +13,21 @@ QUESTION='최근 iris 검사를 제일 많이 수행한 열교환기를 리스�
 
 
 class FrequencyTests(unittest.TestCase):
+    def test_tube_frequency_uses_history_and_position_identity(self):
+        question = '검사를 제일 많이한 튜브 10개 리스트 해줘, 튜브번호 별 1행씩'
+        self.assertTrue(frequency.matches(question))
+        self.assertTrue(frequency.matches('검사 횟수 상위 Tube 10개'))
+        period = frequency.options(question, date(2026,11,13))
+        self.assertEqual(period, dict(start='1000-01-01', end='2026-11-13',
+                                     limit=10, target='tube', all_history=True))
+        proposal = frequency.proposal([1,2], period)
+        self.assertEqual(proposal['parameters'], [1,2,'1000-01-01','2026-11-14'])
+        self.assertIn('COUNT(DISTINCT i.iris_inspection_id)', proposal['sql'])
+        self.assertIn("r.result_status='VALID'", proposal['sql'])
+        self.assertIn('GROUP BY hx.heat_exchanger_id,u.unit_code,e.equipment_tag,b.bundle_code,t.tube_no', proposal['sql'])
+        self.assertIn('LIMIT 10', proposal['sql'])
+        self.assertEqual(frequency.options('최근 3년 검사 횟수 상위 튜브 5개', date(2026,11,13))['start'], '2023-11-13')
+
     def test_exact_question_and_periods(self):
         self.assertTrue(frequency.matches(QUESTION))
         self.assertTrue(frequency.matches('IRIS 검사 횟수 상위 5대 교환기'))
@@ -49,6 +64,18 @@ class FrequencyTests(unittest.TestCase):
 
 
 class FrequencyWebTests(web_tests.TextToSqlWebTests):
+    def test_tube_question_uses_signed_history_query(self):
+        preview = self.post('generate', dict(question='검사를 제일 많이한 튜브 10개 리스트 해줘, 튜브번호 별 1행씩'))
+        self.assertEqual(preview.status_code, 200)
+        self.assertEqual(preview.json['period']['target'], 'tube')
+        self.assertIn('t.tube_no', preview.json['proposal']['sql'])
+        self.worker.assert_not_called()
+        with patch('iris2.web.routes.text_to_sql.frequency.execute', return_value={'rows':[]}) as execute:
+            response = self.post('execute', dict(token=preview.json['token'], exchanger_ids=[999]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(execute.call_args.args[0], [151])
+        self.assertEqual(execute.call_args.args[1]['target'], 'tube')
+
     def test_ranking_question_generates_history_sql_without_model(self):
         preview=self.post('generate',dict(question=QUESTION,unit_codes=['VCM2']))
         self.assertEqual(preview.status_code,200)

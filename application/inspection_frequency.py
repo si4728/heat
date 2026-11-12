@@ -9,8 +9,12 @@ from iris2.hx_configuration import DB_PATH
 from iris2.llm_integration.text_to_sql import QueryRejected
 
 
+def tube_ranking(question):
+    return bool(re.search(r'튜브|tube', question, re.I))
+
+
 def matches(question):
-    return bool(re.search(r'열교환기|교환기|설비', question) and '검사' in question
+    return bool(re.search(r'열교환기|교환기|설비|튜브|tube', question, re.I) and '검사' in question
                 and re.search(r'(?:제일|가장)\s*많|많이|횟수|빈도|건수', question))
 
 
@@ -18,12 +22,14 @@ def options(question, today=None):
     if re.search(r'잔여수명|차기|예측|건전성|종합의견|비교|적은|적게',question):
         raise QueryRejected('검사 횟수 이력 조회만 지원합니다. 수명·차기검사 예측은 별도 분석을 사용하세요.')
     today = today or datetime.now(timezone(timedelta(hours=9))).date()
+    tubes = tube_ranking(question)
     years = re.search(r'최근\s*(\d+)\s*년', question)
     count = re.search(r'(?:상위\s*)?(\d+)\s*(?:대|개)', question)
     limit = int(count[1]) if count else 20
     if not 1 <= limit <= 100:
         raise QueryRejected('순위 조회 개수는 1~100대입니다.')
-    if re.search(r'\d+\s*(?:개월|달|일)|\d{4}\s*년|전체\s*(?:기간|이력)', question):
+    if (re.search(r'\d+\s*(?:개월|달|일)|\d{4}\s*년', question)
+            or (not tubes and re.search(r'전체\s*(?:기간|이력)', question))):
         raise QueryRejected('기간은 최근 N년, 올해 또는 작년으로 입력하세요. 기본은 최근 5년입니다.')
     if years:
         number = int(years[1])
@@ -35,10 +41,15 @@ def options(question, today=None):
         start, end = date(today.year-1,1,1), date(today.year-1,12,31)
     elif '올해' in question:
         start, end = date(today.year,1,1), today
+    elif tubes:
+        start, end = date(1000,1,1), today
     else:
         start = date(today.year-5,today.month,min(today.day,calendar.monthrange(today.year-5,today.month)[1]))
         end = today
-    return dict(start=start.isoformat(),end=end.isoformat(),limit=limit)
+    result = dict(start=start.isoformat(),end=end.isoformat(),limit=limit)
+    if tubes:
+        result.update(target='tube', all_history=start == date(1000,1,1))
+    return result
 
 
 def proposal(ids, period):
@@ -62,6 +73,29 @@ def proposal(ids, period):
         GROUP BY hx.heat_exchanger_id,u.unit_code,e.equipment_tag,e.equipment_code,e.equipment_name
         ORDER BY inspection_count DESC,latest_inspection_date DESC,hx.heat_exchanger_id ASC
         LIMIT ''' + str(period['limit'])
+    if period.get('target') == 'tube':
+        sql = """SELECT hx.heat_exchanger_id, u.unit_code, e.equipment_tag,
+            b.bundle_code, t.tube_no,
+            COUNT(DISTINCT i.iris_inspection_id) AS inspection_count,
+            MAX(COALESCE(i.inspection_date,i.report_date)) AS latest_inspection_date
+            FROM iris_tube_result r
+            JOIN iris_inspection i ON i.iris_inspection_id=r.iris_inspection_id
+            JOIN heat_exchanger_tube t ON t.tube_id=r.tube_id
+            JOIN tube_bundle b ON b.bundle_id=t.bundle_id
+            JOIN heat_exchanger hx ON hx.heat_exchanger_id=b.heat_exchanger_id
+            JOIN equipment e ON e.equipment_id=hx.equipment_id
+            JOIN process_unit u ON u.unit_id=e.unit_id
+            WHERE hx.heat_exchanger_id IN (""" + ','.join('?' for _ in ids) + """)
+            AND i.heat_exchanger_id=hx.heat_exchanger_id
+            AND u.unit_code IN ('VCM1','VCM2')
+            AND UPPER(TRIM(i.inspection_method))='IRIS'
+            AND i.superseded_by_inspection_id IS NULL AND r.result_status='VALID'
+            AND COALESCE(i.inspection_date,i.report_date)>=?
+            AND COALESCE(i.inspection_date,i.report_date)<?
+            GROUP BY hx.heat_exchanger_id,u.unit_code,e.equipment_tag,b.bundle_code,t.tube_no
+            ORDER BY inspection_count DESC,u.unit_code ASC,e.equipment_tag ASC,
+                     hx.heat_exchanger_id ASC,b.bundle_code ASC,t.tube_no ASC
+            LIMIT """ + str(period['limit'])
     end_exclusive=(date.fromisoformat(period['end'])+timedelta(days=1)).isoformat()
     return dict(sql=sql,parameters=[*ids,period['start'],end_exclusive])
 
