@@ -479,3 +479,10 @@
   if (initialTube) selectTube(Number(initialTube));
   else renderAnnualPlugging((lifeData.tube_projections || []).map(row => ({projectedDate: Date.parse(`${row.plugging_date}T00:00:00Z`)})), Number(lifeData.current_year), lifeData.allowable_plugging_count);
 })();
+
+document.querySelectorAll('[data-pdf-reports-open]').forEach(link => {
+  link.addEventListener('click', () => {
+    const reports = document.getElementById('analysis-pdf-reports');
+    if (reports) reports.open = true;
+  });
+});
