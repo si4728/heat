@@ -1,8 +1,46 @@
 import unittest
-from iris2.application.life_dashboard import life_band, group_life_rows
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from iris2.application.life_dashboard import life_band, group_life_rows, first_tube_threshold
 
 
 class LifeDashboardTests(unittest.TestCase):
+    def projection(self, tube_id, forecast_date, **extra):
+        return dict(basis='CALCULATED', tube_id=tube_id, tube_no=str(tube_id),
+                    measurement_date='2025-10-29', plugging_date=forecast_date, **extra)
+
+    def test_first_tube_uses_date_instead_of_input_order_or_allowable_count(self):
+        rows = [self.projection(1, '2046-01-01'), self.projection(2, '2032-12-01'),
+                self.projection(3, '2032-02-01')]
+        self.assertEqual(first_tube_threshold(rows)['tube_id'], 3)
+        self.assertEqual(first_tube_threshold(rows)['date'], '2032-02-01')
+        self.assertEqual(first_tube_threshold(rows)['status'], 'FORECAST')
+
+    def test_first_tube_excludes_actual_plugging_and_invalid_or_unmeasured_rows(self):
+        rows = [dict(self.projection(1, '2020-01-01'), basis='ALREADY_PLUGGED'),
+                self.projection(2, 'invalid'),
+                dict(self.projection(3, '2021-01-01'), measurement_date=None),
+                self.projection(4, '2032-01-01')]
+        self.assertEqual(first_tube_threshold(rows)['tube_id'], 4)
+        self.assertIsNone(first_tube_threshold(rows[:3]))
+        self.assertIsNone(first_tube_threshold([]))
+
+    def test_measured_reached_does_not_claim_unknown_first_crossing_date(self):
+        rows = [self.projection(1, '2032-01-01'),
+                self.projection(2, '2026-11-12', plugging_threshold_reached=True)]
+        first = first_tube_threshold(rows)
+        self.assertEqual(first['tube_id'], 2)
+        self.assertEqual(first['status'], 'MEASURED_REACHED')
+        self.assertIsNone(first['date'])
+        self.assertEqual(first['measurement_date'], '2025-10-29')
+
+    def test_same_date_selection_is_stable_and_does_not_change_input(self):
+        rows = [self.projection(2, '2032-01-01'), self.projection(1, '2032-01-01')]
+        self.assertEqual(first_tube_threshold(rows)['tube_id'], 1)
+        self.assertNotIn('_sort_date', rows[0])
+
     def test_band_boundaries_and_unknown(self):
         for years, expected in [(16, 'long'), (15, 'medium'), (6, 'medium'), (5, 'short'), (0, 'short'), (-2, 'short')]:
             with self.subTest(years=years):

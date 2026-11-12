@@ -1036,7 +1036,7 @@ def dashboard_data(life_unit: str = '', life_band_filter: str = '') -> dict[str,
 
 
 def dashboard_remaining_life(unit='', band=''):
-    from .application.life_dashboard import life_band, group_life_rows
+    from .application.life_dashboard import life_band, group_life_rows, first_tube_threshold
     rows = []
     as_of = remaining_life_as_of_date()
     with session_scope(DB_PATH) as session:
@@ -1060,6 +1060,7 @@ def dashboard_remaining_life(unit='', band=''):
                 'remaining_life_years': max(0, life['remaining_life_years']) if life.get('remaining_life_years') is not None else None,
                 'latest_inspection_date': life['equipment_summary'].get('latest_inspection_date'),
                 'projection_coverage_percent': life.get('projection_coverage_percent'),
+                'first_tube_threshold': first_tube_threshold(life.get('tube_projections', [])),
                 'status': life['status']})
     result = group_life_rows(rows, unit, band)
     result['as_of_date'] = as_of.isoformat()

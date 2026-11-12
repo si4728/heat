@@ -1,7 +1,35 @@
 """Remaining-life bands without treating missing forecasts as healthy assets."""
+from datetime import date
 
 BANDS = {'long': '15년 초과', 'medium': '5년 초과~15년 이하',
          'short': '5년 이하', 'unknown': '산정 불가', 'not_reached': '한도 미도달'}
+
+
+def first_tube_threshold(projections):
+    """Earliest measured-tube forecast, excluding recorded plugging operations."""
+    candidates = []
+    for row in projections:
+        if row.get('basis') != 'CALCULATED' or not row.get('measurement_date'):
+            continue
+        try:
+            forecast_date = date.fromisoformat(row['plugging_date'])
+            measured_date = date.fromisoformat(row['measurement_date'])
+        except (KeyError, TypeError, ValueError):
+            continue
+        reached = bool(row.get('plugging_threshold_reached'))
+        candidates.append({
+            'status': 'MEASURED_REACHED' if reached else 'FORECAST',
+            'date': None if reached else forecast_date.isoformat(),
+            'measurement_date': measured_date.isoformat(),
+            'tube_id': row['tube_id'], 'tube_no': row['tube_no'],
+            '_sort_date': measured_date if reached else forecast_date,
+        })
+    if not candidates:
+        return None
+    first = min(candidates, key=lambda row: (
+        row['status'] != 'MEASURED_REACHED', row['_sort_date'], row['tube_id']))
+    first.pop('_sort_date')
+    return first
 
 
 def life_band(life):
