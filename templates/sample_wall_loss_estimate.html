@@ -1,0 +1,32 @@
+{% set estimate = life.get('sample_wall_loss_estimate') %}
+{% if estimate %}
+{% macro loss_value(value) -%}{{ '%.1f%%'|format(value) if value is not none else '－' }}{%- endmacro %}
+{% macro estimate_year(prediction) -%}
+  {% if prediction.status == 'FORECAST' %}<span title="{{ prediction.date }}">{{ prediction.year }}년</span>
+  {% elif prediction.status == 'MEASURED_REACHED' %}검사 시 기준 도달
+  {% elif prediction.status == 'ESTIMATED_REACHED' %}검사일 기준 추정상 도달
+  {% elif prediction.status == 'INVALID_INSTALLATION_DATE' %}설치일 확인 필요
+  {% elif prediction.status == 'NO_POSITIVE_LOSS' %}양의 감육률 없음
+  {% elif prediction.status == 'DATE_OUT_OF_RANGE' %}예상일 범위 초과
+  {% else %}－{% endif %}
+{%- endmacro %}
+<section class="panel sample-wall-loss" aria-labelledby="sample-wall-loss-title">
+  <div class="panel-head"><h2 id="sample-wall-loss-title">검사 표본 기반 감육률 추정</h2><span>{{ '통계 추정' if estimate.status == 'ESTIMATED' else '실측 예측 유지' }}</span></div>
+  <p class="sample-estimate-context">검사일 {{ estimate.measurement_date or '－' }} · 유효 표본 {{ estimate.sample_count }}본 / 전체 {{ estimate.total_tube_count or '미등록' }}본 · 전체 수량: 현재 사양 · Plugging 감육률 기준 {{ estimate.threshold_percent|default(40)|int }}%{% if estimate.report_number %} · 보고서 {{ estimate.report_number }}{% endif %}</p>
+  {% if estimate.status == 'SAMPLE_INSUFFICIENT' %}<p class="sample-estimate-notice" role="status"><strong>표본 부족</strong> · 유효 표본이 10본 미만이므로 통계 추정을 적용하지 않고 기존 실측 튜브별 잔여수명 계산을 유지합니다.</p>
+  {% elif estimate.status != 'ESTIMATED' %}<p class="sample-estimate-notice" role="status">{% if estimate.status == 'NO_VALID_SAMPLE' %}유효 검사 표본이 없습니다.{% elif estimate.status == 'INVALID_TOTAL_COUNT' %}전체 튜브 수가 없거나 표본 수보다 작아 추정할 수 없습니다.{% elif estimate.status == 'DEGENERATE_SAMPLE' %}표본 감육률이 모두 같아 추세를 추정할 수 없습니다.{% elif estimate.status == 'AMBIGUOUS_INSPECTION' %}최근 날짜에 여러 검사 회차가 있어 추정 표본을 확정할 수 없습니다.{% elif estimate.status == 'MIXED_INSTALLATION_DATES' %}표본 튜브의 설치·교체 시점이 달라 단일 사용기간을 적용할 수 없습니다.{% endif %} 기존 실측 예측을 유지합니다.</p>{% endif %}
+  {% if estimate.population_count_mismatch %}<p class="sample-estimate-notice">수량 확인 필요: 현재 사양 {{ estimate.total_tube_count }}본과 보고서 전체 수량 {{ estimate.reported_total_tube_count }}본이 다릅니다; 추정에는 현재 사양 수량을 사용했으며 적용 전 검사 범위와 원본 수량을 확인하세요.</p>{% endif %}
+  {% if estimate.status == 'SAMPLE_INSUFFICIENT' and estimate.cohort_issue %}<p class="sample-estimate-context">{% if estimate.cohort_issue == 'AMBIGUOUS_INSPECTION' %}최신 검사일에 여러 회차가 있어 한 회차의 유효 표본만 표시하며 합산 추정하지 않습니다.{% else %}표본 튜브의 설치·교체 시점도 달라 하나의 사용기간으로 추정하지 않습니다.{% endif %}</p>{% endif %}
+  <div class="table-wrap"><table class="sample-estimate-table"><thead><tr><th scope="col">구분</th><th scope="col">감육률</th><th scope="col">Plugging 기준 도달 예상 연도</th></tr></thead><tbody>
+    <tr><th scope="row">실제 측정 최대 감육률</th><td>{{ loss_value(estimate.measured_max_wall_loss_percent) }}</td><td>{% if estimate.status == 'ESTIMATED' %}{{ estimate_year(estimate.measured_max_threshold) }}{% else %}기존 실측 튜브별 예측 참조{% endif %}</td></tr>
+    <tr><th scope="row">전체 튜브 추정 최대 감육률</th><td>{{ loss_value(estimate.estimated_max_wall_loss_percent) }}</td><td><small class="sample-prediction-label">최초 Plugging 기준 도달</small>{{ estimate_year(estimate.first_threshold) }}</td></tr>
+    <tr><th scope="row">상위 20% 경계 감육률</th><td>{{ loss_value(estimate.upper_20_wall_loss_percent) }}</td><td><small class="sample-prediction-label">Plugging 20% 도달</small>{{ estimate_year(estimate.twenty_percent_threshold) }}</td></tr>
+  </tbody></table></div>
+  {% if estimate.status == 'ESTIMATED' %}
+  <p class="sample-estimate-formula">회귀식: 감육률 = {{ '%.4f'|format(estimate.mu) }} + {{ '%.4f'|format(estimate.beta) }} × y · R² {{ '%.3f'|format(estimate.r_squared) }} · y = −ln(−ln(F)), F = (순위 − 0.3) / (표본 수 + 0.4).</p>
+  <p class="sample-estimate-formula">최대값은 F = 1 − 1 / 전체 수량, 상위 20% 경계값은 F = 0.8로 계산합니다; 추정 감육률 상한은 100%이며 추정 최대값은 실측 최대값보다 작게 적용하지 않습니다.</p>
+  <p class="sample-estimate-formula">도달 예상일 = 최근 검사일 + (기준 감육률 − 추정 감육률) / (추정 감육률 / 설치 후 사용연수) · 설치 기준일 {{ estimate.installation_date or '미등록' }}{% if estimate.installation_precision == 'YEAR' %} (연도만 있어 7월 1일 기준){% endif %}.</p>
+  {% endif %}
+  <p class="sample-estimate-context">상위 20% 경계값의 도달 연도는 전체 튜브 약 20%가 기준에 도달하는 통계 추정이며, 실제 Plugging 완료 수량이나 기존 Critical 10% 한도 판정과 다릅니다. 추정 연도는 검사일·설치 후 평균 추세 기준으로 튜브별 배율 시뮬레이션과 별도입니다.</p>
+</section>
+{% endif %}

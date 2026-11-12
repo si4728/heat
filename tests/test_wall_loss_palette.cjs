@@ -10,3 +10,8 @@ assert.equal(p.tubeGrade({category:'CRITICAL',operational_status:'PLUGGED',wall_
 assert.equal(p.tubeGrade({category:'NOT_INSPECTED',wall_loss_percent:0}).key,'NOT_INSPECTED');
 assert.equal(p.tubeGrade({category:'NORMAL',wall_loss_percent:0}).key,'NOMINAL');
 console.log('Palette boundaries, five source bands, nulls and operational precedence passed');
+
+assert.equal(p.tubeGrade({managed:false,category:'NOT_INSPECTED',wall_loss_percent:null}).key,'UNREGISTERED');
+assert.equal(p.tubeGrade({managed:true,category:'NOT_INSPECTED',wall_loss_percent:null}).key,'NOT_INSPECTED');
+assert.equal(p.tubeGrade({category:'UNREGISTERED',wall_loss_percent:null}).key,'UNREGISTERED');
+assert.notEqual(p.tubeGrade({managed:false}).color,p.grade(null).color);

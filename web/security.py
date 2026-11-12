@@ -32,6 +32,8 @@ def register_security(app) -> None:
         return catalog()["labels"].get((kind, root, team_code if kind == "PROCESS" else "", code), code or "-")
 
     endpoint_permissions = dict(ENDPOINT_PERMISSIONS)
+    for endpoint in ('inspection_history_yearly', 'inspection_history_process', 'inspection_recommendation_tubes'):
+        endpoint_permissions[endpoint] = 'INSPECTIONS'
     for endpoint in ('text_to_sql', 'text_to_sql_inspections', 'text_to_sql_generate', 'text_to_sql_execute'):
         endpoint_permissions[endpoint] = 'TEXT_TO_SQL'
     read_only_post_endpoints = {'text_to_sql_generate', 'text_to_sql_execute'}

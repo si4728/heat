@@ -1,6 +1,8 @@
 # IRIS2 MariaDB application
 
 GitHub checkout: clone this repository into a directory named `iris2`.
+Production and development PCs share source through GitHub; see
+[two-PC workflow](docs/TWO_PC_GITHUB_WORKFLOW.md) before editing or updating either PC.
 The database snapshot and restore instructions are in
 [database_snapshot](database_snapshot/README.md). Application login passwords
 are disabled in the published snapshot and must be reset locally after restore.

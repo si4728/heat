@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}검사 이력 · {{ '연도별' if mode == 'yearly' else '공정별' }}{% endblock %}
+{% block heading %}검사 이력 · {{ '연도별' if mode == 'yearly' else '공정별' }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static',filename='inspection-workspace.css',v='20261112-1') }}">{% endblock %}
+{% block actions %}<a class="button" href="{{ url_for('inspection_history_process' if mode == 'yearly' else 'inspection_history_yearly',unit=unit,process=process,search=search) }}">{{ '공정별' if mode == 'yearly' else '연도별' }} 이력</a><a class="button" href="{{ url_for('inspections') }}">검사 상세 검색</a><a class="button" href="{{ url_for('tube_inspection_history') }}">튜브 검사이력</a>{% endblock %}
+{% block content %}
+<form class="filters inspection-workspace-filters" method="get">
+  <span>생산팀 <strong>VCM</strong></span>
+  <label>구분<select name="unit" onchange="this.form.elements.process.value=''"><option value="">VCM1·VCM2</option>{% for code in ['VCM1','VCM2'] %}<option {{ 'selected' if unit == code }}>{{ code }}</option>{% endfor %}</select></label>
+  <label>공정<select name="process"><option value="">전체 공정</option>{% for code in processes %}<option value="{{ code or '__NONE__' }}" {{ 'selected' if process == (code or '__NONE__') }}>{{ code or '-' }}</option>{% endfor %}</select></label>
+  {% if mode == 'yearly' %}<label>검사 연도<select name="year">{% for year in years|reverse %}<option value="{{ year }}" {{ 'selected' if selected_year == year }}>{{ year }}년</option>{% else %}<option value="">검사 없음</option>{% endfor %}</select></label>{% endif %}
+  <label>설비 검색<input name="search" value="{{ search }}" placeholder="열교환기번호·설비명" maxlength="200"></label><button class="button">조회</button>
+</form>
+<div class="inspection-workspace-summary"><span>대상 설비 <strong>{{ equipment_count }}대</strong></span><span>검사 이력 보유 <strong>{{ inspected_equipment_count }}대</strong></span><span>검사 이력 <strong>{{ inspection_count }}건</strong></span><span>검사 수량 누계 <strong>{{ tube_count|comma }}본</strong></span></div>
+<article class="panel">
+  <div class="panel-head"><h2>{{ (selected_year|string ~ '년 설비별 검사 현황') if mode == 'yearly' and selected_year else ('설비별 연도별 최대 감육률 (%)' if mode == 'process' else '검사 이력 없음') }}</h2></div>
+  <p class="inspection-workspace-note">검사일 기준이며 검사일이 없으면 보고일을 사용합니다. 같은 연도의 복수 검사는 최대 감육률로 집계합니다. 설비명은 분석 화면으로, 감육률은 해당 값의 검사 PDF로 연결하며 PDF가 없으면 검사 상세로 연결합니다. ‘－’는 측정값 없음이며 연도별 최대값의 비교는 동일 튜브의 감육속도를 뜻하지 않습니다.</p>
+  <div class="table-wrap inspection-history-scroll"><table><thead><tr><th>설비</th><th>설비명</th><th>구분 / 공정</th>{% if mode == 'yearly' %}<th>검사 건수</th><th>최대 감육률</th><th>최대값 검사일</th>{% else %}<th>누적 검사 건수</th>{% for year in years %}<th>{{ year }}</th>{% endfor %}<th>최근 두 검사연도 최대값 비교</th>{% endif %}</tr></thead><tbody>
+  {% for row in rows %}<tr><td><a href="{{ url_for('precision_analysis',exchanger_id=row.heat_exchanger_id,unit=row.unit_code) }}">{{ row.exchanger_code or '-' }}</a></td><td>{{ row.equipment_name }}</td><td>{{ row.unit_code }} / {{ row.process_code or '-' }}</td>
+    {% if mode == 'yearly' %}{% set cell = row.cells.get(selected_year) %}<td>{{ cell.inspection_count if cell else 0 }}</td><td>{% if cell and cell.loss_percent is not none %}<a href="{{ url_for('inspection_pdf_view' if cell.pdf_available else 'inspection_detail',inspection_id=cell.inspection_id) }}" title="{{ cell.report_number or '' }} · {{ '검사 PDF' if cell.pdf_available else '검사 상세 (PDF 없음)' }}">{{ '%.1f%%'|format(cell.loss_percent) }}</a>{% else %}－{% endif %}</td><td>{{ cell.date.isoformat() if cell else '－' }}</td>
+    {% else %}<td>{{ row.inspection_count }}</td>{% for year in years %}{% set cell = row.cells.get(year) %}<td class="{{ 'history-loss-critical' if cell and cell.loss_percent is not none and cell.loss_percent >= 40 else '' }}">{% if cell and cell.loss_percent is not none %}<a href="{{ url_for('inspection_pdf_view' if cell.pdf_available else 'inspection_detail',inspection_id=cell.inspection_id) }}" title="{{ cell.report_number or '' }} · {{ cell.inspection_count }}건 중 최대값">{{ '%.1f'|format(cell.loss_percent) }}</a>{% else %}－{% endif %}</td>{% endfor %}<td>{% if row.change_percentage_points is not none %}{{ '증가' if row.change_percentage_points > 0 else '감소' if row.change_percentage_points < 0 else '유지' }} {{ '%+.1f'|format(row.change_percentage_points) }}%p{% else %}－{% endif %}</td>{% endif %}
+  </tr>{% else %}<tr><td colspan="{{ 6 if mode == 'yearly' else years|length + 5 }}">해당 설비가 없습니다.</td></tr>{% endfor %}
+  </tbody></table></div>
+</article>
+{% endblock %}

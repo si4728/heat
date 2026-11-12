@@ -1,0 +1,11 @@
+.sample-wall-loss{margin:16px 0;min-width:0;}
+.sample-wall-loss .panel-head{flex-wrap:wrap;gap:8px;}
+.sample-wall-loss .panel-head h2{font-size:16px;}
+.sample-estimate-context,.sample-estimate-notice,.sample-estimate-formula{margin:12px 18px;font-size:13px;line-height:1.65;overflow-wrap:anywhere;}
+.sample-estimate-context,.sample-estimate-formula{color:var(--muted);}
+.sample-estimate-table{width:100%;min-width:600px;}
+.sample-estimate-table th,.sample-estimate-table td{padding:12px 18px;font-variant-numeric:tabular-nums;}
+.sample-estimate-table td:nth-child(2){text-align:right;}
+.sample-estimate-table th[scope=row]{font-weight:500;}
+.sample-prediction-label{display:block;margin-bottom:4px;color:var(--muted);font-size:12px;}
+@media(max-width:600px){.sample-estimate-context,.sample-estimate-notice,.sample-estimate-formula{margin:12px;font-size:13px;}.sample-estimate-table th,.sample-estimate-table td{padding:12px;}}

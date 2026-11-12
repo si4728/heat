@@ -3,9 +3,10 @@
 {% set hx=master[0] %}{% set equipment=master[1] %}{% set unit=master[2] %}{% set plant=master[3] %}{% set life=remaining_life %}
 {% set display_exchanger_code = exchanger_display_code(hx.heat_exchanger_id) %}
 {% block title %}{{ display_exchanger_code }}{% endblock %}{% block heading %}{{ display_exchanger_code }}{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='exchanger-detail.css', v='20261029-balanced-2') }}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='exchanger-detail.css', v='20261029-balanced-2') }}"><link rel="stylesheet" href="{{ url_for('static', filename='sample-wall-loss.css', v='20261112-1') }}">{% endblock %}
 {% block actions %}<nav class="exchanger-actions" aria-label="열교환기 상세 메뉴">{% if can_screen('REMAINING_LIFE') %}<a class="button" href="{{ url_for('precision_analysis', exchanger_id=hx.heat_exchanger_id) }}">정밀 분석</a>{% endif %}<a class="button" href="{{ url_for('exchangers') }}">목록</a> {% if config.get('QR_UI_ENABLED', false) and current_user and current_user.is_admin and can_screen('EXCHANGERS') %}<a class="button" href="{{ url_for('qr_exchanger_lookup', exchanger_id=hx.heat_exchanger_id) }}">QR 간편조회</a>{% endif %} <a class="button" href="{{ url_for('remaining_life_simulation', exchanger_id=hx.heat_exchanger_id) }}">Tube Plugging 예측</a>  <a class="button" href="{{ url_for('exchanger_report', exchanger_id=hx.heat_exchanger_id) }}">인쇄 보고서</a> <a class="button" href="{{ url_for('tube_management', exchanger_id=hx.heat_exchanger_id) }}">튜브 관리</a> <a class="button" href="{{ url_for('exchanger_tube_map', exchanger_id=hx.heat_exchanger_id) }}">2D/3D Tube Map</a> <a class="button primary" href="{{ url_for('exchanger_edit', exchanger_id=hx.heat_exchanger_id) }}">정보 수정</a></nav>{% endblock %}
 {% block content %}
+{% include 'sample_wall_loss_estimate.html' %}
 <details class="exchanger-calculation-guide">
   <summary><strong>잔여수명 계산 기준</strong><span>일반 20% · Critical 10%</span><small>계산식 및 적용 가정 보기</small></summary>
   <div><p class="analysis-quality-note">기본 Tube 예측: 현재 계산 기준일 + (공칭두께 × 0.4 − 최근 검사 감육량) ÷ 적용 부식속도. 일반 허용 한도 20%, Critical 10%. 잔여수명은 한도 최초 초과 연도에서 기준연도를 뺀 값(최소 0년)입니다. 최근 검사 감육량을 기준일의 현재 감육량으로 간주합니다. 별도 Simulation의 사용자 조건은 기본 산식을 저장·변경하지 않습니다. API 510 검사주기는 별도 계산입니다.</p></div>

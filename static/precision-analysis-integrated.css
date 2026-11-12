@@ -1,0 +1,25 @@
+.analysis-equipment-panel>h2{margin:0;padding:12px;font-size:14px;font-weight:600;}
+.analysis-workspace .analysis-main-grid h2{font-size:15px;font-weight:600;}
+.analysis-selection-panel{min-width:0;}
+.analysis-selection-panel h3{font-size:14px;margin:16px 0 10px;}
+.tube-thickness-trend{overflow-x:auto;min-height:260px;}
+.tube-thickness-trend svg{display:block;width:100%;min-width:560px;height:auto;font-size:14px;font-family:inherit;}
+.selected-tube-table{width:100%;font-size:13px;table-layout:fixed;}
+.selected-tube-table th{width:48%;font-weight:500;white-space:normal;}
+.selected-tube-table td{font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere;}
+.selected-tube-table th,.selected-tube-table td{padding:7px 8px;}
+.selected-tube-table .analysis-rate-control{margin-top:7px;justify-content:flex-end;}
+.analysis-measurement-panel{padding:16px 12px;border-top:1px solid #ccdce7;}
+.analysis-measurement-panel h2{font-size:16px;}
+.analysis-measurement-panel .analysis-defect-table{min-width:1080px;font-size:12px;}
+.analysis-measurement-panel .analysis-defect-table th{font-size:12px;}
+.analysis-measurement-panel small{display:block;}
+.analysis-measurement-panel .analysis-table-scroll{max-height:480px;}
+.analysis-secondary-grid{grid-template-columns:1fr 1fr;}
+.analysis-inline-help{padding:16px;border-top:1px solid #ccdce7;line-height:1.65;}
+.analysis-inline-help .analysis-help-header h2{font-size:16px;}
+.analysis-pdf-reports h2{font-size:16px;margin:0 0 12px;}
+.analysis-pdf-report{padding:8px 0;}
+.non-positive-short-rate{color:#9c4a14!important;}
+.analysis-workspace .analysis-quality-note{font-size:12px;line-height:1.6;}
+@media(max-width:760px){.analysis-secondary-grid{grid-template-columns:1fr;}.analysis-workspace .analysis-info-bar span{font-size:11px;}.analysis-workspace .analysis-info-bar strong{font-size:12px;}.selected-tube-table{font-size:12px;}}

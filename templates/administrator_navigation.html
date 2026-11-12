@@ -1,0 +1,22 @@
+{% if current_user and current_user.is_admin %}
+<details class="administrator-settings" id="administrator-settings">
+  <summary><span aria-hidden="true">⚙</span> 관리자 설정</summary>
+  <nav class="administrator-settings-links" aria-label="관리자 설정">
+    <h2>데이터 적재</h2>
+    <a href="{{ url_for('imports') }}">JSON 로드</a>
+    {% if can_screen('PDF_OCR_REVIEW') %}<a href="{{ url_for('pdf_ocr_review_dashboard') }}">PDF·OCR 검토</a>{% endif %}
+    <h2>품질·입력 현황</h2>
+    {% if can_screen('QUALITY') %}<a href="{{ url_for('quality_issues') }}">품질 이슈</a>{% endif %}
+    <a href="{{ url_for('data_entry_status') }}">데이터 입력 현황</a>
+    <h2>사용자·권한</h2>
+    <a href="{{ url_for('users_admin') }}">사용자·권한 관리</a>
+    <h2>조직 코드·기준값</h2>
+    {% if can_screen('PLANT_LINES') %}<a href="{{ url_for('organization_codes') }}">조직 코드 관리</a>{% endif %}
+    {% if can_screen('WALL_LOSS_COLORS') %}<a href="{{ url_for('wall_loss_colors') }}">Wall Loss 색상</a><a href="{{ url_for('system_theme_settings') }}">화면 테마 설정</a>{% endif %}
+    {% if can_screen('REMAINING_LIFE') %}<a href="{{ url_for('api510_settings') }}">API 510 계산</a>{% endif %}
+    <h2>DB 점검·백업</h2>
+    <a href="{{ url_for('database_monitor') }}">DB 상태 점검</a>
+    <a href="{{ url_for('backup_manager') }}">백업 관리</a>
+  </nav>
+</details>
+{% endif %}

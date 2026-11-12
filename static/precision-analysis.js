@@ -1,17 +1,6 @@
 (() => {
   const rateSlider = document.getElementById('corrosion-rate-slider');
   let selectedTubeId = null;
-  ['corrosion', 'remaining-life'].forEach(prefix => {
-    const helpTrigger = document.getElementById(`${prefix}-help-trigger`);
-    const helpDialog = document.getElementById(`${prefix}-help-dialog`);
-    if (!helpTrigger || !helpDialog) return;
-    helpTrigger.addEventListener('click', () => helpDialog.showModal());
-    helpDialog.addEventListener('click', event => {
-      const bounds = helpDialog.getBoundingClientRect();
-      if (event.target === helpDialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) helpDialog.close();
-    });
-    helpDialog.addEventListener('close', () => helpTrigger.focus());
-  });
   const mapNode = document.getElementById('precision-tube-map');
   const mapJson = document.getElementById('precision-map-data');
   const lifeJson = document.getElementById('precision-life-data');
@@ -80,8 +69,8 @@
     document.getElementById('corrosion-rate-form').addEventListener('submit', event => event.preventDefault());
   }
   const tubes = mapData.tubes || [];
-  const defects = lifeData.defect_rows || [];
-  const worstWallLoss = defects.reduce((worst, defect) => Math.max(worst, Number(defect.wall_loss_percent)), -Infinity);
+  const defects = lifeData.analysis_tube_rows || lifeData.defect_rows || [];
+  const worstWallLoss = (lifeData.defect_rows || []).reduce((worst, defect) => Math.max(worst, Number(defect.wall_loss_percent)), -Infinity);
   const defectByTube = new Map(defects.map(row => [Number(row.tube_id), row]));
   const validCoordinate = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
   const validPoints = tubes.filter(tube => validCoordinate(tube.x) && validCoordinate(tube.y));
@@ -251,9 +240,9 @@
     const defect = defectByTube.get(selectedTubeId);
     const baseRate = defect?.long_term_corrosion_rate_mm_per_year;
     const rate = baseRate == null ? null : Number(baseRate) * multiplier;
-    document.getElementById('long-term-rate').textContent = `${fmt(baseRate)} mm/yr`;
+    document.getElementById('long-term-rate').textContent = fmt(baseRate,4);
     const applied = document.getElementById('applied-corrosion-rate');
-    applied.textContent = `${fmt(rate)} mm/yr`;
+    applied.textContent = fmt(rate,4);
     applied.className = rate == null ? '' : rate >= .08 ? 'danger' : rate >= .04 ? 'warn' : 'good';
     const projections = projectTubeDates(lifeData.tube_projections || [], multiplier);
     const reachedDate = limitExceedanceDate(projections, lifeData.allowable_plugging_count);
@@ -292,6 +281,11 @@
       const item = defectByTube.get(Number(row.dataset.analysisTube));
       // Measurement results stay unchanged when the prediction multiplier changes.
       row.classList.toggle('is-worst-loss', item?.wall_loss_percent === worstWallLoss);
+      const appliedCell = row.querySelector('[data-applied-rate]');
+      if (appliedCell) appliedCell.textContent = fmt(item?.long_term_corrosion_rate_mm_per_year == null ? null : item.long_term_corrosion_rate_mm_per_year * multiplier,4);
+      const forecastCell = row.querySelector('[data-analysis-forecast]');
+      const projected = projections.find(p => Number(p.tube_id) === Number(row.dataset.analysisTube));
+      if (forecastCell) forecastCell.textContent = item?.plugging_complete ? '처리 완료' : item?.plugging_threshold_reached ? '검사 시 기준 도달' : projected ? `${projected.projectedYear}년` : '산정 불가';
     });
     const rates = projections.filter(row => row.calculation_method === 'LATEST_INSPECTION_INSTALLATION_AVERAGE' && row.corrosion_rate_mm_per_year > 0).map(row => row.corrosion_rate_mm_per_year * multiplier).sort((a, b) => a - b);
     const middle = Math.floor(rates.length / 2);
@@ -343,7 +337,7 @@
       row.className = 'history-measurement';
       row.style.marginBottom = '10px';
       const thickness = item.thickness_mm;
-      const valid = thickness != null && Number.isFinite(Number(thickness)) && Number(thickness) > 0;
+      const valid = thickness != null && Number.isFinite(Number(thickness)) && Number(thickness) >= 0;
       const caption = document.createElement('div');
       caption.textContent = `${item.date || '검사일 미등록'} · ${valid ? Number(thickness).toFixed(2) + ' mm' : '유효 두께 미등록'}${item.historical ? ' · 설치 이전 이력(조회 전용)' : ''}`;
       row.appendChild(caption);
@@ -414,7 +408,7 @@
     if (status) {
       const tube = tubes.find(item => Number(item.tube_id) === Number(tubeId)) || defectByTube.get(Number(tubeId));
       status.textContent = `선택 Tube ${tube?.tube_no || tubeId}` +
-        (!selectedRow ? ' · 부식측정결과 목록에 없는 Tube입니다(목록은 최근 감육률 0% 초과 결과).' : '') +
+        (!selectedRow ? ' · 최근 측정 결과가 없는 Tube입니다.' : '') +
         (!selectedButtons.length ? ' · 현재 Map에 연결된 표시 위치가 없습니다.' : ' · Map과 결과표 선택 연결');
     }
   }
@@ -435,15 +429,43 @@
     document.getElementById('selected-tube-title').textContent = `Tube ${tube.tube_no} — 실제 다년도 두께 이력`;
     const nominal = Number(mapData.tube_spec?.nominal_thickness_mm || 0);
     renderThicknessHistory(tubeId, nominal);
+    const trend = document.getElementById('thickness-trend');
+    if (trend && window.TubeThicknessTrend) {
+      trend.dataset.tubeId = String(tubeId);
+      window.TubeThicknessTrend.render(trend, lifeData.tube_histories?.[String(tubeId)] || [],
+        nominal,Number(lifeData.plugging_wall_loss_percent || 40),tube.tube_no);
+    }
     const rateForm = document.getElementById('corrosion-rate-form');
     // Keep the existing slider and listeners when switching the selected tube.
     if (rateForm) rateForm.remove();
-    document.getElementById('corrosion-analysis').innerHTML = [
-      metric('단기 부식속도', `${fmt(defect?.short_term_corrosion_rate_mm_per_year)} mm/yr`),
-      `<div class="analysis-metric"><span>장기 부식속도</span><b id="long-term-rate"></b></div>`,
-      `<div class="analysis-metric analysis-long-term"><div class="analysis-rate-label"><span>적용 부식속도</span><span id="corrosion-rate-slot"></span></div><b id="applied-corrosion-rate"></b></div>`,
-      metric('산정 근거', defect?.corrosion_rate_selection_basis || '산정 불가')
-    ].join('');
+    const selectedTable = document.createElement('table');
+    selectedTable.className = 'selected-tube-table';
+    const body = document.createElement('tbody');
+    const fields = [
+      ['최근 측정일',defect?.measurement_date || tube.inspection_date || '-'],
+      ['최근 측정 두께 (mm)',fmt(defect?.minimum_wall_thickness_mm ?? tube.minimum_wall_thickness_mm,3)],
+      ['감육률 (%)',fmt(defect?.wall_loss_percent ?? tube.wall_loss_percent,2)],
+      ['단기 감육속도(mm/년)',fmt(defect?.short_term_corrosion_rate_mm_per_year,4),'short-term-rate'],
+      ['장기 감육속도(mm/년)','-','long-term-rate'],
+      ['감육속도(mm/년)','-','applied-corrosion-rate'],
+      ['선정 근거',defect?.corrosion_rate_selection_basis ? '장기 평균 × 배율' : '산정 불가'],
+    ];
+    for (const [label,value,id] of fields) {
+      const row = document.createElement('tr'), heading = document.createElement('th'), cell = document.createElement('td'), number = document.createElement('b');
+      heading.scope='row'; heading.textContent=label; number.textContent=value;
+      if(id) number.id=id;
+      if(id==='short-term-rate' && defect?.short_term_status==='NON_POSITIVE') number.className='non-positive-short-rate';
+      cell.appendChild(number);
+      if(id==='applied-corrosion-rate') {const slot=document.createElement('span');slot.id='corrosion-rate-slot';cell.appendChild(slot);}
+      row.appendChild(heading);row.appendChild(cell);body.appendChild(row);
+    }
+    selectedTable.appendChild(body);
+    const analysis=document.getElementById('corrosion-analysis');
+    analysis.replaceChildren(selectedTable);analysis.dataset.tubeId=String(tubeId);
+    const shortNote=document.createElement('p');shortNote.className='analysis-quality-note';
+    shortNote.textContent=defect?.short_term_previous_date ?
+      `단기 계산: (${fmt(defect.short_term_previous_thickness_mm,3)} − ${fmt(defect.short_term_current_thickness_mm,3)}) mm ÷ ${fmt(defect.short_term_elapsed_years,3)}년 · ${defect.short_term_previous_date} ~ ${defect.short_term_current_date}${defect.short_term_status==='NON_POSITIVE'?' · 0 이하 값은 측정 편차 확인 대상입니다.':''}` : '단기 감육속도는 최근 두 유효 측정 두께가 있어야 계산합니다.';
+    analysis.appendChild(shortNote);
     if (rateForm) document.getElementById('corrosion-rate-slot').appendChild(rateForm);
     updateRateAnalysis();
   }
@@ -453,7 +475,8 @@
     row.addEventListener('click', activate);
     row.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activate(); } });
   });
-  if (defects.length) selectTube(Number(defects[0].tube_id));
+  const initialTube=defects[0]?.tube_id || tubes.find(tube => tube.tube_id)?.tube_id;
+  if (initialTube) selectTube(Number(initialTube));
   else renderAnnualPlugging((lifeData.tube_projections || []).map(row => ({projectedDate: Date.parse(`${row.plugging_date}T00:00:00Z`)})), Number(lifeData.current_year), lifeData.allowable_plugging_count);
 })();
 

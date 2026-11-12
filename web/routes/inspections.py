@@ -7,6 +7,8 @@ from flask import abort, flash, g, jsonify, redirect, render_template, request, 
 from werkzeug.utils import secure_filename
 
 from iris2 import services
+from iris2.application.inspection_history import inspection_history_data
+from iris2.application.inspection_recommendations import recommended_plans_data, available_tubes, save_recommended_plan
 from iris2.excel_export import build_heat_exchanger_export
 from iris2.hx_configuration import API_WRITE_TOKEN, DB_PATH, ML_ARTIFACT_ROOT, ML_REVIEW_DB_PATH, UPLOAD_DIR
 from iris2.ml.review import load_latest_ml_review, load_latest_pattern_review, load_latest_spatial_review
@@ -64,6 +66,27 @@ def register_routes(app) -> None:
                 sort_dir=request.args.get("sort_dir", "asc"),
             ),
         )
+
+    def history_response(mode):
+        try:
+            data=inspection_history_data(mode=mode, year=request.args.get('year',''),
+                unit=request.args.get('unit',''),process=request.args.get('process',''),
+                search=request.args.get('search','').strip()[:200])
+        except ValueError as exc:
+            abort(400,description=str(exc))
+        return render_template('inspection_history_overview.html',**data)
+
+    @app.get('/inspections/yearly')
+    def inspection_history_yearly():
+        return history_response('yearly')
+
+    @app.get('/inspections/process')
+    def inspection_history_process():
+        return history_response('process')
+
+    @app.get('/inspection-plans/recommended/<int:exchanger_id>/tubes')
+    def inspection_recommendation_tubes(exchanger_id):
+        return jsonify(tubes=available_tubes(exchanger_id))
 
     @app.route("/inspections/ml-review", methods=["GET", "POST"])
     def ml_review_targets():
@@ -158,11 +181,24 @@ def register_routes(app) -> None:
                 current_user = g.get("current_user") or {}
                 payload = request.form.to_dict()
                 payload["tube_ids"] = request.form.getlist("tube_ids")
-                services.save_inspection_plan(payload, current_user.get("user_id"))
+                if payload.get('registration_source') == 'recommendation':
+                    save_recommended_plan(payload,current_user.get('user_id'))
+                else:
+                    services.save_inspection_plan(payload, current_user.get("user_id"))
                 flash("검사계획이 등록되었습니다.", "success")
+                if payload.get('registration_source') == 'recommendation':
+                    return redirect(url_for('inspection_plans',basis='measured',
+                        horizon=payload.get('recommendation_horizon','2')))
                 return redirect(url_for("inspection_plans"))
             except (ValueError, TypeError) as exc:
                 flash(f"검사계획 등록 실패: {exc}", "error")
+        if not any(request.args.get(key) for key in ('manage','heat_exchanger_id','priority_source','status')):
+            try:
+                data=recommended_plans_data(unit=request.args.get('unit',''),process=request.args.get('process',''),
+                    horizon=request.args.get('horizon','2'),basis='measured')
+            except ValueError as exc:
+                abort(400,description=str(exc))
+            return render_template('inspection_recommended_plans.html',**data)
         return render_template("inspection_plans.html",
                                **services.inspection_plans_data(
                                    request.args.get("status", ""),

@@ -56,7 +56,7 @@ def main():
                   baseline_check_required=[dict(path=p, included=p in entries) for p in baseline],
                   related=[dict(path=p, included=p in entries) for p in related],
                   model_files=model_files, model_hashes_recomputed=False,
-                  unit_tests=dict(count=67, passed=True, live_database_and_inference=False),
+                  unit_tests_run_by_this_audit=False,
                   production_applied=False)
     out = ROOT / 'reports/text_to_sql/transfer-audit-20261112'
     out.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,14 @@
+<nav aria-label="일반 업무 메뉴" id="general-navigation">
+  {% if can_screen('DASHBOARD') %}<a class="{{ 'active' if request.endpoint == 'dashboard' else '' }}" href="{{ url_for('dashboard') }}">대시보드</a>{% endif %}
+  {% if can_screen('EXCHANGERS') %}<a class="{{ 'active' if request.endpoint in ['exchangers','exchanger_detail','exchanger_edit','exchanger_new','exchanger_tube_map','tube_management','exchanger_report'] else '' }}" href="{{ url_for('exchangers') }}">열교환기 목록</a>{% endif %}
+  {% if can_screen('REMAINING_LIFE') %}<a class="{{ 'active' if request.endpoint == 'precision_analysis' else '' }}" href="{{ url_for('precision_analysis') }}" {{ 'aria-current=page' if request.endpoint == 'precision_analysis' else '' }}>열교환기 분석</a>{% endif %}
+  {% if can_screen('INSPECTIONS') %}
+  <details class="sidebar-group-menu inspection-menu" {{ 'open' if request.endpoint in ['inspections','inspection_detail','inspection_history_yearly','inspection_history_process','tube_inspection_history','tube_detail'] else '' }}>
+    <summary>검사 이력</summary><div class="sidebar-submenu">
+      <a class="{{ 'active' if request.endpoint == 'inspection_history_yearly' else '' }}" href="{{ url_for('inspection_history_yearly') }}">연도별</a>
+      <a class="{{ 'active' if request.endpoint == 'inspection_history_process' else '' }}" href="{{ url_for('inspection_history_process') }}">공정별</a>
+    </div>
+  </details>
+  <a class="{{ 'active' if request.endpoint in ['inspection_plans','inspection_plan_status'] else '' }}" href="{{ url_for('inspection_plans') }}">검사계획</a>
+  {% endif %}
+</nav>

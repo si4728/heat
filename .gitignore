@@ -16,4 +16,8 @@ config/database-text-to-sql.conf
 config/*.cnf
 outputs/
 tmp/
+.taste-skill/text-to-sql/
 database_snapshot/*.sql
+dist/
+이관/
+.taste-skill/

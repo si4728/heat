@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+from iris2 import dbapi
 
 from flask import abort, g, jsonify, render_template, request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -53,8 +54,20 @@ def register_routes(app):
         try:
             equipment = analysis.catalog()
             error = None
-        except Exception:
-            equipment, error = [], '설비 목록을 불러올 수 없습니다. MariaDB 연결을 확인하세요.'
+        except Exception as exc:
+            # Never log exception text: database errors may contain account or host details.
+            code = exc.args[0] if exc.args and type(exc.args[0]) is int else None
+            app.logger.warning('Text-to-SQL catalog failed type=%s db_code=%s',
+                               type(exc).__name__, code)
+            if isinstance(exc, ValueError):
+                detail = '관리자에게 config/database.conf 및 config/database-text-to-sql.conf의 존재·읽기 권한·설정 형식을 확인해 달라고 요청하세요.'
+            elif isinstance(exc, dbapi.DatabaseError) and code in (1044, 1045):
+                detail = '관리자에게 Text-to-SQL 전용 DB 계정의 로그인 정보와 DB 접근 권한을 확인해 달라고 요청하세요.'
+            elif isinstance(exc, dbapi.DatabaseError) and code in (1142, 1143):
+                detail = '관리자에게 Text-to-SQL 전용 DB 계정의 설비·공정 테이블 SELECT 권한을 확인해 달라고 요청하세요.'
+            else:
+                detail = '관리자에게 MariaDB 연결과 Text-to-SQL 전용 읽기 계정 설정을 확인해 달라고 요청하세요.'
+            equipment, error = [], '설비 목록을 불러올 수 없습니다. ' + detail
         response = app.make_response(render_template('text_to_sql.html', equipment=equipment, catalog_error=error))
         response.headers['Cache-Control'] = 'no-store'
         return response
