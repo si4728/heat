@@ -1366,7 +1366,7 @@ def precision_analysis_data(
         for history in detail['remaining_life']['tube_histories'].values():
             for item in history:
                 item['pdf_url'] = pdf_urls.get(item['inspection_id'])
-        for row in detail['remaining_life']['defect_rows']:
+        for row in detail['remaining_life'].get('analysis_tube_rows', detail['remaining_life']['defect_rows']):
             row['pdf_url'] = pdf_urls.get(row.get('inspection_id'))
         detail['analysis_pdf_reports'] = pdf_reports
         geometry = tube_map.get('layout', {}).get('pdf_geometry') or {}
@@ -1734,6 +1734,29 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
     # This forecast uses the current measurement and installation age;
     # previous-result assessments remain available in the inspection history.
     rate_profiles: dict[int, dict[str, Any]] = {}
+    process = session.get(ProcessUnit, equipment.unit_id)
+    short_rate_enabled = bool(process and process.unit_code in ('VCM1', 'VCM2'))
+    from .domain.short_term_corrosion import short_term_corrosion_rate
+    short_histories = {}
+    for result, inspection in result_rows:
+        if (short_rate_enabled and inspection.superseded_by_inspection_id is None
+                and result.result_status in (None, 'VALID') and result.quality_status in (None, 'VALID')):
+            short_histories.setdefault(result.tube_id, []).append(dict(
+                date=_effective_inspection_date(inspection), thickness_mm=result.minimum_wall_thickness_mm))
+    short_profiles = {}
+    for tube_id, (result, inspection) in latest_results.items():
+        if not short_rate_enabled:
+            continue
+        installed = current_installation_date(equipment.install_date, tubes_by_id[tube_id].installed_at,
+                                               inspection.installation_or_replacement_date)
+        if inspection.installation_or_replacement_year is not None and inspection.installation_or_replacement_date_precision == 'YEAR':
+            installed = current_installation_date(installed, date(inspection.installation_or_replacement_year, 7, 1))
+        valid_current = (inspection.superseded_by_inspection_id is None
+            and result.result_status in (None, 'VALID') and result.quality_status in (None, 'VALID'))
+        short_profiles[tube_id] = short_term_corrosion_rate(
+            dict(date=_effective_inspection_date(inspection),
+                 thickness_mm=result.minimum_wall_thickness_mm if valid_current else None),
+            short_histories.get(tube_id, []), installed_at=installed)
 
     snapshots = {}
     inspection_ids = [inspection.iris_inspection_id for _result, inspection in latest_results.values()]
@@ -1879,18 +1902,20 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
             installation_precision=precision,
             as_of_date=as_of_date,
         )
+        corrosion_rate = calculation.get('corrosion_rate_mm_per_year')
+        rate_profile = {
+            "selected_rate_mm_per_year": corrosion_rate,
+            "long_term_rate_mm_per_year": corrosion_rate / corrosion_rate_multiplier if corrosion_rate is not None else None,
+            "selection_basis": "LATEST_INSPECTION_INSTALLATION_AVERAGE" if corrosion_rate is not None else None,
+            **short_profiles.get(tube.tube_id, {}),
+        }
+        rate_profiles[tube.tube_id] = rate_profile
         if "plugging_date" not in calculation:
             reason_counts["NO_POSITIVE_CORROSION_RATE" if calculation["status"] == "NO_POSITIVE_WALL_LOSS"
                           else "INVALID_INSTALLATION_DATE"] += 1
             continue
         corrosion_rate = calculation["corrosion_rate_mm_per_year"]
         current_loss = nominal * float(loss_percent) / 100.0
-        rate_profile = {
-            "selected_rate_mm_per_year": corrosion_rate,
-            "long_term_rate_mm_per_year": corrosion_rate / corrosion_rate_multiplier,
-            "selection_basis": "LATEST_INSPECTION_INSTALLATION_AVERAGE",
-        }
-        rate_profiles[tube.tube_id] = rate_profile
         projections.append({
             "tube_id": tube.tube_id, "tube_no": tube.tube_no,
             "row_no": tube.row_no, "column_no": tube.column_no,
@@ -1956,7 +1981,6 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
     summary.update(plugging_counts(tubes, latest_results, projections,
                                   plugging_wall_loss_percent, as_of_date,
                                   int(master_spec.tube_count) if master_spec and master_spec.tube_count and master_spec.tube_count > 0 else None))
-    process = session.get(ProcessUnit, equipment.unit_id)
     if process and process.unit_code in ('VCM1', 'VCM2'):
         from .application.sample_wall_loss import build_sample_estimate
         sample_bundle_ids = [bundle.bundle_id for bundle in bundles if bundle.retired_at is None]
@@ -1970,27 +1994,26 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
             threshold_percent=plugging_wall_loss_percent, inspections=sample_inspections)
     projection_by_tube = {item["tube_id"]: item for item in projections}
     defect_rows = []
+    analysis_tube_rows = []
     for tube in tubes:
         latest = latest_results.get(tube.tube_id)
         if latest is None:
             continue
         result, inspection = latest
         wall_loss_percent = result.wall_loss_percent
-        if wall_loss_percent is None or wall_loss_percent <= 0:
-            continue
-        rate_profile = rate_profiles.get(tube.tube_id, {})
+        rate_profile = dict(rate_profiles.get(tube.tube_id, {}), **short_profiles.get(tube.tube_id, {}))
         corrosion_rate = rate_profile.get("selected_rate_mm_per_year")
         projection = projection_by_tube.get(tube.tube_id)
         plugging_complete = normalize_tube_status(tube.current_status) == "PLUGGED"
-        plugging_threshold_reached = wall_loss_percent >= plugging_wall_loss_percent
-        defect_rows.append({
+        plugging_threshold_reached = wall_loss_percent is not None and wall_loss_percent >= plugging_wall_loss_percent
+        analysis_row = {
             "tube_id": tube.tube_id,
             "tube_no": tube.tube_no,
             "row_no": tube.row_no,
             "column_no": tube.column_no,
             "inspection_id": inspection.iris_inspection_id,
             "measurement_date": _effective_inspection_date(inspection).date().isoformat(),
-            "wall_loss_percent": float(wall_loss_percent),
+            "wall_loss_percent": float(wall_loss_percent) if wall_loss_percent is not None else None,
             "minimum_wall_thickness_mm": result.minimum_wall_thickness_mm,
             "corrosion_rate_mm_per_year": corrosion_rate,
             "location_mm": result.location_mm,
@@ -2000,14 +2023,20 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
             "short_term_corrosion_rate_mm_per_year": rate_profile.get("short_term_rate_mm_per_year"),
             "long_term_corrosion_rate_mm_per_year": rate_profile.get("long_term_rate_mm_per_year"),
             "corrosion_rate_selection_basis": rate_profile.get("selection_basis"),
+            **short_profiles.get(tube.tube_id, {}),
             "plugging_complete": plugging_complete,
             "plugging_threshold_reached": plugging_threshold_reached,
             "plugging_year": current_year if plugging_complete or plugging_threshold_reached else (
                 projection["plugging_year"] if projection else None
             ),
-        })
+        }
+        analysis_tube_rows.append(analysis_row)
+        if wall_loss_percent is not None and wall_loss_percent > 0:
+            defect_rows.append(analysis_row)
     defect_rows.sort(key=lambda item: (-item["wall_loss_percent"], item["tube_no"]))
     summary["historical_result_count"] = historical_result_count
+    summary["analysis_tube_rows"] = sorted(analysis_tube_rows,
+        key=lambda item: (-(item['wall_loss_percent'] if item['wall_loss_percent'] is not None else -1), item['tube_no']))
     summary["defect_rows"] = defect_rows
     summary["defect_count"] = len(defect_rows)
     annual_counts = {row["year"]: row["new_plugging_count"] for row in summary["yearly"]}

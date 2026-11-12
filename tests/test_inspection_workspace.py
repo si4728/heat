@@ -138,3 +138,12 @@ class InspectionWorkspaceWebTests(unittest.TestCase):
     def test_invalid_filters_return_bad_request(self):
         self.history.side_effect=ValueError('조회 기준 확인')
         self.assertEqual(self.client.get('/inspections/yearly').status_code,400)
+
+    def test_recommendation_basis_is_fixed_to_measured(self):
+        self.assertEqual(self.client.get('/inspection-plans?basis=earliest').status_code,200)
+        self.assertEqual(self.recommendations.call_args.kwargs['basis'],'measured')
+
+    def test_stale_registration_basis_rejected_before_database_access(self):
+        from iris2.application.inspection_recommendations import save_recommended_plan
+        with self.assertRaisesRegex(ValueError,'実測|실측'):
+            save_recommended_plan(dict(heat_exchanger_id='1', recommendation_basis='earliest'),1)

@@ -8,7 +8,7 @@
   <label>구분<select name="unit" onchange="this.form.elements.process.value=''"><option value="">VCM1·VCM2</option>{% for code in ['VCM1','VCM2'] %}<option {{ 'selected' if unit == code }}>{{ code }}</option>{% endfor %}</select></label>
   <label>공정<select name="process"><option value="">전체 공정</option>{% for code in processes %}<option value="{{ code or '__NONE__' }}" {{ 'selected' if process == (code or '__NONE__') }}>{{ code or '-' }}</option>{% endfor %}</select></label>
   <label>권고 시기<select name="horizon">{% for value,label in [('1','1년 이내'),('2','2년 이내'),('5','5년 이내'),('all','전체 권고')] %}<option value="{{ value }}" {{ 'selected' if horizon == value }}>{{ label }}</option>{% endfor %}</select></label>
-  <label>권고 기준<select name="basis">{% for value,label in bases.items() %}<option value="{{ value }}" {{ 'selected' if basis == value }}>{{ label }}</option>{% endfor %}</select></label><button class="button">조회</button>
+  <span>권고 기준 <strong>실측 튜브의 최초 도달일</strong></span><button class="button">조회</button>
 </form>
 <article class="panel"><div class="panel-head"><h2>차기 검사 권고 설비 {{ rows|length }}대</h2><span>기준일 {{ as_of_date }}</span></div>
   <p class="inspection-workspace-note">권고일 = 해당 예측의 검사 기준일 + 최초 기준 도달까지 기간의 1/2입니다. 검사 당시 기준 도달 상태이면 해당 검사일을 권고일로 표시합니다. 경과한 권고일도 포함하며 근거가 없는 설비는 제외합니다. 예정일과 실제 대상 Tube를 같은 행에서 선택하여 등록합니다.</p>

@@ -39,7 +39,7 @@ def rollback_registration_check():
                 row=next(r for r in rows if not r['open_plan'] and plans.available_tubes(r['heat_exchanger_id']))
                 tube=plans.available_tubes(row['heat_exchanger_id'])[0]
                 payload=dict(heat_exchanger_id=str(row['heat_exchanger_id']),planned_date='2027-01-15',
-                    tube_ids=[str(tube['tube_id'])],recommendation_horizon='all',recommendation_basis='earliest')
+                    tube_ids=[str(tube['tube_id'])],recommendation_horizon='all',recommendation_basis='measured')
                 plan_id=plans.save_recommended_plan(payload,user_id)
                 session.flush()
                 assert session.scalar(select(func.count()).select_from(InspectionPlanTubeTarget).where(

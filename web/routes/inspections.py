@@ -187,7 +187,7 @@ def register_routes(app) -> None:
                     services.save_inspection_plan(payload, current_user.get("user_id"))
                 flash("검사계획이 등록되었습니다.", "success")
                 if payload.get('registration_source') == 'recommendation':
-                    return redirect(url_for('inspection_plans',basis=payload.get('recommendation_basis','earliest'),
+                    return redirect(url_for('inspection_plans',basis='measured',
                         horizon=payload.get('recommendation_horizon','2')))
                 return redirect(url_for("inspection_plans"))
             except (ValueError, TypeError) as exc:
@@ -195,7 +195,7 @@ def register_routes(app) -> None:
         if not any(request.args.get(key) for key in ('manage','heat_exchanger_id','priority_source','status')):
             try:
                 data=recommended_plans_data(unit=request.args.get('unit',''),process=request.args.get('process',''),
-                    horizon=request.args.get('horizon','2'),basis=request.args.get('basis','earliest'))
+                    horizon=request.args.get('horizon','2'),basis='measured')
             except ValueError as exc:
                 abort(400,description=str(exc))
             return render_template('inspection_recommended_plans.html',**data)

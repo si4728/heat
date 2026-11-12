@@ -11,7 +11,7 @@ from ..domain.tube_status import normalize_tube_status
 from .life_dashboard import first_tube_threshold
 
 
-def recommended_plans_data(*, unit='', process='', horizon='2', basis='earliest', exchanger_id=None):
+def recommended_plans_data(*, unit='', process='', horizon='2', basis='measured', exchanger_id=None):
     from .. import services
     if unit not in ('', 'VCM1', 'VCM2') or basis not in BASES:
         raise ValueError('VCM1·VCM2와 권고 기준을 확인하세요.')
@@ -78,7 +78,9 @@ def save_recommended_plan(payload, user_id):
     identifier=services._int(payload.get('heat_exchanger_id'))
     if not identifier:
         raise ValueError('권고 대상 설비를 선택하세요.')
-    basis=payload.get('recommendation_basis','earliest')
+    basis=payload.get('recommendation_basis','measured')
+    if basis != 'measured':
+        raise ValueError('권고 기준이 실측 튜브로 확정되었습니다. 화면을 새로고침하세요.')
     horizon=payload.get('recommendation_horizon','2')
     with session_scope(DB_PATH) as session:
         hx=session.scalar(select(HeatExchanger).where(HeatExchanger.heat_exchanger_id==identifier).with_for_update())
