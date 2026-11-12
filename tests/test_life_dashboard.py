@@ -3,7 +3,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from iris2.application.life_dashboard import life_band, group_life_rows, first_tube_threshold
+from iris2.application.life_dashboard import life_band, group_life_rows, first_tube_threshold, forecast_display, annual_team_rows
+from datetime import date
 
 
 class LifeDashboardTests(unittest.TestCase):
@@ -53,8 +54,30 @@ class LifeDashboardTests(unittest.TestCase):
         rows = [dict(unit_code='VCM1', band='short'), dict(unit_code='VCM1', band='unknown'),
                 dict(unit_code='VCM2', band='long'), dict(unit_code='VCM2', band='short')]
         report = group_life_rows(rows, 'VCM1', 'short')
-        self.assertEqual(len(report['rows']), report['groups'][0]['counts']['short'])
+        self.assertEqual(len(report['rows']), 1)
+        self.assertEqual(report['groups'][0]['counts']['short'], 2)
+        self.assertEqual(report['groups'][0]['label'], 'VCM 생산팀')
+        self.assertEqual(len(report['groups']), 1)
         self.assertEqual(sum(report['totals'].values()), len(rows))
         self.assertEqual(report['totals']['unknown'], 1)
         self.assertEqual(len(group_life_rows(rows, '', 'short')['rows']), 2)
         self.assertEqual(len(group_life_rows(rows, 'invalid', 'invalid')['rows']), 4)
+
+    def test_strict_thirty_year_display_boundary_does_not_mutate_forecast(self):
+        for when, expected in [('2056-11-11','2056-11-11'),('2056-11-12','2056-11-12'),
+                               ('2056-11-13','30년 이상'),('2100-01-01','30년 이상')]:
+            first=dict(status='FORECAST',date=when)
+            self.assertEqual(forecast_display(first,date(2026,11,12)),expected)
+            self.assertEqual(first['date'],when)
+        self.assertIsNone(forecast_display(dict(status='FORECAST',date='invalid'),date(2026,11,12)))
+        self.assertIsNone(forecast_display(dict(status='MEASURED_REACHED'),date(2026,11,12)))
+        self.assertEqual(forecast_display(dict(status='FORECAST',date='2054-03-01'),date(2024,2,29)),'30년 이상')
+
+    def test_annual_team_totals_keep_process_sources(self):
+        rows=[('VCM1',2025,3,2,10,True),('VCM2',2025,4,3,20,False),('VCM1',2024,1,1,0,False)]
+        result=annual_team_rows(rows)
+        self.assertEqual([r['year'] for r in result],[2025,2024])
+        self.assertEqual(result[0]['inspection_count'],7)
+        self.assertEqual(result[0]['result_count'],30)
+        self.assertEqual([p['unit'] for p in result[0]['processes']],['VCM1','VCM2'])
+        self.assertTrue(result[0]['processes'][0]['pdf_available'])

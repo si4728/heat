@@ -107,7 +107,7 @@ class UiTemplateTests(unittest.TestCase):
 
     def test_precision_keeps_system_navigation_and_separate_equipment_picker(self):
         html=self.precision_fixture()
-        for present in ['id="app-sidebar"','sidebar-toggle','대시보드','열교환기 관리','검사 관리','정비 관리','기본 설정','분석 대상 · 열교환기 선택 목록','E-131D','aria-current=page']:
+        for present in ['id="app-sidebar"','sidebar-toggle','대시보드','열교환기 관리','검사 관리','정비 관리','기본 설정','열교환기 선택','E-131D','aria-current="true"']:
             self.assertIn(present,html)
         self.assertNotIn('app-shell analysis-fullscreen',html)
 
@@ -129,7 +129,8 @@ class UiTemplateTests(unittest.TestCase):
         with patch.dict(self.app.config, {'QR_UI_ENABLED': True}):
             for admin in (False, True):
                 html=self.dashboard_fixture(admin=admin)
-                self.assertEqual('data-qr-scan-open' in html, admin)
+                self.assertNotIn('data-qr-scan-open', html)
+                self.assertNotIn('dashboard-qr-scanner.js', html)
             with self.app.test_request_context('/'):
                 template=self.app.jinja_env.get_template('exchanger_detail.html')
                 for admin, permission in [(False, True), (True, True), (True, False)]:

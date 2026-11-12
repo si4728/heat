@@ -11,39 +11,40 @@
 .dashboard-metric-value[hidden]{display:none;}
 .first-tube-threshold{min-width:150px;}
 .first-tube-threshold small{display:block;color:var(--muted);margin-top:4px;}
+.team-annual-total td,.team-annual-total th{font-weight:600;}
 </style>
 {% endblock %}
 {% block content %}
 <article class="panel" id="remaining-life-dashboard" style="margin-bottom:18px">
   <div class="panel-head"><div class="life-dashboard-title"><h2>잔여수명 구간별 열교환기 현황</h2><button class="metric-number life-dashboard-help" type="button" aria-label="잔여수명 집계 기준 도움말" aria-haspopup="dialog" title="잔여수명 집계 기준 보기" data-metric-help="true" data-metric-title="잔여수명 집계 기준" data-metric-definition="현재 기준일에서 잔여기간을 더해 감육률 40%에 도달하는 Tube를 누적합니다." data-metric-basis="일반 20% · Critical 10% 허용 수량을 처음 초과하는 예상 연도를 기준으로 집계합니다." data-metric-formula="잔여수명 = 한도 최초 초과 연도 − 기준연도 (최소 0년)" data-metric-note="산정 불가·한도 미도달은 장수명으로 분류하지 않습니다. 부분 검사 결과의 예측이며 운전 승인 기준이 아닙니다."><span aria-hidden="true">i</span></button></div><small>VCM1·VCM2 · 기준일 {{ life_dashboard.as_of_date }}</small></div>
-  <div class="table-wrap"><table class="life-band-table"><thead><tr><th scope="col">공정</th>{% for key,label in life_dashboard.bands.items() %}<th scope="col">{% if key == 'medium' %}5년 초과<br>15년 이하{% else %}{{ label }}{% endif %}</th>{% endfor %}<th>합계</th></tr></thead><tbody>
-  {% for group in life_dashboard.groups %}<tr><th>{{ group.unit }}</th>{% for key,label in life_dashboard.bands.items() %}<td><a href="{{ url_for('dashboard', life_unit=group.unit, life_band=key) }}#remaining-life-list">{{ group.counts[key] }}대</a></td>{% endfor %}<td><a href="{{ url_for('dashboard', life_unit=group.unit) }}#remaining-life-list">{{ group.total }}대</a></td></tr>{% endfor %}
+  <div class="table-wrap"><table class="life-band-table"><thead><tr><th scope="col">생산팀</th>{% for key,label in life_dashboard.bands.items() %}<th scope="col">{% if key == 'medium' %}5년 초과<br>15년 이하{% else %}{{ label }}{% endif %}</th>{% endfor %}<th>합계</th></tr></thead><tbody>
+  {% for group in life_dashboard.groups %}<tr><th>{{ group.label }}</th>{% for key,label in life_dashboard.bands.items() %}<td><a href="{{ url_for('dashboard', life_band=key) }}#remaining-life-list">{{ group.counts[key] }}대</a></td>{% endfor %}<td><a href="{{ url_for('dashboard') }}#remaining-life-list">{{ group.total }}대</a></td></tr>{% endfor %}
   <tr class="life-band-total"><th scope="row">합계</th>{% for key,label in life_dashboard.bands.items() %}<td><a href="{{ url_for('dashboard', life_band=key) }}#remaining-life-list">{{ life_dashboard.totals[key] }}대</a></td>{% endfor %}<td><a href="{{ url_for('dashboard') }}#remaining-life-list">{{ life_dashboard.total }}대</a></td></tr>
   </tbody></table></div>
   <p class="coverage-basis">산정 불가: 예측에 필요한 데이터가 부족한 상태입니다. 한도 미도달: 계산 가능한 Tube의 예측에서 허용 수량 초과 시점이 나오지 않은 상태이며, 무한 수명이나 안전 판정을 의미하지 않습니다. 미예측 Tube는 제외됩니다.</p>
   <details id="remaining-life-list" {{ 'open' if life_dashboard.selected_unit or life_dashboard.selected_band else '' }}><summary>설비 목록 {{ life_dashboard.rows|length }}대 · {{ life_dashboard.selected_unit or '전체' }} / {{ life_dashboard.bands.get(life_dashboard.selected_band, '전체 구간') }}</summary>
-  <p class="coverage-basis">최초 튜브 기준 도달 예상은 실측 튜브별 예측 중 가장 빠른 날짜입니다. 실제 Plugging 완료 튜브는 제외하며, 검사 시 이미 기준에 도달한 경우 실제 최초 도달일은 알 수 없습니다. 허용 수량 한도 기준의 예상 잔여수명과 구분합니다.</p>
-  <div class="table-wrap" style="max-height:380px;overflow:auto"><table><thead><tr><th>공정</th><th>열교환기번호</th><th>설비명</th><th>최근 검사일</th><th>최초 튜브<br>기준 도달 예상</th><th>예상 잔여수명</th><th>등록 Tube 예측률</th><th>분석</th></tr></thead><tbody>
-  {% for row in life_dashboard.rows %}<tr><td>{{ row.unit_code }}</td><td><a href="{{ url_for('exchanger_detail', exchanger_id=row.heat_exchanger_id) }}">{{ row.exchanger_code or '-' }}</a></td><td>{{ row.equipment_name }}</td><td>{{ row.latest_inspection_date or '-' }}</td><td class="first-tube-threshold">{% set first = row.first_tube_threshold %}{% if first %}{% if first.status == 'MEASURED_REACHED' %}검사 시 기준 도달<small>확인 검사일 {{ first.measurement_date }}</small>{% else %}{{ first.date }}{% endif %}<small>Tube {{ first.tube_no }}</small>{% else %}산정 불가{% endif %}</td><td>{{ (row.remaining_life_years|string ~ '년') if row.band in ['long','medium','short'] else ('가용 데이터에서 한도 미도달' if row.status == 'LIMIT_NOT_REACHED' else '산정 불가') }}</td><td>{{ row.projection_coverage_percent }}%</td><td><a href="{{ url_for('precision_analysis', exchanger_id=row.heat_exchanger_id, unit=row.unit_code) }}">정밀 분석</a></td></tr>{% else %}<tr><td colspan="8">해당 설비가 없습니다.</td></tr>{% endfor %}
+  <p class="coverage-basis">최초 튜브 기준 도달 예상은 실측 튜브별 예측 중 가장 빠른 날짜입니다. 실제 Plugging 완료 튜브는 제외하며, 검사 시 이미 기준에 도달한 경우 실제 최초 도달일은 알 수 없습니다. 허용 수량 한도 기준의 예상 잔여수명과 구분합니다. 기준일부터 30년을 초과하는 도달 예상과 30년을 초과하는 잔여수명은 ‘30년 이상’으로 표시합니다.</p>
+  <div class="table-wrap" style="max-height:380px;overflow:auto"><table><thead><tr><th>생산팀</th><th>공정</th><th>열교환기번호</th><th>설비명</th><th>최근 검사일</th><th>최초 튜브<br>기준 도달 예상</th><th>예상 잔여수명</th><th>등록 Tube 예측률</th><th>분석</th></tr></thead><tbody>
+  {% for row in life_dashboard.rows %}<tr><td>VCM 생산팀</td><td>{{ row.unit_code }}</td><td><a href="{{ url_for('exchanger_detail', exchanger_id=row.heat_exchanger_id) }}">{{ row.exchanger_code or '-' }}</a></td><td>{{ row.equipment_name }}</td><td>{{ row.latest_inspection_date or '-' }}</td><td class="first-tube-threshold">{% set first = row.first_tube_threshold %}{% if first %}{% if first.status == 'MEASURED_REACHED' %}검사 시 기준 도달<small>확인 검사일 {{ first.measurement_date }}</small>{% else %}{{ row.first_tube_display or first.date }}{% endif %}<small>Tube {{ first.tube_no }}</small>{% else %}산정 불가{% endif %}</td><td>{{ ('30년 이상' if row.remaining_life_years > 30 else row.remaining_life_years|string ~ '년') if row.band in ['long','medium','short'] else ('가용 데이터에서 한도 미도달' if row.status == 'LIMIT_NOT_REACHED' else '산정 불가') }}</td><td>{{ row.projection_coverage_percent }}%</td><td><a href="{{ url_for('precision_analysis', exchanger_id=row.heat_exchanger_id, unit=row.unit_code) }}">정밀 분석</a></td></tr>{% else %}<tr><td colspan="9">해당 설비가 없습니다.</td></tr>{% endfor %}
   </tbody></table></div></details>
 </article>
-<p class="coverage-basis"><strong>집계 기준: 현재 등록 열교환기 {{ counts.exchangers|comma }}대</strong> · 해당 설비에 연결된 Tube·검사이력·검사결과·검사계획을 집계합니다. 열교환기 수는 대, Tube 수는 개, 이력·계획은 건으로 구분합니다. 사양 수량은 현재 사양만 사용합니다.</p>
+<p class="coverage-basis"><strong>집계 기준: VCM 생산팀(VCM1·VCM2) 열교환기 {{ counts.exchangers|comma }}대</strong> · 해당 설비에 연결된 Tube·검사이력·검사결과·검사계획을 집계합니다. 열교환기 수는 대, Tube 수는 개, 이력·계획은 건으로 구분합니다. 사양 수량은 현재 사양만 사용합니다.</p>
 <div class="metrics">
-  <article><span>열교환기</span><button class="metric-number" type="button" aria-haspopup="dialog" data-metric-title="열교환기" data-metric-value="{{ counts.exchangers|comma }}" data-metric-definition="열교환기 마스터에 등록된 열교환기 객체의 전체 수입니다." data-metric-basis="heat_exchanger 테이블 전체 행을 집계하며 운전상태와 관계없이 포함합니다." data-metric-formula="COUNT(heat_exchanger) = {{ counts.exchangers|comma }}" data-metric-note="미검사는 검사 생애주기 상태가 NEVER_INSPECTED인 열교환기 {{ counts.never_inspected|comma }}건입니다." data-metric-link="{{ url_for('exchangers') }}" data-metric-link-label="열교환기 목록 보기"><strong>{{ counts.exchangers|comma }}</strong></button><small>미검사 {{ counts.never_inspected|comma }}</small></article>
+  <article><span>열교환기</span><button class="metric-number" type="button" aria-haspopup="dialog" data-metric-title="열교환기" data-metric-value="{{ counts.exchangers|comma }}" data-metric-definition="열교환기 마스터에 등록된 열교환기 객체의 전체 수입니다." data-metric-basis="VCM1·VCM2 소속 heat_exchanger를 집계하며 운전상태와 관계없이 포함합니다." data-metric-formula="COUNT(heat_exchanger) = {{ counts.exchangers|comma }}" data-metric-note="미검사는 검사 생애주기 상태가 NEVER_INSPECTED인 열교환기 {{ counts.never_inspected|comma }}건입니다." data-metric-link="{{ url_for('exchangers') }}" data-metric-link-label="열교환기 목록 보기"><strong>{{ counts.exchangers|comma }}</strong></button><small>미검사 {{ counts.never_inspected|comma }}</small></article>
   <article><span>검사 이력</span><button class="metric-number" type="button" aria-haspopup="dialog" data-metric-title="검사 이력" data-metric-value="{{ counts.inspections|comma }}" data-metric-definition="현재 등록된 열교환기에 연결된 검사 객체의 전체 수입니다." data-metric-basis="동일 열교환기라도 검사일·보고서·검사범위가 다르면 각각 별도 검사이력으로 계산합니다." data-metric-formula="등록 열교환기에 연결된 COUNT(iris_inspection) = {{ counts.inspections|comma }}" data-metric-note="열교환기 수가 아니라 다년간 누적된 검사 실시 건수입니다." data-metric-link="{{ url_for('inspections') }}" data-metric-link-label="검사 이력 보기"><strong>{{ counts.inspections|comma }}</strong></button><small>다년 검사 객체</small></article>
   <article><span>전체 튜브</span><button class="metric-number" type="button" aria-haspopup="dialog" data-metric-title="전체 튜브" data-metric-value="{{ counts.tubes|comma }}" data-metric-definition="열교환기별 현재 사양에 등록된 Tube 수를 합산한 전체 Tube 수입니다." data-metric-basis="현재 승인 사양의 tube_count를 열교환기별 1회 합산합니다. 개별 튜브 행이나 검사결과 수를 합산하지 않습니다." data-metric-formula="Σ 현재 사양 tube_count ({{ counts.tube_count_specified_exchangers|comma }}개 열교환기) = {{ counts.tubes|comma }}개" data-metric-note="현재 사양 수량 합계입니다. 상세 입력 현황은 기본 설정 → 데이터 입력 현황에서 확인할 수 있습니다." data-metric-link="{{ url_for('tube_inspection_history') }}" data-metric-link-label="튜브 검사이력 보기"><strong>{{ counts.tubes|comma }}</strong></button><small>개별 등록 {{ counts.registered_tubes|comma }}</small></article>
   <article><span>튜브 결과</span><button class="metric-number" type="button" aria-haspopup="dialog" data-metric-title="튜브 결과" data-metric-value="{{ counts.results|comma }}" data-metric-definition="검사별·튜브별로 구조화하여 저장한 IRIS 검사결과의 전체 수입니다." data-metric-basis="iris_tube_result의 정규화 결과 행을 집계하므로 한 튜브가 여러 해 검사되면 여러 결과로 계산됩니다." data-metric-formula="COUNT(iris_tube_result) = {{ counts.results|comma }}" data-metric-note="최소두께·감육률·결함정보 등 튜브별 측정값이 포함되며 물리 튜브 수와는 다른 지표입니다." data-metric-link="{{ url_for('tube_inspection_history') }}" data-metric-link-label="튜브 결과 보기"><strong>{{ counts.results|comma }}</strong></button><small>정규화 측정값</small></article>
   <article><span>검사 계획</span><button class="metric-number" type="button" aria-haspopup="dialog" data-metric-title="검사 계획" data-metric-value="{{ counts.planned|comma }}" data-metric-definition="현재 종료되지 않고 진행 중인 검사계획 수입니다." data-metric-basis="SCHEDULED·APPROVED·IN_PROGRESS 상태의 열교환기 단위 계획을 집계합니다." data-metric-formula="COUNT(inspection_plan_v2 WHERE status IN 진행상태) = {{ counts.planned|comma }}" data-metric-note="지연은 예정일이 지났지만 완료 또는 취소되지 않은 계획 {{ counts.overdue_plans|comma }}건입니다." data-metric-link="{{ url_for('inspection_plans') }}" data-metric-link-label="검사 계획 보기"><strong>{{ counts.planned|comma }}</strong></button><small>지연 {{ counts.overdue_plans|comma }}</small></article>
-  {% if config.get('QR_UI_ENABLED', false) and current_user and current_user.is_admin and can_screen('EXCHANGERS') %}<article class="qr-search-card"><span>QR 검색</span><button class="qr-search-trigger" type="button" aria-haspopup="dialog" data-qr-scan-open><strong aria-hidden="true">⌗</strong><b>QR-code 읽기</b></button><small>현장 열교환기 즉시 조회</small></article>{% endif %}
+
 </div>
 <article class="panel" style="margin-bottom:18px">
-  <div class="panel-head"><div><p class="eyebrow">Annual inspection coverage</p><h2>생산라인별·연도별 검사 현황</h2></div><small>VCM1·VCM2는 생산라인 코드 · 검사 캠페인 연도 기준</small></div>
-  <div class="table-wrap"><table><thead><tr><th>연도</th><th>생산라인</th><th>검사 객체 수</th><th>검사 열교환기 수</th><th>튜브 결과 수</th><th>PDF Report</th></tr></thead><tbody>
-  {% for unit,year,inspection_count,exchanger_count,tube_result_count,pdf_available in yearly_rows %}<tr>
-    <td><strong>{{ year }}</strong></td><td><span class="tag">{{ unit }}</span></td>
-    <td>{{ inspection_count|comma }}</td><td>{{ exchanger_count|comma }}</td><td>{{ tube_result_count|comma }}</td>
-    <td>{% if pdf_available %}<a class="button report-view" href="{{ url_for('pdf_report_view', year=year, unit_code=unit) }}" target="_blank" rel="noopener">Report View</a>{% else %}<span class="status muted">PDF 없음</span>{% endif %}</td>
-  </tr>{% else %}<tr><td colspan="6" class="empty">연도별 검사 데이터가 없습니다.</td></tr>{% endfor %}
+  <div class="panel-head"><div><p class="eyebrow">Annual inspection coverage</p><h2>생산팀별·연도별 검사 현황</h2></div><small>VCM 생산팀 · VCM1·VCM2 합산 · 검사 캠페인 연도 기준</small></div>
+  <div class="table-wrap"><table class="team-annual-table"><thead><tr><th>연도</th><th>생산팀</th><th>공정</th><th>검사 객체 수</th><th>검사 열교환기 수</th><th>튜브 결과 수</th><th>PDF Report</th></tr></thead><tbody>
+  {% for row in team_yearly_rows %}<tr class="team-annual-total">
+    <td><strong>{{ row.year }}</strong></td><th scope="row">{{ row.team }}</th><td>전체 공정</td>
+    <td>{{ row.inspection_count|comma }}</td><td>{{ row.exchanger_count|comma }}</td><td>{{ row.result_count|comma }}</td><td>-</td>
+  </tr>{% for process in row.processes %}<tr class="team-process-row"><td>{{ row.year }}</td><td>{{ row.team }}</td><td>{{ process.unit }}</td><td>{{ process.inspection_count|comma }}</td><td>{{ process.exchanger_count|comma }}</td><td>{{ process.result_count|comma }}</td><td>{% if process.pdf_available %}<a class="button report-view" href="{{ url_for('pdf_report_view', year=row.year, unit_code=process.unit) }}" target="_blank" rel="noopener">{{ process.unit }} Report</a>{% else %}<span class="status muted">PDF 없음</span>{% endif %}</td></tr>{% endfor %}
+  {% else %}<tr><td colspan="7" class="empty">연도별 검사 데이터가 없습니다.</td></tr>{% endfor %}
   </tbody></table></div>
 </article>
 <div class="grid two-thirds">
@@ -59,8 +60,9 @@
     </tbody></table></div>
   </article>
   <div class="stack">
-    <article class="panel"><div class="panel-head"><div><p class="eyebrow">Coverage</p><h2>생산라인별 열교환기</h2></div></div>
-      <div class="unit-list">{% for unit,count in units %}<div><span>{{ unit }}</span><strong>{{ count }}</strong></div>{% endfor %}</div>
+    <article class="panel"><div class="panel-head"><div><p class="eyebrow">Coverage</p><h2>생산팀별 열교환기</h2></div></div>
+      <div class="unit-list"><div><span>VCM 생산팀</span><strong>{{ life_dashboard.total }}대</strong></div></div>
+      <div class="table-wrap"><table><thead><tr><th>생산팀</th><th>공정</th><th>열교환기</th></tr></thead><tbody>{% for unit,count in units %}{% if unit in ['VCM1','VCM2'] %}<tr><td>VCM 생산팀</td><td>{{ unit }}</td><td>{{ count }}대</td></tr>{% endif %}{% endfor %}</tbody></table></div>
     </article>
     <article class="panel"><div class="panel-head"><div><p class="eyebrow">Schedule</p><h2>예정 검사</h2></div><a href="{{ url_for('inspection_plans') }}">계획 관리 →</a></div><div class="batch-list">{% for plan,equipment in upcoming_plans %}<div><span>{{ plan.planned_date.strftime('%Y-%m-%d') }} · {{ equipment.equipment_name }}</span><small>{{ plan.status }} · {{ plan.inspection_method }}</small></div>{% else %}<div><small>등록된 예정 검사가 없습니다.</small></div>{% endfor %}</div></article>
   </div>
@@ -73,33 +75,7 @@
     <footer class="modal-footer"><a id="dashboard-metric-link" class="button" hidden></a><button type="button" class="button primary" data-dashboard-metric-close>확인</button></footer>
   </section>
 </div>
-{% if config.get('QR_UI_ENABLED', false) and current_user and current_user.is_admin and can_screen('EXCHANGERS') %}
-<div id="dashboard-qr-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="dashboard-qr-title" hidden>
-  <section class="load-modal dashboard-qr-modal" tabindex="-1">
-    <header class="modal-header"><div class="modal-icon qr-modal-icon" aria-hidden="true">⌗</div><div><p class="eyebrow">Equipment quick lookup</p><h2 id="dashboard-qr-title">열교환기 QR 검색</h2><p>열교환기 ID 숫자만 저장된 QR-code를 카메라로 읽어주세요.</p></div><button type="button" class="modal-close" data-qr-scan-close aria-label="QR 검색 닫기">×</button></header>
-    <div class="qr-scanner-body">
-      <div class="qr-camera-frame">
-        <video id="dashboard-qr-video" playsinline muted aria-label="QR-code 카메라 화면"></video>
-        <div class="qr-camera-guide" aria-hidden="true"></div>
-        <p id="dashboard-qr-placeholder">카메라 시작을 눌러 QR-code를 읽으세요.</p>
-      </div>
-      <p id="dashboard-qr-status" class="qr-scanner-status" role="status" aria-live="polite">대기 중</p>
-      <div class="qr-scanner-actions">
-        <button id="dashboard-qr-camera-start" class="button primary" type="button">카메라 시작</button>
-        <label class="button qr-image-button" for="dashboard-qr-image">사진에서 읽기</label>
-        <input id="dashboard-qr-image" type="file" accept="image/*" capture="environment" hidden>
-      </div>
-      <form id="dashboard-qr-manual" class="qr-manual-form">
-        <label for="dashboard-qr-value">카메라를 사용할 수 없으면 QR에 저장된 열교환기 ID를 입력하세요.</label>
-        <div><input id="dashboard-qr-value" inputmode="numeric" pattern="[1-9][0-9]*" autocomplete="off" placeholder="예: 176"><button class="button" type="submit">조회</button></div>
-      </form>
-    </div>
-  </section>
-</div>
-{% endif %}
+
 <script src="{{ url_for('static', filename='dashboard-metrics.js', v='20261029-help') }}"></script>
-{% if config.get('QR_UI_ENABLED', false) and current_user and current_user.is_admin and can_screen('EXCHANGERS') %}
-<script src="{{ url_for('static', filename='vendor/jsqr/jsQR.js') }}"></script>
-<script src="{{ url_for('static', filename='dashboard-qr-scanner.js') }}"></script>
-{% endif %}
+
 {% endblock %}

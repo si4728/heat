@@ -914,75 +914,33 @@ def data_entry_status_data() -> dict[str, Any]:
 
 def dashboard_data(life_unit: str = '', life_band_filter: str = '') -> dict[str, Any]:
     with session_scope(DB_PATH) as session:
-        registered_exchangers = select(HeatExchanger.heat_exchanger_id)
+        registered_exchangers = select(HeatExchanger.heat_exchanger_id).join(Equipment,
+            Equipment.equipment_id == HeatExchanger.equipment_id).join(ProcessUnit,
+            ProcessUnit.unit_id == Equipment.unit_id).where(ProcessUnit.unit_code.in_(['VCM1','VCM2']))
         registered_inspections = select(IrisInspection.iris_inspection_id).where(
             IrisInspection.heat_exchanger_id.in_(registered_exchangers))
         registered_documents = select(IrisInspection.source_document_id).where(
             IrisInspection.heat_exchanger_id.in_(registered_exchangers))
-        data_entry_coverage = _dashboard_data_entry_coverage(session)
-        tube_population = data_entry_coverage["tube_population"]
+        scoped_specs = select(HeatExchangerSpecRevision).where(
+            HeatExchangerSpecRevision.heat_exchanger_id.in_(registered_exchangers),
+            HeatExchangerSpecRevision.is_current.is_(True)).subquery()
         counts = {
-            "exchangers": data_entry_coverage["registered_exchanger_count"],
-            "exchangers_with_registered_tubes": session.scalar(text("""
-                SELECT COUNT(DISTINCT b.heat_exchanger_id)
-                  FROM tube_bundle b
-                  JOIN heat_exchanger_tube t ON t.bundle_id=b.bundle_id
-                  JOIN heat_exchanger hx ON hx.heat_exchanger_id=b.heat_exchanger_id
-            """)) or 0,
-            "exchangers_without_registered_tubes": session.scalar(text("""
-                SELECT COUNT(1)
-                  FROM heat_exchanger hx
-                 WHERE NOT EXISTS (
-                     SELECT 1
-                       FROM tube_bundle b
-                       JOIN heat_exchanger_tube t ON t.bundle_id=b.bundle_id
-                      WHERE b.heat_exchanger_id=hx.heat_exchanger_id
-                 )
-            """)) or 0,
-            "tube_specified_without_registered_tubes": session.scalar(text("""
-                SELECT COUNT(1)
-                  FROM heat_exchanger hx
-                 WHERE EXISTS (
-                     SELECT 1 FROM heat_exchanger_spec_revision s
-                      WHERE s.heat_exchanger_id=hx.heat_exchanger_id
-                        AND s.is_current=1
-                        AND s.tube_count IS NOT NULL
-                 )
-                   AND NOT EXISTS (
-                     SELECT 1
-                       FROM tube_bundle b
-                       JOIN heat_exchanger_tube t ON t.bundle_id=b.bundle_id
-                      WHERE b.heat_exchanger_id=hx.heat_exchanger_id
-                 )
-            """)) or 0,
-            "tube_unspecified_without_registered_tubes": session.scalar(text("""
-                SELECT COUNT(1)
-                  FROM heat_exchanger hx
-                 WHERE NOT EXISTS (
-                     SELECT 1 FROM heat_exchanger_spec_revision s
-                      WHERE s.heat_exchanger_id=hx.heat_exchanger_id
-                        AND s.is_current=1
-                        AND s.tube_count IS NOT NULL
-                 )
-                   AND NOT EXISTS (
-                     SELECT 1
-                       FROM tube_bundle b
-                       JOIN heat_exchanger_tube t ON t.bundle_id=b.bundle_id
-                      WHERE b.heat_exchanger_id=hx.heat_exchanger_id
-                 )
-            """)) or 0,
+            "exchangers": session.scalar(select(func.count()).select_from(registered_exchangers.subquery())) or 0,
             "inspections": session.scalar(select(func.count()).select_from(IrisInspection).where(
                 IrisInspection.heat_exchanger_id.in_(registered_exchangers))) or 0,
-            "tubes": tube_population["total_count"],
-            "registered_tubes": tube_population["registered_count"],
-            "tube_count_specified_exchangers": tube_population["specified_exchanger_count"],
-            "tube_count_unspecified_exchangers": tube_population["unspecified_exchanger_count"],
+            "tubes": session.scalar(select(func.coalesce(func.sum(scoped_specs.c.tube_count),0))) or 0,
+            "tube_count_specified_exchangers": session.scalar(select(func.count()).select_from(scoped_specs)
+                .where(scoped_specs.c.tube_count.isnot(None))) or 0,
+            "registered_tubes": session.scalar(select(func.count()).select_from(HeatExchangerTube).join(
+                TubeBundle, TubeBundle.bundle_id == HeatExchangerTube.bundle_id).where(
+                TubeBundle.heat_exchanger_id.in_(registered_exchangers))) or 0,
             "results": session.scalar(select(func.count()).select_from(IrisTubeResult).where(
                 IrisTubeResult.iris_inspection_id.in_(registered_inspections))) or 0,
             "open_issues": session.scalar(select(func.count()).select_from(DataQualityIssue).where(
-                DataQualityIssue.status == "OPEN",
-                DataQualityIssue.source_document_id.in_(registered_documents))) or 0,
-            "never_inspected": session.scalar(select(func.count()).select_from(HeatExchanger).where(HeatExchanger.inspection_lifecycle_status == "NEVER_INSPECTED")) or 0,
+                DataQualityIssue.status == "OPEN", DataQualityIssue.source_document_id.in_(registered_documents))) or 0,
+            "never_inspected": session.scalar(select(func.count()).select_from(HeatExchanger).where(
+                HeatExchanger.heat_exchanger_id.in_(registered_exchangers),
+                HeatExchanger.inspection_lifecycle_status == "NEVER_INSPECTED")) or 0,
             "planned": session.scalar(select(func.count()).select_from(InspectionPlan).where(
                 InspectionPlan.heat_exchanger_id.in_(registered_exchangers),
                 InspectionPlan.status.in_(["SCHEDULED", "APPROVED", "IN_PROGRESS"]))) or 0,
@@ -995,6 +953,7 @@ def dashboard_data(life_unit: str = '', life_band_filter: str = '') -> dict[str,
             select(ProcessUnit.unit_code, func.count(HeatExchanger.heat_exchanger_id))
             .join(Equipment, Equipment.unit_id == ProcessUnit.unit_id)
             .join(HeatExchanger, HeatExchanger.equipment_id == Equipment.equipment_id)
+            .where(HeatExchanger.heat_exchanger_id.in_(registered_exchangers))
             .group_by(ProcessUnit.unit_code).order_by(ProcessUnit.unit_code)
         ).all()
         yearly_query_rows = session.execute(
@@ -1007,7 +966,8 @@ def dashboard_data(life_unit: str = '', life_band_filter: str = '') -> dict[str,
             )
             .join(InspectionCampaign, InspectionCampaign.unit_id == ProcessUnit.unit_id)
             .join(IrisInspection, IrisInspection.campaign_id == InspectionCampaign.campaign_id)
-            .where(IrisInspection.heat_exchanger_id.in_(registered_exchangers))
+            .where(IrisInspection.heat_exchanger_id.in_(registered_exchangers),
+                   ProcessUnit.unit_code.in_(['VCM1','VCM2']))
             .group_by(ProcessUnit.unit_code, InspectionCampaign.campaign_year)
             .order_by(InspectionCampaign.campaign_year.desc(), ProcessUnit.unit_code)
         ).all()
@@ -1020,6 +980,7 @@ def dashboard_data(life_unit: str = '', life_band_filter: str = '') -> dict[str,
             .join(HeatExchanger, HeatExchanger.heat_exchanger_id == IrisInspection.heat_exchanger_id)
             .join(Equipment, Equipment.equipment_id == HeatExchanger.equipment_id)
             .outerjoin(InspectionScope, InspectionScope.inspection_scope_id == IrisInspection.inspection_scope_id)
+            .where(IrisInspection.heat_exchanger_id.in_(registered_exchangers))
             .order_by(IrisInspection.report_date.desc(), IrisInspection.iris_inspection_id.desc()).limit(10)
         ).all()
         batches = session.scalars(select(ImportBatch).order_by(ImportBatch.import_batch_id.desc()).limit(5)).all()
@@ -1027,17 +988,30 @@ def dashboard_data(life_unit: str = '', life_band_filter: str = '') -> dict[str,
             select(InspectionPlan, Equipment)
             .join(HeatExchanger, HeatExchanger.heat_exchanger_id == InspectionPlan.heat_exchanger_id)
             .join(Equipment, Equipment.equipment_id == HeatExchanger.equipment_id)
-            .where(InspectionPlan.status.in_(["SCHEDULED", "APPROVED", "IN_PROGRESS"]))
+            .where(InspectionPlan.heat_exchanger_id.in_(registered_exchangers),
+                   InspectionPlan.status.in_(["SCHEDULED", "APPROVED", "IN_PROGRESS"]))
             .order_by(InspectionPlan.planned_date).limit(5)
         ).all()
+        from .application.life_dashboard import annual_team_rows
+        team_years = annual_team_rows(yearly_rows)
+        # An exchanger inspected in both process campaigns still counts once per team/year.
+        distinct_by_year = dict(session.execute(select(InspectionCampaign.campaign_year,
+            func.count(func.distinct(IrisInspection.heat_exchanger_id)))
+            .join(IrisInspection, IrisInspection.campaign_id == InspectionCampaign.campaign_id)
+            .join(ProcessUnit, ProcessUnit.unit_id == InspectionCampaign.unit_id)
+            .where(ProcessUnit.unit_code.in_(['VCM1', 'VCM2']),
+                   IrisInspection.heat_exchanger_id.in_(registered_exchangers))
+            .group_by(InspectionCampaign.campaign_year)).all())
+        for row in team_years:
+            row['exchanger_count'] = distinct_by_year.get(row['year'], 0)
         return {"counts": counts, "units": units, "yearly_rows": yearly_rows,
+                "team_yearly_rows": team_years,
                 "recent": recent, "batches": batches, "upcoming_plans": upcoming_plans,
-                "data_entry_coverage": data_entry_coverage,
                 "life_dashboard": dashboard_remaining_life(life_unit, life_band_filter)}
 
 
 def dashboard_remaining_life(unit='', band=''):
-    from .application.life_dashboard import life_band, group_life_rows, first_tube_threshold
+    from .application.life_dashboard import life_band, group_life_rows, first_tube_threshold, forecast_display
     rows = []
     as_of = remaining_life_as_of_date()
     with session_scope(DB_PATH) as session:
@@ -1063,6 +1037,8 @@ def dashboard_remaining_life(unit='', band=''):
                 'projection_coverage_percent': life.get('projection_coverage_percent'),
                 'first_tube_threshold': first_tube_threshold(life.get('tube_projections', [])),
                 'status': life['status']})
+    for row in rows:
+        row['first_tube_display'] = forecast_display(row['first_tube_threshold'], as_of)
     result = group_life_rows(rows, unit, band)
     result['as_of_date'] = as_of.isoformat()
     return result
