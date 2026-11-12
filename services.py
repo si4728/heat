@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from contextlib import nullcontext
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from statistics import mean, median
@@ -4074,7 +4075,7 @@ def inspection_priority_for_exchanger(exchanger_id: int) -> dict[str, Any]:
     )
 
 
-def save_inspection_plan(data: dict[str, Any], requested_by_user_id: int | None = None) -> int:
+def save_inspection_plan(data: dict[str, Any], requested_by_user_id: int | None = None, *, _session=None) -> int:
     exchanger_id = _int(data.get("heat_exchanger_id"))
     planned_date = _date(data.get("planned_date"))
     if not exchanger_id or not planned_date:
@@ -4088,7 +4089,7 @@ def save_inspection_plan(data: dict[str, Any], requested_by_user_id: int | None 
         raise ValueError("검사 대상 Tube 값이 올바르지 않습니다.") from exc
     if not tube_ids:
         raise ValueError("사용 중인 검사 대상 Tube를 1개 이상 선택해 주세요.")
-    with session_scope(DB_PATH) as session:
+    with (nullcontext(_session) if _session is not None else session_scope(DB_PATH)) as session:
         hx = session.get(HeatExchanger, exchanger_id)
         if not hx:
             raise ValueError("열교환기를 찾을 수 없습니다.")
@@ -4103,12 +4104,14 @@ def save_inspection_plan(data: dict[str, Any], requested_by_user_id: int | None 
                 TubeBundle.heat_exchanger_id == exchanger_id,
                 HeatExchangerTube.tube_id.in_(tube_ids),
             )
+            .with_for_update()
         ).all()
         if len(tubes) != len(tube_ids):
             raise ValueError("선택한 Tube 중 대상 열교환기에 속하지 않는 항목이 있습니다.")
         unavailable = [
             tube.tube_no for tube, _bundle in tubes
             if normalize_tube_status(tube.current_status) != "IN_SERVICE"
+            or (_session is not None and _bundle.retired_at is not None)
         ]
         if unavailable:
             raise ValueError(

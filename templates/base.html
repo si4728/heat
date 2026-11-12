@@ -65,7 +65,7 @@
             {% if can_screen('EXCEL_EXPORT') %}<a href="{{ url_for('export_heat_exchangers_tubes') }}">Excel Export</a>{% endif %}
           </div>
         </details>{% endif %}
-        {% set inspection_list_active = request.endpoint in ['inspections','inspection_detail'] %}
+        {% set inspection_list_active = request.endpoint in ['inspections','inspection_detail','inspection_history_yearly','inspection_history_process'] %}
         {% set tube_history_active = request.endpoint in ['tube_inspection_history','tube_detail'] %}
         {% set ml_review_active = request.endpoint == 'ml_review_targets' %}
         {% set ml_hotspot_active = request.endpoint == 'ml_spatial_hotspots' %}
@@ -77,8 +77,8 @@
         {% if can_screen('INSPECTIONS') %}<details class="sidebar-group-menu inspection-menu" {{ 'open' if inspection_management_active else '' }}>
           <summary class="{{ 'active' if inspection_management_active else '' }}">검사 관리</summary>
           <div class="sidebar-submenu">
-            <a class="{{ 'active' if inspection_list_active else '' }}" href="{{ url_for('inspections') }}">전체 검사 이력</a>
-            <a class="{{ 'active' if tube_history_active else '' }}" href="{{ url_for('tube_inspection_history') }}">튜브 검사이력</a>
+            <a class="{{ 'active' if request.endpoint == 'inspection_history_yearly' else '' }}" href="{{ url_for('inspection_history_yearly') }}">검사 이력 · 연도별</a>
+            <a class="{{ 'active' if request.endpoint == 'inspection_history_process' else '' }}" href="{{ url_for('inspection_history_process') }}">검사 이력 · 공정별</a>
             <a class="{{ 'active' if inspection_plan_active else '' }}" href="{{ url_for('inspection_plans') }}">검사계획 관리</a>
           </div>
         </details>{% endif %}

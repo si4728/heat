@@ -1,0 +1,20 @@
+form.inspection-workspace-filters{display:flex;flex-direction:row;align-items:flex-end;justify-content:flex-start;align-content:flex-start;flex-wrap:wrap;gap:12px;min-height:0;height:auto;grid-template-columns:none;}
+form.inspection-workspace-filters label{display:flex;flex-direction:column;align-items:stretch;gap:5px;min-width:120px;min-height:0;margin:0;text-align:left;}
+.inspection-workspace-summary{display:flex;flex-wrap:wrap;gap:16px;margin:16px 0;font-variant-numeric:tabular-nums;}
+.inspection-workspace-note{margin:12px 18px;line-height:1.65;font-size:13px;color:var(--muted);overflow-wrap:anywhere;}
+.inspection-history-scroll{max-height:65vh;overflow:auto;}
+.inspection-history-scroll th{position:sticky;top:0;z-index:1;background:var(--panel);}
+.inspection-history-scroll td,.recommended-plans-table td{font-variant-numeric:tabular-nums;}
+.inspection-history-scroll td:nth-child(n+4){text-align:right;}
+.inspection-history-scroll td:nth-child(2){max-width:220px;white-space:normal;}
+.inspection-history-scroll th:last-child{min-width:110px;max-width:160px;white-space:normal;}
+.history-loss-critical{color:#a12e26;}
+.recommended-plans-table{min-width:1050px;width:100%;}
+.recommended-plans-table small{display:block;margin-top:4px;color:var(--muted);}
+.recommended-plans-table .recommendation-overdue{color:#a12e26;}
+.recommendation-register{min-width:190px;}
+.recommendation-register form{display:grid;gap:10px;padding:12px 0;}
+.recommendation-register label{display:grid;gap:5px;}
+.recommendation-register select{width:100%;min-height:110px;}
+.recommendation-register summary{cursor:pointer;}
+@media(max-width:600px){form.inspection-workspace-filters>span{flex:1 0 100%;text-align:left;}form.inspection-workspace-filters label{flex:1 1 140px;min-width:0;}.inspection-workspace-filters input,.inspection-workspace-filters select{width:100%;max-width:100%;}.inspection-workspace-summary{gap:12px;font-size:13px;}.inspection-workspace-note{margin:12px;}}
