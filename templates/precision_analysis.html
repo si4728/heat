@@ -1,8 +1,10 @@
 {% extends "base.html" %}
-{% block title %}정밀 분석{% endblock %}
-{% block heading %}정밀 분석{% endblock %}
+{% block title %}열교환기 분석{% endblock %}
+{% block heading %}열교환기 분석{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='precision-analysis.css', v='20261112-analysis-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='sample-wall-loss.css', v='20261112-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='precision-analysis-integrated.css', v='20261112-1') }}">{% endblock %}
 {% block actions %}
+  {% if current_user and can_screen('TEXT_TO_SQL') and can_screen('INSPECTIONS') %}<a class="button" href="{{ url_for('text_to_sql') }}">Text-to-SQL 분석</a>{% endif %}
+  {% if can_screen('MAINTENANCE') %}<a class="button" href="{{ url_for('maintenance') }}">정비 관리</a>{% endif %}
   {% if selected_exchanger_id %}<a class="button" href="{{ url_for('exchanger_detail', exchanger_id=selected_exchanger_id) }}">열교환기 상세</a>{% endif %}
 {% endblock %}
 {% block content %}

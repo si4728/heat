@@ -107,7 +107,7 @@ class UiTemplateTests(unittest.TestCase):
 
     def test_precision_keeps_system_navigation_and_separate_equipment_picker(self):
         html=self.precision_fixture()
-        for present in ['id="app-sidebar"','sidebar-toggle','대시보드','열교환기 관리','검사 관리','정비 관리','기본 설정','열교환기 선택','E-131D','aria-current="true"']:
+        for present in ['id="app-sidebar"','sidebar-toggle','대시보드','열교환기 목록','검사 이력','검사계획','관리자 설정','열교환기 선택','E-131D','aria-current="true"']:
             self.assertIn(present,html)
         self.assertNotIn('app-shell analysis-fullscreen',html)
 
