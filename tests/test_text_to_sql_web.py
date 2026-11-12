@@ -122,6 +122,26 @@ class TextToSqlWebTests(unittest.TestCase):
         self.assertEqual(response.status_code,503)
         self.assertNotIn('secret',response.get_data(as_text=True))
 
+    def test_catalog_failure_explains_setup_without_exposing_credentials(self):
+        from iris2 import dbapi
+        cases = [
+            (ValueError('password=secret'), 'database-text-to-sql.conf'),
+            (dbapi.OperationalError(1045, 'password=secret'), '로그인 정보'),
+            (dbapi.OperationalError(1142, 'password=secret'), 'SELECT 권한'),
+            (dbapi.OperationalError(2003, 'password=secret'), 'MariaDB 연결'),
+        ]
+        for error, expected in cases:
+            with self.subTest(error=type(error).__name__, expected=expected):
+                self.catalog.side_effect = error
+                with self.assertLogs(self.app.logger, level='WARNING') as logs:
+                    response = self.client.get('/inspections/text-to-sql')
+                self.assertEqual(response.status_code, 200)
+                context = self.render.call_args.kwargs
+                self.assertEqual(context['equipment'], [])
+                self.assertIn(expected, context['catalog_error'])
+                self.assertNotIn('secret', context['catalog_error'])
+                self.assertNotIn('secret', '\n'.join(logs.output))
+
     def test_scope_and_request_validation(self):
         self.assertEqual(self.post('generate',{'question':'x','exchanger_id':'151'}).status_code,400)
         self.assertEqual(self.post('generate',{'question':'x'*501,'exchanger_id':151}).status_code,400)
