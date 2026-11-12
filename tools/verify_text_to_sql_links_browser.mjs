@@ -42,7 +42,8 @@ try {
   await page.eval(()=>document.getElementById('sql-execute').click());await wait();
   const actual=await page.eval(()=>[...document.querySelectorAll('#sql-result-table tbody tr')].map(tr=>[...tr.cells].map(td=>({text:td.textContent,href:td.querySelector('a')?.getAttribute('href')||null,target:td.querySelector('a')?.target,rel:td.querySelector('a')?.rel}))));
   assert.equal(actual[0][0].href,'/exchangers/151');
-  assert.equal(actual[0][0].text,'E106');
+  assert.equal(actual[0][0].text,'E-106');
+  assert.equal(actual[1][0].text,'E-107');
   assert.equal(actual[0][5].href,'/tubes/123');
   assert.equal(actual[0][6].href,'/inspections/389');
   assert.equal(actual[1][0].href,'/exchangers/152');
@@ -61,14 +62,14 @@ try {
     await page.screenshot({path:join(output,`links-${width}.png`),format:'png',fullPage:false});
   }
   // A combined summary shows its scope codes without splitting the aggregate.
-  await page.eval(()=>{window.linkFixture={scopes:[{heat_exchanger_id:151,equipment:{equipment_code:'E106'}},{heat_exchanger_id:152,equipment:{equipment_code:'E107'}}],columns:['inspected_tubes'],rows:[{inspected_tubes:82}],result_count:1,generated_at:new Date().toISOString()};document.getElementById('sql-execute').click();});
+  await page.eval(()=>{window.linkFixture={scopes:[{heat_exchanger_id:151,equipment:{equipment_code:'1104476',equipment_tag:'E-106'}},{heat_exchanger_id:152,equipment:{equipment_code:'1104477',equipment_tag:'E-107'}}],columns:['inspected_tubes'],rows:[{inspected_tubes:82}],result_count:1,generated_at:new Date().toISOString()};document.getElementById('sql-execute').click();});
   await wait();
   assert.deepEqual(await page.eval(()=>[...document.querySelectorAll('#sql-result-table tbody a')].map(a=>a.getAttribute('href'))),['/exchangers/151','/exchangers/152']);
   assert.equal(await page.eval(()=>document.querySelector('#sql-result-table tbody tr').cells[1].textContent),'82');
   checks.push('Combined summary keeps aggregate and displays both scope codes');
-  await page.eval(()=>{window.linkFixture={heat_exchanger_id:151,equipment:{equipment_code:'E106'},columns:['inspected_tubes'],rows:[{inspected_tubes:82}],result_count:1,generated_at:new Date().toISOString()};document.getElementById('sql-execute').click();});
+  await page.eval(()=>{window.linkFixture={heat_exchanger_id:151,equipment:{equipment_code:'1104476',equipment_tag:'E-106'},columns:['inspected_tubes'],rows:[{inspected_tubes:82}],result_count:1,generated_at:new Date().toISOString()};document.getElementById('sql-execute').click();});
   await wait();
-  assert.equal(await page.eval(()=>document.querySelector('#sql-result-table tbody a').textContent),'E106');
+  assert.equal(await page.eval(()=>document.querySelector('#sql-result-table tbody a').textContent),'E-106');
   checks.push('Single-equipment summary includes default code');
   writeFileSync(join(output,'validation.json'),JSON.stringify({fixture_only:true,checks,passed:true},null,2));
   console.log(JSON.stringify({passed:true,checks}));
