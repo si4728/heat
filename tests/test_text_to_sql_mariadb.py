@@ -16,6 +16,27 @@ from iris2.llm_integration.tests.test_text_to_sql import SUMMARY
 
 
 class TextToSqlMariaDBTests(unittest.TestCase):
+    def test_period_summary_matches_independent_history_count(self):
+        from iris2.application import text_to_sql_service as analysis
+        from iris2.llm_integration import text_to_sql as sql
+        period = dict(start='2020-01-01', end='2025-12-31')
+        scopes, _, allowed = analysis.select_period_scopes(period, exchanger_ids=[151])
+        self.assertGreater(len(scopes), 1)
+        result = sql.execute_proposal(SUMMARY, exchanger_id=151,
+            authorized_exchanger_ids=allowed, period=period,
+            scopes=[(151,s['inspection']['iris_inspection_id']) for s in scopes])
+        with get_engine().connect() as connection:
+            expected = connection.scalar(text("""SELECT COUNT(*) FROM iris_tube_result r
+                JOIN iris_inspection i ON i.iris_inspection_id=r.iris_inspection_id
+                WHERE i.heat_exchanger_id=151 AND i.superseded_by_inspection_id IS NULL
+                AND COALESCE(i.inspection_date,i.report_date)>='2020-01-01'
+                AND COALESCE(i.inspection_date,i.report_date)<'2026-01-01'"""))
+        self.assertEqual(result['rows'][0]['inspected_tubes'], expected)
+        with self.assertRaises(sql.QueryRejected):
+            sql.execute_proposal(SUMMARY, exchanger_id=151,
+                authorized_exchanger_ids=allowed, scopes=[(151,scopes[0]['inspection']['iris_inspection_id'])],
+                period=dict(start='2000-01-01',end='2000-12-31'))
+
     @classmethod
     def setUpClass(cls):
         cls.app=create_app({'TESTING':True,'AUTH_DISABLED':False,'CSRF_ENABLED':True})

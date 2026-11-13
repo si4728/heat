@@ -54,7 +54,7 @@
   const selectedIds = () => [...el('equipment').querySelectorAll('input:checked')].map(i => Number(i.value));
   const selectedUnits = () => [...el('units').querySelectorAll('input:checked')].map(i => i.value);
   let scopeReady = false;
-  const frequencyQuestion = () => /열교환기|교환기|설비/.test(el('question').value) && /검사/.test(el('question').value) && /(?:제일|가장)\s*많|많이|횟수|빈도|건수/.test(el('question').value);
+  const frequencyQuestion = () => /열교환기|교환기|설비|튜브|tube/i.test(el('question').value) && /검사/.test(el('question').value) && /(?:제일|가장)\s*많|많이|횟수|빈도|건수/.test(el('question').value);
   function setBusy(value, generating = false) {
     busy = value;
     root.querySelectorAll('#sql-equipment input, #sql-units input, #sql-mode, #sql-filter, #sql-select-visible, #sql-clear-selection').forEach(control => { control.disabled = value; });
@@ -124,7 +124,7 @@
   el('inspection').addEventListener('change', reset);
   function questionChanged() {
     reset(); setBusy(false);
-    if (frequencyQuestion()) el('generate-status').textContent = 'IRIS 검사 횟수 순위 · 기본 최근 5년 · 범위 미선택 시 VCM1·VCM2 전체';
+    if (frequencyQuestion()) el('generate-status').textContent = 'IRIS 검사 횟수 순위 · 기간 입력 가능 · 기간 생략 시 설비 최근 5년 / 튜브 전체 이력 · 범위 미선택 시 VCM1·VCM2 전체';
   }
   el('question').addEventListener('input', questionChanged);
   root.querySelectorAll('[data-question]').forEach(button => button.addEventListener('click', () => {
@@ -151,7 +151,9 @@
       }
       const scopes = payload.scopes || [{equipment:payload.equipment, inspection:payload.inspection}];
       const excluded = payload.excluded || [];
-      el('result-scope').textContent = `${[...new Set(scopes.map(s => s.equipment.unit_code))].join(' · ')} · ${scopes.length}대 분석 · 제외 ${excluded.length}대 · 선택된 검사 Tube를 합쳐 집계합니다.`;
+      const equipmentCount = new Set(scopes.map(s => s.equipment.heat_exchanger_id)).size;
+      const periodText = payload.period ? `${payload.period.all_history ? '전체 이력' : payload.period.start + ' ~ ' + payload.period.end} · 검사일 없으면 보고일 기준 · ` : '';
+      el('result-scope').textContent = `${periodText}${[...new Set(scopes.map(s => s.equipment.unit_code))].join(' · ')} · ${equipmentCount}대 / ${scopes.length}개 검사 회차 · 제외 ${excluded.length}대 · 선택된 검사 결과를 합쳐 집계합니다. 같은 튜브도 검사 회차가 다르면 별도 결과입니다.`;
       el('scope-list').textContent = scopes.map(s => `분석 · ${s.equipment.unit_code} ${s.equipment.equipment_tag || s.equipment.equipment_code} · 검사 #${s.inspection.iris_inspection_id}`).concat(excluded.map(s => `제외 · ${s.equipment.unit_code} ${s.equipment.equipment_tag || s.equipment.equipment_code} · ${s.reason}`)).join('\n');
       el('scope-details').hidden = false;
     } catch (exc) { error(exc.message); el('generate-status').textContent = 'SQL을 생성하지 못했습니다.'; }

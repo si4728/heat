@@ -1,10 +1,10 @@
 """Bounded inspection-history ranking intent; never execute model-generated joins."""
 from datetime import date, datetime, timedelta, timezone
-import calendar
 import hashlib
 import re
 
 from iris2 import dbapi
+from iris2.application import query_period
 from iris2.hx_configuration import DB_PATH
 from iris2.llm_integration.text_to_sql import QueryRejected
 
@@ -23,30 +23,18 @@ def options(question, today=None):
         raise QueryRejected('검사 횟수 이력 조회만 지원합니다. 수명·차기검사 예측은 별도 분석을 사용하세요.')
     today = today or datetime.now(timezone(timedelta(hours=9))).date()
     tubes = tube_ranking(question)
-    years = re.search(r'최근\s*(\d+)\s*년', question)
-    count = re.search(r'(?:상위\s*)?(\d+)\s*(?:대|개)', question)
+    period, ranking_question = query_period.parse(question, today)
+    count = re.search(r'(?:상위\s*)?(\d+)\s*(?:대|개(?!월))', ranking_question)
     limit = int(count[1]) if count else 20
     if not 1 <= limit <= 100:
-        raise QueryRejected('순위 조회 개수는 1~100대입니다.')
-    if (re.search(r'\d+\s*(?:개월|달|일)|\d{4}\s*년', question)
-            or (not tubes and re.search(r'전체\s*(?:기간|이력)', question))):
-        raise QueryRejected('기간은 최근 N년, 올해 또는 작년으로 입력하세요. 기본은 최근 5년입니다.')
-    if years:
-        number = int(years[1])
-        if not 1 <= number <= 100:
-            raise QueryRejected('최근 기간은 1~100년으로 입력하세요.')
-        start = date(today.year-number, today.month, min(today.day, calendar.monthrange(today.year-number,today.month)[1]))
-        end = today
-    elif '작년' in question:
-        start, end = date(today.year-1,1,1), date(today.year-1,12,31)
-    elif '올해' in question:
-        start, end = date(today.year,1,1), today
-    elif tubes:
-        start, end = date(1000,1,1), today
-    else:
-        start = date(today.year-5,today.month,min(today.day,calendar.monthrange(today.year-5,today.month)[1]))
-        end = today
+        raise QueryRejected('순위 조회 개수는 1~100개입니다.')
+    if period is None:
+        period = (dict(start='1000-01-01', end=today.isoformat()) if tubes else
+                  query_period.parse('최근 5년', today)[0])
+    start, end = date.fromisoformat(period['start']), date.fromisoformat(period['end'])
     result = dict(start=start.isoformat(),end=end.isoformat(),limit=limit)
+    if period.get('all_history'):
+        result['all_history'] = True
     if tubes:
         result.update(target='tube', all_history=start == date(1000,1,1))
     return result

@@ -107,6 +107,44 @@ def select_scopes(*, exchanger_ids=None, unit_codes=None, inspection_id=None):
     return scopes, excluded, allowed
 
 
+def select_period_scopes(period, *, exchanger_ids=None, unit_codes=None, inspection_id=None):
+    """Pin every eligible inspection in the date range, not just the latest."""
+    equipment = catalog()
+    allowed = frozenset(row['heat_exchanger_id'] for row in equipment)
+    if unit_codes is not None:
+        if (exchanger_ids is not None or inspection_id is not None
+                or not isinstance(unit_codes, list) or not unit_codes
+                or any(unit not in ('VCM1', 'VCM2') for unit in unit_codes)):
+            raise QueryRejected('VCM1·VCM2 공정 또는 설비를 한 가지 방식으로 선택하세요.')
+        selected = [row for row in equipment if row['unit_code'] in unit_codes]
+    else:
+        if exchanger_ids is None:
+            selected = equipment
+        else:
+            if (not isinstance(exchanger_ids, list) or not exchanger_ids or len(exchanger_ids) > 500
+                    or any(type(i) is not int or i <= 0 for i in exchanger_ids)):
+                raise QueryRejected('조회 설비 범위가 올바르지 않습니다.')
+            if not set(exchanger_ids) <= allowed:
+                raise PermissionError('VCM1·VCM2 범위의 설비를 선택하세요.')
+            selected = [row for row in equipment if row['heat_exchanger_id'] in exchanger_ids]
+    if inspection_id is not None and (type(inspection_id) is not int or inspection_id <= 0 or len(selected) != 1):
+        raise QueryRejected('검사 회차는 단일 설비에서만 지정하세요.')
+    scopes, excluded = [], []
+    for row in selected:
+        rounds = inspections(row['heat_exchanger_id'])
+        matching = [r for r in rounds if r['effective_date']
+                    and period['start'] <= str(r['effective_date'])[:10] <= period['end']
+                    and (inspection_id is None or r['iris_inspection_id'] == inspection_id)]
+        if not matching:
+            excluded.append(dict(equipment=row, reason='기간 내 유효한 검사 회차 없음'))
+        scopes.extend(dict(equipment=row, inspection=r) for r in matching)
+    if not scopes:
+        raise QueryRejected('선택한 기간 내 유효한 검사 회차가 없습니다.')
+    if len(scopes) > 500:
+        raise QueryRejected('기간 내 검사 회차가 500개를 초과합니다. 기간이나 설비 범위를 줄이세요.')
+    return scopes, excluded, allowed
+
+
 def generate_in_worker(question: str) -> dict:
     # Native inference is isolated: timeout kills the child and frees its model.
     environment = dict(os.environ)

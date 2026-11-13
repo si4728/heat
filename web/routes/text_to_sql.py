@@ -13,6 +13,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from iris2 import services
 from iris2.application import text_to_sql_service as analysis
 from iris2.application import inspection_frequency as frequency
+from iris2.application import query_period
 from iris2.application import text_to_sql_usage_log as usage_log
 from iris2.hx_configuration import APP_DIR
 from iris2.llm_integration.text_to_sql import (
@@ -165,8 +166,19 @@ def register_routes(app):
                     usage_id=record['usage_id'],usage_input=record['input']))
                 return jsonify(proposal=proposal,token=token,query_kind='inspection_frequency',period=period,
                                equipment_list=selected)
+            period, model_question = query_period.parse(question)
             multi = 'exchanger_ids' in data or 'unit_codes' in data
-            if multi:
+            if period is not None:
+                if 'exchanger_id' in data and multi:
+                    raise QueryRejected('조회 범위 선택 방식을 하나만 지정하세요.')
+                ids = ([identifier(data['exchanger_id'])] if 'exchanger_id' in data else data.get('exchanger_ids'))
+                scopes, excluded, _ = analysis.select_period_scopes(period,
+                    exchanger_ids=ids, unit_codes=data.get('unit_codes'),
+                    inspection_id=data.get('inspection_id'))
+                equipment, inspection = scopes[0]['equipment'], scopes[0]['inspection']
+                multi = True
+                record['period'] = period
+            elif multi:
                 if 'exchanger_id' in data:
                     raise QueryRejected('조회 범위 선택 방식을 하나만 지정하세요.')
                 scopes, excluded, _ = analysis.select_scopes(
@@ -182,7 +194,7 @@ def register_routes(app):
             if not generation_lock.acquire(blocking=False):
                 return jsonify(error='다른 SQL을 생성 중입니다. 잠시 후 다시 시도하세요.'), 429
             try:
-                proposal = analysis.generate_in_worker(question.strip())
+                proposal = analysis.generate_in_worker(model_question.strip())
                 usage_log.proposal_context(record, proposal)
             finally:
                 generation_lock.release()
@@ -191,14 +203,14 @@ def register_routes(app):
             proposal = dict(sql=sql, parameters=parameters)
             usage_log.proposal_context(record, proposal)
             token = serializer().dumps(dict(
-                actor=profile['user_id'], question=question.strip(), proposal=proposal,
+                actor=profile['user_id'], question=question.strip(), proposal=proposal, period=period,
                 usage_id=record['usage_id'],usage_input=record['input'],
                 exchanger_id=equipment['heat_exchanger_id'], inspection_id=inspection['iris_inspection_id'],
                 scopes=[(s['equipment']['heat_exchanger_id'], s['inspection']['iris_inspection_id']) for s in scopes] if multi else None))
             app.logger.info('Text-to-SQL generated actor=%s exchanger=%s inspection=%s',
                             profile['user_id'], equipment['heat_exchanger_id'], inspection['iris_inspection_id'])
             return jsonify(proposal=proposal, token=token, equipment=equipment, inspection=inspection,
-                           scopes=scopes, excluded=excluded)
+                           scopes=scopes, excluded=excluded, period=period)
         except Exception as exc:
             return fail(exc)
 
@@ -222,6 +234,8 @@ def register_routes(app):
             if signed['actor'] != profile['user_id']:
                 raise PermissionError('다른 사용자가 생성한 SQL은 실행할 수 없습니다.')
             signed_usage(signed)
+            if signed.get('period'):
+                record['period'] = signed['period']
             if signed.get('query_kind') == 'inspection_frequency':
                 catalog = analysis.catalog()
                 allowed = {row['heat_exchanger_id'] for row in catalog}
@@ -246,8 +260,12 @@ def register_routes(app):
                 record_scopes([dict(equipment=equipment, inspection=inspection)])
             validate_question_contract(signed['question'], signed['proposal'])
             options = dict(scopes=pairs) if pairs else {}
+            if signed.get('period'):
+                options['period'] = signed['period']
             result = execute_proposal(signed['proposal'], exchanger_id=equipment['heat_exchanger_id'],
                 inspection_id=inspection['iris_inspection_id'], authorized_exchanger_ids=allowed, **options)
+            if signed.get('period'):
+                result['period'] = signed['period']
             if result.get('scopes'):
                 record_scopes(result['scopes'])
             record['result'] = {key: result.get(key) for key in ('result_count', 'query_sha256', 'limit_reached')}

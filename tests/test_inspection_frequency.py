@@ -37,8 +37,10 @@ class FrequencyTests(unittest.TestCase):
                          dict(start='2023-11-09',end='2026-11-09',limit=5))
         self.assertEqual(frequency.options('작년 검사 횟수 많은 교환기',date(2026,11,9))['end'],'2025-12-31')
         self.assertEqual(frequency.options(QUESTION,date(2024,2,29))['start'],'2019-02-28')
-        for question in ['최근 3개월 검사 횟수 많은 열교환기','최근 0년 검사 횟수 많은 교환기',
-                         '검사 횟수 상위 101대 교환기','2020년 검사 많은 교환기', '검사 횟수 많은 교환기 잔여수명 예측']:
+        self.assertEqual(frequency.options('최근 3개월 검사 횟수 많은 열교환기', date(2026,11,9))['start'], '2026-08-09')
+        self.assertEqual(frequency.options('2020년 검사 많은 교환기', date(2026,11,9))['end'], '2020-12-31')
+        for question in ['최근 0년 검사 횟수 많은 교환기',
+                         '검사 횟수 상위 101대 교환기', '검사 횟수 많은 교환기 잔여수명 예측']:
             with self.subTest(question=question),self.assertRaises(QueryRejected): frequency.options(question)
 
     @patch.object(frequency.dbapi,'connect')
