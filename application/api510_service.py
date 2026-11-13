@@ -5,14 +5,17 @@ import math
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from ..hx_configuration import API510_CODE_EDITION, DB_PATH
 from ..iris_v2_database import session_scope
 from ..iris_v2_models import (
     Api510Calculation,
+    Equipment,
     HeatExchanger,
+    HeatExchangerSpecRevision,
     PressureBoundaryComponent,
+    ProcessUnit,
 )
 from ..life_prediction import calculate_api510_inspection_interval
 from ..pressure_vessel_calculations import (
@@ -254,3 +257,30 @@ def transition_api510_calculation(
             row.reviewed_at = now
             row.review_note = str(note or "").strip() or None
         return True
+
+
+def pending_api510_reviews() -> dict[str, Any]:
+    """Oldest submitted calculations in the dashboard's VCM1/VCM2 scope."""
+    limit = 10
+    calculation = Api510Calculation
+    component = PressureBoundaryComponent
+    exchanger_code = (select(HeatExchangerSpecRevision.exchanger_code)
+        .where(HeatExchangerSpecRevision.heat_exchanger_id == HeatExchanger.heat_exchanger_id)
+        .order_by(HeatExchangerSpecRevision.is_current.desc(), HeatExchangerSpecRevision.revision_no.desc())
+        .limit(1).correlate(HeatExchanger).scalar_subquery())
+    pending = (select(calculation.api510_calculation_id.label('calculation_id'),
+        HeatExchanger.heat_exchanger_id, exchanger_code.label('exchanger_code'),
+        ProcessUnit.unit_code, component.component_code, calculation.submitted_at,
+        calculation.created_by)
+        .select_from(calculation)
+        .join(component, component.pressure_component_id == calculation.pressure_component_id)
+        .join(HeatExchanger, HeatExchanger.heat_exchanger_id == component.heat_exchanger_id)
+        .join(Equipment, Equipment.equipment_id == HeatExchanger.equipment_id)
+        .join(ProcessUnit, ProcessUnit.unit_id == Equipment.unit_id)
+        .where(calculation.status == 'SUBMITTED', ProcessUnit.unit_code.in_(['VCM1', 'VCM2'])))
+    with session_scope(DB_PATH) as session:
+        count = session.scalar(select(func.count()).select_from(pending.subquery())) or 0
+        rows = session.execute(pending.order_by(
+            func.coalesce(calculation.submitted_at, calculation.created_at),
+            calculation.api510_calculation_id).limit(limit)).mappings().all() if count else []
+        return dict(count=count, rows=[dict(row) for row in rows], limit=limit)

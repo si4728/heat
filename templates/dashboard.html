@@ -12,9 +12,23 @@
 .first-tube-threshold{min-width:150px;}
 .first-tube-threshold small{display:block;color:var(--muted);margin-top:4px;}
 .team-annual-total td,.team-annual-total th{font-weight:600;}
+#api510-review-queue .table-wrap{max-height:400px;}
+#api510-review-queue .empty{padding:18px 20px;margin:0;}
+#api510-review-queue .review-number{text-align:right;font-variant-numeric:tabular-nums;}
+@media(max-width:640px){
+  #api510-review-queue table{min-width:0;width:100%;}
+  #api510-review-queue thead{display:none;}
+  #api510-review-queue tbody,#api510-review-queue tr{display:block;}
+  #api510-review-queue tr{padding:10px 14px;border-bottom:1px solid var(--line);}
+  #api510-review-queue td{display:grid;grid-template-columns:100px minmax(0,1fr);gap:8px;padding:6px 0;border:0;text-align:left;white-space:normal;overflow-wrap:anywhere;}
+  #api510-review-queue td::before{content:attr(data-label);color:var(--muted);}
+  #api510-review-queue td.review-number{text-align:left;}
+  #api510-review-queue .button{justify-self:start;min-height:44px;}
+}
 </style>
 {% endblock %}
 {% block content %}
+
 <article class="panel" id="remaining-life-dashboard" style="margin-bottom:18px">
   <div class="panel-head"><div class="life-dashboard-title"><h2>잔여수명 구간별 열교환기 현황</h2><button class="metric-number life-dashboard-help" type="button" aria-label="잔여수명 집계 기준 도움말" aria-haspopup="dialog" title="잔여수명 집계 기준 보기" data-metric-help="true" data-metric-title="잔여수명 집계 기준" data-metric-definition="현재 기준일에서 잔여기간을 더해 감육률 40%에 도달하는 Tube를 누적합니다." data-metric-basis="중요도별 설정 비율 (기본 모두 20%) 허용 수량을 처음 초과하는 예상 연도를 기준으로 집계합니다." data-metric-formula="잔여수명 = 한도 최초 초과 연도 − 기준연도 (최소 0년)" data-metric-note="산정 불가·한도 미도달은 장수명으로 분류하지 않습니다. 부분 검사 결과의 예측이며 운전 승인 기준이 아닙니다."><span aria-hidden="true">i</span></button></div><small>VCM1·VCM2 · 기준일 {{ life_dashboard.as_of_date }}</small></div>
   <div class="table-wrap"><table class="life-band-table"><thead><tr><th scope="col">생산팀</th>{% for key,label in life_dashboard.bands.items() %}<th scope="col">{% if key == 'medium' %}5년 초과<br>15년 이하{% else %}{{ label }}{% endif %}</th>{% endfor %}<th>합계</th></tr></thead><tbody>
@@ -67,6 +81,19 @@
     <article class="panel"><div class="panel-head"><div><p class="eyebrow">Schedule</p><h2>예정 검사</h2></div><a href="{{ url_for('inspection_plans') }}">계획 관리 →</a></div><div class="batch-list">{% for plan,equipment in upcoming_plans %}<div><span>{{ plan.planned_date.strftime('%Y-%m-%d') }} · {{ equipment.equipment_name }}</span><small>{{ plan.status }} · {{ plan.inspection_method }}</small></div>{% else %}<div><small>등록된 예정 검사가 없습니다.</small></div>{% endfor %}</div></article>
   </div>
 </div>
+{% if current_user and current_user.is_admin and api510_reviews is not none %}
+<article class="panel" id="api510-review-queue" style="margin-bottom:18px">
+  <div class="panel-head"><h2>API 510 검토·승인 대기 <span>{{ api510_reviews.count|comma }}건</span></h2></div>
+  <p class="coverage-basis">VCM1·VCM2 · 검토 요청된 계산결과 · 요청일이 오래된 순으로 최대 {{ api510_reviews.limit }}건 표시 · 승인·반려하면 대기 목록에서 제외됩니다.</p>
+  {% if api510_reviews.rows %}<div class="table-wrap"><table><thead><tr><th scope="col">공정</th><th scope="col">열교환기번호</th><th scope="col">부품</th><th scope="col" class="review-number">계산 ID</th><th scope="col">계산 생성자</th><th scope="col">검토 요청일시</th><th scope="col">처리</th></tr></thead><tbody>
+  {% for row in api510_reviews.rows %}<tr>
+    <td data-label="공정">{{ row.unit_code }}</td><td data-label="열교환기번호">{{ row.exchanger_code or '열교환기 코드 미등록' }}</td><td data-label="부품">{{ row.component_code }}</td><td data-label="계산 ID" class="review-number">{{ row.calculation_id }}</td><td data-label="계산 생성자">{{ row.created_by or '-' }}</td><td data-label="검토 요청일시">{{ row.submitted_at.strftime('%Y-%m-%d %H:%M') if row.submitted_at else '-' }}</td>
+    <td data-label="처리"><a class="button" href="{{ url_for('api510_management', exchanger_id=row.heat_exchanger_id) }}#api510-calculation-{{ row.calculation_id }}">검토·승인</a></td>
+  </tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}<p class="empty">검토·승인 대기 중인 API 510 계산결과가 없습니다.</p>{% endif %}
+</article>
+{% endif %}
 <div id="dashboard-metric-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="dashboard-metric-title" hidden>
   <section class="load-modal dashboard-metric-modal" tabindex="-1">
     <header class="modal-header"><div class="modal-icon" aria-hidden="true">i</div><div><p class="eyebrow">Dashboard metric guide</p><h2 id="dashboard-metric-title"></h2><p>집계 기준과 계산 방법</p></div><button type="button" class="modal-close" data-dashboard-metric-close aria-label="설명 닫기">×</button></header>
