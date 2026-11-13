@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import unittest
+raise unittest.SkipTest('Archived SQLite/iris fixture suite; use tests.test_mariadb_workflows on an isolated MariaDB schema')
+
 import os
 import configparser
 import json

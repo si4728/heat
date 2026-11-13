@@ -241,7 +241,10 @@ def transition_api510_calculation(
         "APPROVED": set(),
     }
     with session_scope(DB_PATH) as session:
-        row = session.get(Api510Calculation, calculation_id)
+        # Lock before reading the state so concurrent approve/reject requests
+        # cannot both succeed from the same SUBMITTED snapshot.
+        row = session.scalar(select(Api510Calculation).where(
+            Api510Calculation.api510_calculation_id == calculation_id).with_for_update())
         if not row:
             return False
         if requested not in transitions.get(row.status, set()):

@@ -15,11 +15,11 @@ class PdfOcrPermissionsTest(unittest.TestCase):
         return dict(user_id=1, username=username, is_admin=admin,
                     is_active=active, permissions={})
 
-    def test_only_named_active_account_can_view_and_edit(self):
+    def test_only_active_administrators_can_view_and_edit(self):
         for admin in (False, True):
             for edit in (False, True):
-                self.assertTrue(user_can(self.profile('silicon@gmail.com', admin), 'PDF_OCR_REVIEW', edit))
-                self.assertFalse(user_can(self.profile('admin@gmail.com', admin), 'PDF_OCR_REVIEW', edit))
+                self.assertEqual(user_can(self.profile('silicon@gmail.com', admin), 'PDF_OCR_REVIEW', edit), admin)
+                self.assertEqual(user_can(self.profile('admin@gmail.com', admin), 'PDF_OCR_REVIEW', edit), admin)
                 self.assertFalse(user_can(self.profile('silicon@gmail.com', admin, False), 'PDF_OCR_REVIEW', edit))
         self.assertFalse(user_can(None, 'PDF_OCR_REVIEW'))
 
@@ -39,9 +39,9 @@ class PdfOcrPermissionsTest(unittest.TestCase):
             with client.session_transaction() as session:
                 session['user_id'] = 1
             for username, admin, expected in (
-                ('silicon@gmail.com', False, 200),
+                ('silicon@gmail.com', False, 403),
                 ('silicon@gmail.com', True, 200),
-                ('admin@gmail.com', True, 403),
+                ('admin@gmail.com', True, 200),
                 ('other@gmail.com', False, 403),
             ):
                 with patch('iris2.web.security.services.user_count', return_value=2), patch(

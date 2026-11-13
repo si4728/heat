@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import unittest
+raise unittest.SkipTest('Archived iris launcher fixture; use tests.test_server_startup and tests.test_server_instance')
+
 import configparser
 import json
 import subprocess

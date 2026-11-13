@@ -243,7 +243,12 @@ def run_database_backup(app_dir, db_path, *, trigger="manual", scheduled_for=Non
             manifest=create_backup(destination)
             record.update(status='SUCCESS',backup_file=str(destination),file_size_bytes=destination.stat().st_size,sha256=_sha256(destination),integrity_check='manifest_with_data_baseline' if manifest.get('fingerprints') else 'manifest_source_changed')
             settings=load_backup_settings(app_dir)
-            files=sorted(paths['files'].glob('iris2_mariadb_*.zip'),key=lambda path:path.stat().st_mtime,reverse=True)
+            # A successful fresh backup must survive retention even if file
+            # mtimes tie (coarse filesystems) or the system clock moved back.
+            previous=sorted((path for path in paths['files'].glob('iris2_mariadb_*.zip')
+                             if path != destination),
+                            key=lambda path:(path.stat().st_mtime_ns,path.name),reverse=True)
+            files=[destination,*previous]
             for old in files[settings['retention_count']:]:
                 if old.resolve().parent!=paths['files'].resolve():raise ValueError('Invalid retention path')
                 try:

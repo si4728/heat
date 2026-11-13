@@ -368,12 +368,17 @@ def calculate_api510_inspection_interval(
         status = "ACTION_REQUIRED"
     else:
         remaining_life = remaining_allowance / rate
+        if not math.isfinite(remaining_life):
+            raise ValueError('API 510 계산 결과가 유효한 숫자 범위를 벗어났습니다.')
         interval_years = min(
             remaining_life * API510_INTERVAL_FRACTION,
             maximums[inspection_type],
         )
         status = "CALCULATED"
-    next_date = origin + timedelta(days=interval_years * 365.2425)
+    try:
+        next_date = origin + timedelta(days=interval_years * 365.2425)
+    except OverflowError:
+        raise ValueError('API 510 다음 검사일이 지원되는 날짜 범위를 벗어났습니다.') from None
     overdue = next_date < basis_date
     if overdue and status == "CALCULATED":
         status = "OVERDUE"

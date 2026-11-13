@@ -63,6 +63,8 @@ class Api510ReviewDashboardTests(unittest.TestCase):
         self.assertIn('API 510 검토·승인 대기 <span>12건', html)
         self.assertIn('/exchangers/151/api510#api510-calculation-987', html)
         self.assertIn('2026-11-13 09:30', html)
+        self.assertGreater(html.index('id="api510-review-queue"'), html.index('예정 검사'))
+        self.assertGreater(html.index('id="api510-review-queue"'), html.index('최근 검사'))
         self.assertNotIn('action="/api510-calculations/', html)
 
     def test_empty_queue_has_explicit_zero_and_empty_message(self):

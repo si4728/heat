@@ -81,7 +81,7 @@
     <article class="panel"><div class="panel-head"><div><p class="eyebrow">Schedule</p><h2>예정 검사</h2></div><a href="{{ url_for('inspection_plans') }}">계획 관리 →</a></div><div class="batch-list">{% for plan,equipment in upcoming_plans %}<div><span>{{ plan.planned_date.strftime('%Y-%m-%d') }} · {{ equipment.equipment_name }}</span><small>{{ plan.status }} · {{ plan.inspection_method }}</small></div>{% else %}<div><small>등록된 예정 검사가 없습니다.</small></div>{% endfor %}</div></article>
   </div>
 </div>
-{% if current_user and current_user.is_admin and api510_reviews is not none %}
+{% if current_user and current_user.is_admin and api510_reviews is defined and api510_reviews is not none %}
 <article class="panel" id="api510-review-queue" style="margin-bottom:18px">
   <div class="panel-head"><h2>API 510 검토·승인 대기 <span>{{ api510_reviews.count|comma }}건</span></h2></div>
   <p class="coverage-basis">VCM1·VCM2 · 검토 요청된 계산결과 · 요청일이 오래된 순으로 최대 {{ api510_reviews.limit }}건 표시 · 승인·반려하면 대기 목록에서 제외됩니다.</p>

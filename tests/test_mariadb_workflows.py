@@ -1,4 +1,4 @@
-import sys,time,unittest,uuid
+import os,re,sys,time,unittest,uuid
 from pathlib import Path
 from unittest.mock import patch
 from sqlalchemy import text
@@ -11,13 +11,27 @@ class MariaDBWorkflowTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         config=load_database_config(admin=True)
+        settings=load_database_config()
+        cls.schema=os.environ.get('IRIS2_TEST_SCHEMA','iris2_test_transition')
+        if not re.fullmatch(r'iris2_test_[a-z0-9_]+',cls.schema) or cls.schema==settings['name']:
+            raise RuntimeError('Writable workflow tests require a separate iris2_test_* schema')
         from iris2.migration.migrate_all import engine_for
         with engine_for(config,'mysql').begin() as conn:
-            for schema in dbapi.SCHEMAS.values():
-                for host in ['localhost','127.0.0.1']:
-                    conn.exec_driver_sql(f"GRANT SELECT,INSERT,UPDATE,DELETE ON `{schema}_test_transition`.* TO 'iris2_app'@'{host}'")
-        settings=load_database_config();settings['name']='iris2_test_transition'
+            if not conn.exec_driver_sql('SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name=%s',(cls.schema,)).scalar():
+                raise unittest.SkipTest('Prepare an isolated MariaDB snapshot before writable workflow tests')
+            for host in ['localhost','127.0.0.1']:
+                conn.exec_driver_sql(f"GRANT SELECT,INSERT,UPDATE,DELETE ON `{cls.schema}`.* TO %s@%s",(settings['user'],host))
+        settings['name']=cls.schema
         cls.patch=patch('iris2.database.load_database_config',return_value=settings);cls.patch.start()
+        def isolated_config(*,admin=False,path=None):
+            value=load_database_config(admin=admin,path=path)
+            if not admin:value['name']=cls.schema
+            return value
+        cls.dbapi_patch=patch('iris2.dbapi.load_database_config',side_effect=isolated_config);cls.dbapi_patch.start()
+        suffix=cls.schema[len('iris2'):]
+        cls.schema_patch=patch('iris2.dbapi.load_database_config_schemas',return_value={
+            selector:canonical+suffix for selector,canonical in dbapi.SCHEMAS.items()})
+        cls.schema_patch.start()
         database.get_engine.cache_clear()
         cls.app=create_app({'TESTING':True,'AUTH_DISABLED':False,'CSRF_ENABLED':True})
         cls.engine=database.get_engine()
@@ -26,7 +40,7 @@ class MariaDBWorkflowTests(unittest.TestCase):
             cls.unit=conn.scalar(text("SELECT MIN(unit_id) FROM process_unit WHERE unit_code='VCM1'"))
     @classmethod
     def tearDownClass(cls):
-        cls.engine.dispose();database.get_engine.cache_clear();cls.patch.stop()
+        cls.engine.dispose();database.get_engine.cache_clear();cls.schema_patch.stop();cls.dbapi_patch.stop();cls.patch.stop()
     def client(self):
         client=self.app.test_client()
         with client.session_transaction() as session:
@@ -40,7 +54,7 @@ class MariaDBWorkflowTests(unittest.TestCase):
     def test_monitor_and_report_use_current_database_and_explicit_tube_counts(self):
         client=self.client()
         html=client.get('/settings/database-monitor').get_data(as_text=True)
-        self.assertIn('MariaDB · 127.0.0.1:3307 / iris2_test_transition',html)
+        self.assertIn('MariaDB · 127.0.0.1:3307 / '+self.schema,html)
         self.assertNotIn('database is locked',html)
         self.assertNotIn('heat_exchanger_db3.db</dd>',html)
         with self.engine.connect() as conn:
@@ -134,6 +148,57 @@ class MariaDBWorkflowTests(unittest.TestCase):
         component=save_pressure_boundary_component(tube[1],{'component_code':'MIG-'+uuid.uuid4().hex[:10],'component_type':'CYLINDRICAL_SHELL','design_basis_source':'Integration test','inside_diameter_mm':1000,'design_pressure_mpa':1,'allowable_stress_mpa':120,'joint_efficiency':1,'actual_thickness_mm':10,'actual_thickness_date':'2026-10-01','thickness_source':'Test measurement'})
         calculation=create_api510_calculation(component,{'selected_corrosion_rate_mm_per_year':0.1,'corrosion_rate_selection_basis':'Test rate'})
         self.assertGreater(calculation,0)
+
+    def test_api510_review_queue_and_concurrent_final_decisions(self):
+        from iris2.application.api510_service import (save_pressure_boundary_component,
+            create_api510_calculation,transition_api510_calculation,pending_api510_reviews)
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        with self.engine.connect() as conn:
+            hx=conn.scalar(text("""SELECT h.heat_exchanger_id FROM heat_exchanger h
+                JOIN equipment e ON e.equipment_id=h.equipment_id
+                JOIN process_unit u ON u.unit_id=e.unit_id WHERE u.unit_code='VCM1' LIMIT 1"""))
+        before=pending_api510_reviews()['count']
+        component=save_pressure_boundary_component(hx,dict(component_code='AUDIT-'+uuid.uuid4().hex[:8],
+            component_type='CYLINDRICAL_SHELL',design_basis_source='Isolated validation fixture',
+            inside_diameter_mm=1000,design_pressure_mpa=1,allowable_stress_mpa=120,joint_efficiency=1,
+            actual_thickness_mm=10,actual_thickness_date='2025-10-01',thickness_source='Test measurement'))
+        calculation=create_api510_calculation(component,dict(selected_corrosion_rate_mm_per_year=.1,
+            corrosion_rate_selection_basis='Test rate'),actor='audit-creator')
+        self.assertEqual(pending_api510_reviews()['count'],before)
+        transition_api510_calculation(calculation,'SUBMITTED','audit-reviewer')
+        self.assertEqual(pending_api510_reviews()['count'],before+1)
+        barrier=Barrier(2)
+        def decide(status):
+            barrier.wait(timeout=10)
+            try:
+                transition_api510_calculation(calculation,status,'audit-reviewer')
+                return 'CHANGED'
+            except ValueError:return 'REJECTED_CONFLICT'
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes=list(pool.map(decide,['APPROVED','REJECTED']))
+        self.assertEqual(sorted(outcomes),['CHANGED','REJECTED_CONFLICT'])
+        self.assertEqual(pending_api510_reviews()['count'],before)
+        with self.engine.connect() as conn:
+            row=conn.execute(text('SELECT status,reviewed_by,reviewed_at FROM api510_calculation WHERE api510_calculation_id=:id'),{'id':calculation}).first()
+        self.assertIn(row[0],('APPROVED','REJECTED'));self.assertEqual(row[1],'audit-reviewer');self.assertIsNotNone(row[2])
+
+    def test_feedback_append_only_store_uses_isolated_auxiliary_schema(self):
+        from iris2.ml.review_feedback import save_review_feedback,latest_review_feedback
+        from iris2.hx_configuration import ML_REVIEW_DB_PATH
+        run='AUDIT-'+uuid.uuid4().hex
+        common=dict(run_id=run,model_version='audit',iris_tube_result_id=1,
+            iris_inspection_id=1,tube_id=1,reviewer_name='isolated-audit',note='Validation fixture')
+        first=save_review_feedback(ML_REVIEW_DB_PATH,**common,label='INSUFFICIENT_EVIDENCE')
+        second=save_review_feedback(ML_REVIEW_DB_PATH,**common,label='CONFIRMED_SOURCE_ERROR')
+        self.assertGreater(second,first)
+        latest=latest_review_feedback(ML_REVIEW_DB_PATH,run)
+        self.assertEqual(latest[1]['label'],'CONFIRMED_SOURCE_ERROR')
+        connection=dbapi.connect(ML_REVIEW_DB_PATH,readonly=True)
+        try:
+            self.assertEqual(connection.schema,'iris2_ml'+self.schema[len('iris2'):])
+            self.assertEqual(connection.execute('SELECT COUNT(*) FROM ml_review_feedback WHERE run_id=?',(run,)).fetchone()[0],2)
+        finally:connection.close()
     def test_stale_edit_is_rejected(self):
         with self.engine.connect() as conn:
             code=conn.exec_driver_sql('SELECT equipment_code FROM equipment WHERE equipment_id=1').scalar()

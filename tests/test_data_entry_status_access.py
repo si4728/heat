@@ -52,8 +52,8 @@ class DataEntryStatusAccessTests(unittest.TestCase):
         r=c.get('/imports/pdf-review')
         self.assertEqual(r.status_code,200)
         html=r.get_data(as_text=True)
-        settings=html.split('class="sidebar-group-menu settings-menu"',1)[1].split('</details>',1)[0]
-        management=html.split('class="sidebar-group-menu management-menu"',1)[1].split('</details>',1)[0]
+        settings=html.split('id="administrator-settings"',1)[1].split('</details>',1)[0]
+        management=html.split('id="general-navigation"',1)[1].split('</nav>',1)[0]
         self.assertIn('href="/imports/pdf-review"',settings)
         self.assertNotIn('href="/imports/pdf-review"',management)
         profile=dict(self.profile,is_admin=False)
@@ -85,8 +85,8 @@ class DataEntryStatusAccessTests(unittest.TestCase):
         self.assertEqual(response.status_code,200)
         html=response.get_data(as_text=True)
         self.assertIn('analysis-pdf-reports',html)
-        self.assertIn('부식속도 산정 근거 PDF',html)
-        self.assertIn('잔여수명 산정 근거 PDF',html)
+        self.assertIn('설비 검사 이력 · 원본 PDF',html)
+        self.assertIn('감육속도·잔여수명·누적 예측',html)
         self.assertIn('data-pdf-reports-open',html)
         url=next(value for value in reports.values() if value)
         pdf=c.get(url.split('#')[0])
@@ -100,11 +100,11 @@ class DataEntryStatusAccessTests(unittest.TestCase):
         r=c.get('/imports')
         self.assertEqual(r.status_code,200)
         html=r.get_data(as_text=True)
-        settings=html.split('class="sidebar-group-menu settings-menu"',1)[1].split('</details>',1)[0]
-        management=html.split('class="sidebar-group-menu management-menu"',1)[1].split('</details>',1)[0]
+        settings=html.split('id="administrator-settings"',1)[1].split('</details>',1)[0]
+        management=html.split('id="general-navigation"',1)[1].split('</nav>',1)[0]
         self.assertIn('href="/imports"',settings)
         self.assertNotIn('href="/imports"',management)
-        self.assertIn('settings-menu" open',html)
+        self.assertIn('id="administrator-settings"',html)
         profile=dict(self.profile,is_admin=False)
         with patch('iris2.services.user_access_profile',return_value=profile),patch('iris2.services.load_json') as load:
             c=self.client()
@@ -167,7 +167,7 @@ class DataEntryStatusAccessTests(unittest.TestCase):
         html=response.get_data(as_text=True)
         self.assertIn('계산 대상 열교환기 선택',html)
         self.assertIn('/exchangers/157/api510',html)
-        settings=html.split('class="sidebar-group-menu settings-menu"',1)[1].split('</details>',1)[0]
+        settings=html.split('id="administrator-settings"',1)[1].split('</details>',1)[0]
         self.assertIn('href="/settings/api510"',settings)
         detail=c.get('/exchangers/157').get_data(as_text=True)
         actions=detail.split('class="exchanger-actions"',1)[1].split('</nav>',1)[0]

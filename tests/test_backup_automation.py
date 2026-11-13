@@ -147,3 +147,21 @@ class BackupScheduleAuditTests(unittest.TestCase):
         self.assertEqual(new['status'],'SUCCESS_WITH_NOTE')
         self.assertTrue(manager._valid_backup_record(self.root,new))
         self.assertIn('RETENTION_DELETE_FAILED',new['warnings'])
+
+    def test_new_backup_is_retained_when_file_mtimes_tie_or_move_backwards(self):
+        import os
+        manager.save_backup_settings(self.root,{**manager.DEFAULT_SETTINGS,'retention_count':1})
+        stamps=iter([1700000000,1700000000,1699999999])
+        def backup(path):
+            result=self.fake_backup(path)
+            stamp=next(stamps);os.utime(path,(stamp,stamp))
+            return result
+        with patch('iris2.mariadb_operations.create_backup',side_effect=backup):
+            first=manager.run_database_backup(self.root,'unused')
+            second=manager.run_database_backup(self.root,'unused')
+            self.assertTrue(Path(second['backup_file']).is_file())
+            self.assertFalse(Path(first['backup_file']).exists())
+            third=manager.run_database_backup(self.root,'unused')
+        self.assertEqual(third['status'],'SUCCESS')
+        self.assertTrue(Path(third['backup_file']).is_file())
+        self.assertFalse(Path(second['backup_file']).exists())

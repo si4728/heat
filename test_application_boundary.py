@@ -1,92 +1,44 @@
+"""IRIS2 boundary checks independent of obsolete parent packaging tools."""
 from __future__ import annotations
 
 import ast
-import configparser
-import unittest
 from pathlib import Path
+import subprocess
+import unittest
 
-from tools.build_deployments_folder import ignore_iris, sanitized_configuration
+from iris2 import hx_configuration as config
 
-
-APP_DIR = Path(__file__).resolve().parent
-CONFIG_PATH = APP_DIR / "hx_configuration.conf"
-
-
-def configured_path(config: configparser.ConfigParser, option: str) -> Path:
-    path = Path(config.get("database" if option == "name" else "paths", option))
-    if not path.is_absolute():
-        path = CONFIG_PATH.parent / path
-    return path.resolve()
+APP_DIR=Path(__file__).resolve().parent
 
 
 class ApplicationBoundaryTest(unittest.TestCase):
-    def test_configured_application_paths_stay_under_iris(self):
-        config = configparser.ConfigParser(interpolation=None)
-        config.read(CONFIG_PATH, encoding="utf-8")
-        paths = (
-            configured_path(config, "name"),
-            configured_path(config, "uploads"),
-            configured_path(config, "reports"),
-            configured_path(config, "pdf_reports"),
-            configured_path(config, "cumulative_report"),
-        )
+    def test_configured_application_paths_stay_under_iris2(self):
+        for path in (config.DB_PATH,config.UPLOAD_DIR,config.REPORT_DIR,
+                     config.PDF_REPORT_DIR,config.CUMULATIVE_REPORT):
+            self.assertTrue(Path(path).resolve().is_relative_to(APP_DIR))
+
+    def test_runtime_assets_stay_under_iris2(self):
+        for path in ('server.py','app.py','static/vendor/three/three.min.js'):
+            self.assertTrue((APP_DIR/path).is_file(),path)
+
+    def test_active_python_does_not_import_iris(self):
+        paths=[APP_DIR/'app.py',APP_DIR/'server.py',*APP_DIR.joinpath('web').rglob('*.py'),
+               *APP_DIR.joinpath('application').rglob('*.py'),*APP_DIR.joinpath('domain').rglob('*.py')]
+        forbidden=[]
         for path in paths:
-            self.assertTrue(
-                path.is_relative_to(APP_DIR),
-                f"Configured path escapes iris: {path}",
-            )
-
-    def test_runtime_assets_stay_under_iris(self):
-        required = (
-            APP_DIR / "data" / "heat_exchanger_db3.db",
-            APP_DIR / "static" / "hanwha_solution2.jpg",
-            APP_DIR / "static" / "vendor" / "three" / "three.min.js",
-            APP_DIR / "docs" / "PLUGGING_UNCALCULABLE_GUIDE_20260807.md",
-        )
-        for path in required:
-            self.assertTrue(path.is_file(), f"Required iris asset is missing: {path}")
-
-    def test_iris_python_does_not_import_root_python_modules(self):
-        workspace = APP_DIR.parent
-        outside_imports: list[str] = []
-        for source in APP_DIR.glob("*.py"):
-            tree = ast.parse(source.read_text(encoding="utf-8-sig"), filename=str(source))
+            tree=ast.parse(path.read_text(encoding='utf-8-sig'))
             for node in ast.walk(tree):
-                modules: list[str] = []
-                if isinstance(node, ast.Import):
-                    modules = [alias.name for alias in node.names]
-                elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-                    modules = [node.module]
-                for module in modules:
-                    root_module = module.split(".", 1)[0]
-                    candidate = workspace / f"{root_module}.py"
-                    if candidate.is_file():
-                        outside_imports.append(
-                            f"{source.name}:{node.lineno} -> {candidate.name}"
-                        )
-        self.assertEqual(outside_imports, [])
+                modules=([a.name for a in node.names] if isinstance(node,ast.Import) else
+                         [node.module or ''] if isinstance(node,ast.ImportFrom) and node.level==0 else [])
+                if any(name=='iris' or name.startswith('iris.') for name in modules):
+                    forbidden.append(str(path.relative_to(APP_DIR)))
+        self.assertEqual(forbidden,[])
 
-    def test_delivery_excludes_live_database_and_secrets(self):
-        ignored = ignore_iris(
-            str(APP_DIR / "data"),
-            ["heat_exchanger_db3.db", "heat_exchanger_db3.db-wal", ".session_secret"],
-        )
-        self.assertEqual(
-            ignored,
-            {"heat_exchanger_db3.db", "heat_exchanger_db3.db-wal", ".session_secret"},
-        )
-        self.assertIn(
-            "hx_configuration.conf",
-            ignore_iris(str(APP_DIR), ["hx_configuration.conf"]),
-        )
-        sanitized = sanitized_configuration(
-            "host = 0.0.0.0\nsecret_key = exposed\napi_write_token = exposed\n"
-        )
-        self.assertIn("host = 127.0.0.1", sanitized)
-        self.assertIn("secret_key =\n", sanitized)
-        self.assertIn("api_write_token =\n", sanitized)
-        self.assertNotIn("exposed", sanitized)
+    def test_private_config_and_runtime_data_are_not_tracked(self):
+        tracked=subprocess.run(['git','ls-files','config/database.conf','config/database-admin.conf',
+            'config/database-readonly.conf','config/database-text-to-sql.conf',
+            'data/*.db','logs/*','backups/*'],cwd=APP_DIR,capture_output=True,text=True,check=True)
+        self.assertEqual(tracked.stdout.strip(),'')
 
 
-if __name__ == "__main__":
-    unittest.main()
+if __name__=='__main__':unittest.main()

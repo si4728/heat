@@ -1,3 +1,6 @@
+import unittest
+raise unittest.SkipTest('Archived SQLite fixtures can fall through to the live MariaDB default; use isolated MariaDB workflow tests')
+
 import os
 import sqlite3
 import tempfile

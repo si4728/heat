@@ -55,18 +55,20 @@ def calculate_asme_viii_internal_pressure(
     efficiency = values["joint_efficiency"]
     actual = values["actual_thickness_mm"]
     supplemental = values["supplemental_thickness_mm"]
-    if diameter <= 0 or design_pressure <= 0 or static_head < 0 or pressure <= 0 or stress <= 0 or actual <= 0:
+    if not math.isfinite(pressure) or diameter <= 0 or design_pressure <= 0 or static_head < 0 or pressure <= 0 or stress <= 0 or actual <= 0:
         raise ValueError("직경·총압력·허용응력·실제두께는 0보다 커야 합니다.")
     if not 0 < efficiency <= 1:
         raise ValueError("용접효율은 0보다 크고 1 이하여야 합니다.")
     if supplemental < 0 or supplemental >= actual:
         raise ValueError("추가 필요두께는 0 이상이며 실제두께보다 작아야 합니다.")
+    if diameter / 2.0 <= 0:
+        raise ValueError('직경이 계산 가능한 숫자 범위보다 작습니다.')
 
     effective_actual = actual - supplemental
     if kind == "CYLINDRICAL_SHELL":
         radius = diameter / 2.0
         denominator = stress * efficiency - 0.6 * pressure
-        if denominator <= 0:
+        if not math.isfinite(denominator) or denominator <= 0:
             raise ValueError("원통 Shell 필요두께 식의 분모가 0 이하입니다.")
         pressure_thickness = pressure * radius / denominator
         mawp = stress * efficiency * effective_actual / (radius + 0.6 * effective_actual)
@@ -74,27 +76,30 @@ def calculate_asme_viii_internal_pressure(
     elif kind == "SPHERICAL_SHELL":
         radius = diameter / 2.0
         denominator = 2.0 * stress * efficiency - 0.2 * pressure
-        if denominator <= 0:
+        if not math.isfinite(denominator) or denominator <= 0:
             raise ValueError("구형 Shell 필요두께 식의 분모가 0 이하입니다.")
         pressure_thickness = pressure * radius / denominator
         mawp = 2.0 * stress * efficiency * effective_actual / (radius + 0.2 * effective_actual)
         formula_reference = "ASME VIII-1 UG-27(d), inside-radius basis"
     elif kind == "ELLIPSOIDAL_HEAD_2_1":
         denominator = 2.0 * stress * efficiency - 0.2 * pressure
-        if denominator <= 0:
+        if not math.isfinite(denominator) or denominator <= 0:
             raise ValueError("2:1 타원형 Head 필요두께 식의 분모가 0 이하입니다.")
         pressure_thickness = pressure * diameter / denominator
         mawp = 2.0 * stress * efficiency * effective_actual / (diameter + 0.2 * effective_actual)
         formula_reference = "ASME VIII-1 UG-32(d), standard 2:1 ellipsoidal head"
     else:
         denominator = 4.0 * stress * efficiency - 0.4 * pressure
-        if denominator <= 0:
+        if not math.isfinite(denominator) or denominator <= 0:
             raise ValueError("반구형 Head 필요두께 식의 분모가 0 이하입니다.")
         pressure_thickness = pressure * diameter / denominator
         mawp = 4.0 * stress * efficiency * effective_actual / (diameter + 0.4 * effective_actual)
         formula_reference = "ASME VIII-1 UG-32(f), hemispherical head"
 
     required = pressure_thickness + supplemental
+    if (not all(math.isfinite(value) for value in (pressure_thickness, mawp, required))
+            or pressure_thickness <= 0 or mawp <= 0):
+        raise ValueError('ASME VIII 계산 결과가 유효한 숫자 범위를 벗어났습니다.')
     return {
         "algorithm_version": ASME_CALCULATION_VERSION,
         "component_type": kind,

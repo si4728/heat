@@ -14,6 +14,7 @@ if str(PROJECT_DIR) not in sys.path:
 
 from iris2.pdf_tube_sheet_geometry import _classify_shape, convex_hull, polygon_area
 from iris2.iris_v2_database import create_v2_engine, init_v2_db
+from iris2.hx_configuration import DB_PATH
 from iris2.services import _estimated_circular_layout
 
 
@@ -41,23 +42,23 @@ class PdfTubeSheetGeometryTest(unittest.TestCase):
         self.assertEqual(result["shape_code"], "CIRCULAR")
         self.assertGreater(result["confidence"], 0.8)
 
-    def test_database_initialization_creates_geometry_revision_table(self):
-        with tempfile.TemporaryDirectory() as directory:
-            database = Path(directory) / "geometry.db"
-            init_v2_db(database)
-            engine = create_v2_engine(database)
-            try:
-                self.assertIn("tube_sheet_geometry_revision", inspect(engine).get_table_names())
-                columns = {
-                    column["name"]
-                    for column in inspect(engine).get_columns("tube_sheet_geometry_revision")
-                }
-                self.assertTrue({
-                    "shape_code", "boundary_geometry_json", "source_pdf_sha256",
-                    "consensus_shape_code", "cross_year_consistent",
-                } <= columns)
-            finally:
-                engine.dispose()
+    def test_mariadb_geometry_revision_schema_is_present(self):
+        # Schema provisioning is explicit in MariaDB; this check must not try
+        # to create a temporary SQLite runtime or mutate the current schema.
+        init_v2_db(DB_PATH)
+        engine = create_v2_engine(DB_PATH)
+        try:
+            self.assertIn("tube_sheet_geometry_revision", inspect(engine).get_table_names())
+            columns = {
+                column["name"]
+                for column in inspect(engine).get_columns("tube_sheet_geometry_revision")
+            }
+            self.assertTrue({
+                "shape_code", "boundary_geometry_json", "source_pdf_sha256",
+                "consensus_shape_code", "cross_year_consistent",
+            } <= columns)
+        finally:
+            engine.dispose()
 
     def test_estimated_layout_uses_registered_shape(self):
         rectangular = _estimated_circular_layout([], 25, shape_code="RECTANGULAR")

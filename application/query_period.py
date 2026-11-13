@@ -22,6 +22,7 @@ def parse(question, today=None):
     patterns = [
         ('range', rf'({DAY})\s*(?:부터|~|～|–|—|\bto\b)\s*({DAY})(?:\s*까지)?'),
         ('relative', r'최근\s*(\d+)\s*(년|개월|달|일)'),
+        ('month', r'(?<!\d)(\d{4})\s*년\s*(\d{1,2})\s*월'),
         ('year', r'(?<!\d)(\d{4})\s*년'),
         ('named', r'올해|작년|전체\s*(?:기간|이력)'),
     ]
@@ -33,8 +34,8 @@ def parse(question, today=None):
         remaining = re.sub(pattern, lambda m: ' ' * len(m[0]), remaining)
     if len(found) > 1:
         raise QueryRejected('기간을 하나만 지정하세요. 예: 최근 3개월 또는 2025-01-01~2025-12-31')
-    if re.search(r'최근\s*(?:\d|한|두|세|몇)|\d{4}[-./]|\d+\s*(?:년|개월|달|일)|올\s*해|작\s*년|지난|이번|기간|부터|까지', remaining):
-        raise QueryRejected('기간은 최근 N년·N개월·N일, 올해, 작년, YYYY년, YYYY-MM-DD~YYYY-MM-DD, 전체 이력으로 입력하세요.')
+    if re.search(r'최근\s*(?:\d|한|두|세|몇)|\d{4}[-./]|\d+\s*(?:년|개월|달|월|일)|올\s*해|작\s*년|지난|이번|기간|부터|까지', remaining):
+        raise QueryRejected('기간은 최근 N년·N개월·N일, 올해, 작년, YYYY년, YYYY년 M월, YYYY-MM-DD~YYYY-MM-DD, 전체 이력으로 입력하세요.')
     if not found:
         return None, question
     kind, match = found[0]
@@ -52,6 +53,9 @@ def parse(question, today=None):
             end = today
         elif kind == 'year':
             start, end = date(int(match[1]),1,1), date(int(match[1]),12,31)
+        elif kind == 'month':
+            year, month = int(match[1]), int(match[2])
+            start, end = date(year,month,1), date(year,month,calendar.monthrange(year,month)[1])
         elif match[0] == '올해':
             start, end = date(today.year,1,1), today
         elif match[0] == '작년':
