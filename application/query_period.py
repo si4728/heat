@@ -21,6 +21,8 @@ def parse(question, today=None):
     today = today or datetime.now(timezone(timedelta(hours=9))).date()
     patterns = [
         ('range', rf'({DAY})\s*(?:부터|~|～|–|—|\bto\b)\s*({DAY})(?:\s*까지)?'),
+        ('month', r'(?<!\d)(\d{4})\s*년\s*(\d{1,2})\s*월'),
+        ('calendar', r'이번\s*달|이달|지난\s*달|전월|이번\s*주|지난\s*주|오늘|어제|상반기|하반기'),
         ('relative', r'최근\s*(\d+)\s*(년|개월|달|일)'),
         ('year', r'(?<!\d)(\d{4})\s*년'),
         ('named', r'올해|작년|전체\s*(?:기간|이력)'),
@@ -33,8 +35,8 @@ def parse(question, today=None):
         remaining = re.sub(pattern, lambda m: ' ' * len(m[0]), remaining)
     if len(found) > 1:
         raise QueryRejected('기간을 하나만 지정하세요. 예: 최근 3개월 또는 2025-01-01~2025-12-31')
-    if re.search(r'최근\s*(?:\d|한|두|세|몇)|\d{4}[-./]|\d+\s*(?:년|개월|달|일)|올\s*해|작\s*년|지난|이번|기간|부터|까지', remaining):
-        raise QueryRejected('기간은 최근 N년·N개월·N일, 올해, 작년, YYYY년, YYYY-MM-DD~YYYY-MM-DD, 전체 이력으로 입력하세요.')
+    if re.search(r'최근\s*(?:\d|한|두|세|몇)|\d{4}[-./]|\d+\s*(?:년|개월|달|일)|올\s*해|작\s*년|내년|내일|다음\s*(?:달|주|해)|지난|이번|기간|부터|까지', remaining):
+        raise QueryRejected('기간은 최근 N년·N개월·N일, 이번 달·지난달, 이번 주·지난주, 오늘·어제, 상반기·하반기, 올해·작년, YYYY년 M월, 날짜 범위 또는 전체 이력으로 입력하세요.')
     if not found:
         return None, question
     kind, match = found[0]
@@ -52,6 +54,27 @@ def parse(question, today=None):
             end = today
         elif kind == 'year':
             start, end = date(int(match[1]),1,1), date(int(match[1]),12,31)
+        elif kind == 'month':
+            year, month = int(match[1]), int(match[2])
+            start, end = date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])
+        elif kind == 'calendar':
+            phrase = re.sub(r'\s+', '', match[0])
+            if phrase in ('이번달', '이달', '지난달', '전월'):
+                anchor = today.replace(day=1)
+                if phrase in ('지난달', '전월'):
+                    anchor -= timedelta(days=1)
+                start = anchor.replace(day=1)
+                end = date(anchor.year, anchor.month, calendar.monthrange(anchor.year, anchor.month)[1])
+            elif phrase in ('이번주', '지난주'):
+                start = today - timedelta(days=today.weekday())
+                if phrase == '지난주':
+                    start -= timedelta(days=7)
+                end = start + timedelta(days=6)
+            elif phrase in ('오늘', '어제'):
+                start = end = today - timedelta(days=phrase == '어제')
+            else:
+                start = date(today.year, 1 if phrase == '상반기' else 7, 1)
+                end = date(today.year, 6, 30) if phrase == '상반기' else date(today.year, 12, 31)
         elif match[0] == '올해':
             start, end = date(today.year,1,1), today
         elif match[0] == '작년':

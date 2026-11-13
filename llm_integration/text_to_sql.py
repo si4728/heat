@@ -17,6 +17,7 @@ from sqlglot import exp
 
 from iris2 import dbapi
 from iris2.hx_configuration import DB_PATH
+from iris2.llm_integration.question_language import normalize
 
 MAX_ROWS = 100
 MAX_SQL_LENGTH = 6000
@@ -51,6 +52,7 @@ class QueryRejected(ValueError):
 
 def validate_question_contract(question: str, proposal: dict) -> None:
     """Check explicit pilot question requirements independently of SQL syntax."""
+    question = normalize(question)
     sql, parameters = validate_proposal(proposal)
     tree = sqlglot.parse_one(sql, read="mysql")
     expressions = [e.this if isinstance(e, exp.Alias) else e for e in tree.expressions]
@@ -150,6 +152,7 @@ def generate_proposal(question: str, client, *, model_key=None) -> dict:
     question = str(question or "").strip()
     if not 1 <= len(question) <= 500:
         raise QueryRejected("질문은 1~500자로 입력하세요.")
+    question = normalize(question)
     from iris2.application import query_period
     _, question = query_period.parse(question)
     if not question:
@@ -167,6 +170,11 @@ The relation is ALREADY scoped to the equipment and inspection. NEVER add equipm
 허용 컬럼: iris_tube_result_id, iris_inspection_id, tube_id, source_tube_id,
 minimum_wall_thickness_mm(mm), wall_loss_percent(%), location_mm(mm), source_page.
 허용 집계: COUNT, MIN, MAX, AVG. WHERE, GROUP BY, ORDER BY, LIMIT 1~100 허용.
+동의어: 검사한 Tube 수/몇 개/개수는 COUNT(*), 감육률 평균은 AVG(wall_loss_percent),
+최소두께는 MIN(minimum_wall_thickness_mm). 검사 건수는 Tube 수와 다르므로 모호하면 unsupported.
+두께 조건은 minimum_wall_thickness_mm(mm), 감육률 조건은 wall_loss_percent(%)를 사용.
+결측/미측정은 IS NULL, 유효 측정은 IS NOT NULL. NULL을 0으로 취급하지 않는다.
+요약과 별도 조건·순위가 함께 있거나 지표가 모호하면 unsupported로 구체적인 질문을 요청한다.
 값은 ?와 parameters로 분리. 컬럼 별칭 허용. ORDER BY는 원본 컬럼 사용.
 요약은 COUNT(*), COUNT(wall_loss_percent), MIN(minimum_wall_thickness_mm),
 MAX(wall_loss_percent), AVG(wall_loss_percent)를 조회한다. 평균은 유효 Tube 산술평균.

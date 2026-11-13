@@ -33,7 +33,7 @@ class PeriodTests(unittest.TestCase):
     def test_invalid_or_ambiguous_dates_are_not_ignored(self):
         for text in ['최근 0개월 요약', '2025-02-30~2025-03-01 요약',
                      '2025-12-31~2025-01-01 요약', '최근 3개월 2025년 요약',
-                     '지난달 요약', '2025-01-01 이후 요약', '2099년 요약']:
+                     '지난 분기 요약', '2025-01-01 이후 요약', '2099년 요약']:
             with self.subTest(text=text), self.assertRaises(QueryRejected):
                 query_period.parse(text, date(2026,11,13))
 
