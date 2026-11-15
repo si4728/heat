@@ -14,6 +14,7 @@ from iris2 import services
 from iris2.application import text_to_sql_service as analysis
 from iris2.application import inspection_frequency as frequency
 from iris2.application import query_period
+from iris2.application import text_to_sql_help
 from iris2.llm_integration.question_language import normalize
 from iris2.application import text_to_sql_usage_log as usage_log
 from iris2.hx_configuration import APP_DIR
@@ -135,6 +136,9 @@ def register_routes(app):
             question = data.get('question')
             if not isinstance(question, str) or not 1 <= len(question.strip()) <= 500:
                 raise QueryRejected('질문은 1~500자로 입력하세요.')
+            if text_to_sql_help.matches(question):
+                record['query_kind'] = 'help'
+                return jsonify(text_to_sql_help.response())
             if frequency.matches(question):
                 record['query_kind'] = 'inspection_frequency'
                 catalog = analysis.catalog()

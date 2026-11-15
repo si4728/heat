@@ -145,6 +145,29 @@ try {
   await page.eval(()=>document.getElementById('sql-chart-panel').scrollIntoView());
   await page.screenshot({path:join(output,'exchanger-count-390.png'),format:'png',fullPage:false});
   checks.push('Grouped exchanger counts render two columns, retain zero, chart and default both units');
+  await page.eval(()=>{
+    window.fetch=async()=>({ok:true,redirected:false,headers:{get:()=> 'application/json'},json:async()=>({query_kind:'help',guidance:'예시를 선택하면 질문창에 입력됩니다.',examples:['검사 결과를 요약해 줘.','튜브별 감육률 10% 이상인 교환기 수량은, VCM1과 VCM2로 구분해줘']})});
+    const q=document.getElementById('sql-question');q.value='도움말 알려줘';q.dispatchEvent(new Event('input'));
+  });
+  assert.equal(await page.eval(()=>document.getElementById('sql-generate').disabled),false);
+  await page.eval(()=>document.getElementById('sql-question-form').requestSubmit());await wait();
+  assert.equal(await page.eval(()=>document.getElementById('sql-help-panel').hidden),false);
+  assert.equal(await page.eval(()=>document.querySelectorAll('#sql-help-examples button').length),2);
+  assert.equal(await page.eval(()=>document.getElementById('sql-code').value),'');
+  assert.equal(await page.eval(()=>document.getElementById('sql-execute').disabled),true);
+  assert.equal(await page.eval(()=>document.getElementById('sql-copy').disabled),true);
+  assert.equal(await page.eval(()=>document.getElementById('sql-generate-spinner').hasAttribute('hidden')),true);
+  for(const width of [1440,768,390]){
+    await page.setViewport({width,height:1000});
+    await page.eval(()=>document.getElementById('sql-help-panel').scrollIntoView({block:'center'}));
+    assert.equal(await page.eval(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+    await page.screenshot({path:join(output,`help-${width}.png`),format:'png',fullPage:false});
+  }
+  await page.eval(()=>document.querySelectorAll('#sql-help-examples button')[1].click());
+  assert.match(await page.eval(()=>document.getElementById('sql-question').value),/감육률 10%/);
+  assert.equal(await page.eval(()=>document.getElementById('sql-help-panel').hidden),true);
+  assert.equal(await page.eval(()=>document.activeElement.id),'sql-question');
+  checks.push('Help without selection renders safe sample buttons, clears old SQL, and inserts chosen question');
   assert.deepEqual(page.consoleErrors,[]);
   writeFileSync(join(output,'validation.json'),JSON.stringify({passed:true,fixture_only:true,checks},null,2));
   console.log(JSON.stringify({passed:true,checks}));

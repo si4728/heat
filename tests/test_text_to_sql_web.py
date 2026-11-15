@@ -71,6 +71,24 @@ class TextToSqlWebTests(unittest.TestCase):
         self.assertNotIn('DELETE',self.execute.call_args.args[0]['sql'])
         self.assertEqual(self.execute.call_args.kwargs['authorized_exchanger_ids'],frozenset({151}))
 
+    def test_help_returns_samples_without_scope_database_or_model(self):
+        for question in ['도움말 알려줘', '도움말', '도움말 보여주세요', '예시 질문', 'help']:
+            response = self.post('generate', {'question':question})
+            self.assertEqual(response.status_code, 200, response.json)
+            self.assertEqual(response.json['query_kind'], 'help')
+            self.assertEqual(len(response.json['examples']), 8)
+            self.assertIn('감육률 10%', response.json['examples'][3])
+            self.assertNotIn('token', response.json)
+            self.assertNotIn('proposal', response.json)
+        self.catalog.assert_not_called();self.rounds.assert_not_called();self.scope.assert_not_called()
+        self.worker.assert_not_called();self.execute.assert_not_called()
+
+    def test_help_still_requires_permissions_and_csrf(self):
+        self.assertEqual(self.client.post('/inspections/text-to-sql/generate',json={'question':'도움말 알려줘'}).status_code,400)
+        self.profile['permissions'].pop('TEXT_TO_SQL')
+        self.assertEqual(self.post('generate', {'question':'도움말 알려줘'}).status_code,403)
+        self.worker.assert_not_called()
+
     def test_wall_loss_exchanger_count_defaults_to_both_units_without_model(self):
         generated = self.post('generate', {'question':'튜브별 감육률 10% 이상인 교환기 수량은, VCM1과 VCM2로 구분해줘'})
         self.assertEqual(generated.status_code, 200, generated.json)

@@ -27,6 +27,10 @@
 @media(prefers-reduced-motion:reduce) { .text-sql .sql-wait-spinner { animation:none; } }
 .text-sql button:disabled { opacity:1; color:var(--sql-muted); background:var(--workspace-frame,var(--panel)); cursor:not-allowed; }
 .text-sql .sql-help { margin:12px 0 0; }
+.text-sql .sql-help-examples { margin:12px 0 0; padding-left:20px; }
+.text-sql .sql-help-examples li { margin:6px 0; }
+.text-sql .sql-help-examples button { padding:8px 0; border:0; background:transparent; color:inherit; font:inherit; text-align:left; text-decoration:underline; text-underline-offset:3px; cursor:pointer; overflow-wrap:anywhere; }
+.text-sql .sql-help-examples button:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
 .text-sql .sql-parameters { margin:10px 0 16px; color:var(--sql-muted); font-size:12px; overflow-wrap:anywhere; }
 .text-sql .sql-parameters code { margin-left:8px; }
 .text-sql .sql-results { margin-top:20px; }

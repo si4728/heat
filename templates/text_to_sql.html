@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Text-to-SQL 분석{% endblock %}
 {% block heading %}Text-to-SQL 분석{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='text-to-sql.css', v='20261115-count-1') }}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='text-to-sql.css', v='20261115-help-1') }}">{% endblock %}
 {% block content %}
 <div class="text-sql" id="text-sql" data-csrf="{{ csrf_token }}"
      data-inspections-url="{{ url_for('text_to_sql_inspections') }}"
@@ -40,6 +40,7 @@
           <label for="sql-question">질문 내용</label>
           <textarea id="sql-question" maxlength="500" rows="4" required placeholder="예: 최근 IRIS 검사 결과를 요약해 줘."></textarea>
           <div class="sql-examples" aria-label="예시 질문">
+            <button type="button" data-question="도움말 알려줘">도움말</button>
             <button type="button" data-question="검사 결과를 요약해 줘.">검사 요약</button>
             <button type="button" data-question="감육이 가장 심한 Tube 5개를 알려줘.">감육 상위 5개</button>
             <button type="button" data-question="감육률 30% 이상인 Tube를 보여줘.">감육률 30% 이상</button>
@@ -63,6 +64,10 @@
       </section>
     </div>
   </form>
+  <section class="panel sql-results" id="sql-help-panel" aria-labelledby="sql-help-title" hidden>
+    <div class="panel-head"><h2 id="sql-help-title">Text-to-SQL 예시 질문</h2></div>
+    <div class="sql-panel-body"><p id="sql-help-guidance"></p><ul id="sql-help-examples" class="sql-help-examples"></ul></div>
+  </section>
   <p class="sql-error" id="sql-error" role="alert" tabindex="-1" hidden></p>
   <section class="panel sql-results" aria-labelledby="sql-result-title" id="sql-result-panel">
     <div class="panel-head"><h2 id="sql-result-title">실행 결과</h2><span id="sql-result-count">미실행</span></div>
@@ -88,4 +93,4 @@
   </section>
 </div>
 {% endblock %}
-{% block scripts %}<script defer src="{{ url_for('static', filename='text-to-sql-links.js', v='20261112-tag-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql-charts.js', v='20261115-count-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql.js', v='20261115-count-1') }}"></script>{% endblock %}
+{% block scripts %}<script defer src="{{ url_for('static', filename='text-to-sql-links.js', v='20261112-tag-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql-charts.js', v='20261115-help-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql.js', v='20261115-help-1') }}"></script>{% endblock %}

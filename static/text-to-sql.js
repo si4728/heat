@@ -40,6 +40,7 @@
     if (message) el('error').focus();
   }
   function reset() {
+    el('help-panel').hidden = true; el('help-examples').replaceChildren(); el('help-guidance').textContent = '';
     charts?.clear();
     token = null; el('code').value = ''; el('parameters').textContent = '—';
     el('copy').disabled = true; el('execute').disabled = true;
@@ -57,6 +58,7 @@
   const selectedIds = () => [...el('equipment').querySelectorAll('input:checked')].map(i => Number(i.value));
   const selectedUnits = () => [...el('units').querySelectorAll('input:checked')].map(i => i.value);
   let scopeReady = false;
+  const helpQuestion = () => /^(?:도움말(?:\s*(?:알려\s*줘(?:요)?|보여\s*줘(?:요)?|알려\s*주세요|보여\s*주세요))?|사용법|예시\s*질문|샘플(?:\s*질문)?|help)[.!?。？！]*$/i.test(el('question').value.trim());
   const frequencyQuestion = () => /열교환기|교환기|설비|튜브|전열관|tube/i.test(el('question').value) && /검사/.test(el('question').value) && /(?:제일|가장)\s*많|많이|횟수|빈도|건수/.test(el('question').value);
   const groupedCountQuestion = () => /감육/.test(el('question').value) && /교환기/.test(el('question').value) && /수량|개수|몇\s*대|대수|수\b|수[는를가]/.test(el('question').value) && /공정\s*별|라인\s*별|VCM1.*VCM2|구분/i.test(el('question').value);
   function setBusy(value, generating = false) {
@@ -65,7 +67,7 @@
     el('inspection').disabled = value || frequencyQuestion() || el('mode').value !== 'equipment' || selectedIds().length !== 1 || !scopeReady;
     el('question').disabled = value;
     root.querySelectorAll('[data-question]').forEach(b => { b.disabled = value; });
-    el('generate').disabled = value || (!scopeReady && !frequencyQuestion() && !groupedCountQuestion());
+    el('generate').disabled = value || (!scopeReady && !frequencyQuestion() && !groupedCountQuestion() && !helpQuestion());
     el('execute').disabled = value || !token;
     root.setAttribute('aria-busy', String(value));
     el('generate-spinner').toggleAttribute('hidden', !(value && generating));
@@ -130,7 +132,8 @@
   el('inspection').addEventListener('change', reset);
   function questionChanged() {
     reset(); setBusy(false);
-    if (frequencyQuestion()) el('generate-status').textContent = 'IRIS 검사 횟수 순위 · 기간 입력 가능 · 기간 생략 시 설비 최근 5년 / 튜브 전체 이력 · 범위 미선택 시 VCM1·VCM2 전체';
+    if (helpQuestion()) el('generate-status').textContent = 'SQL 생성 버튼을 누르면 예시 질문과 사용 방법을 표시합니다.';
+    else if (frequencyQuestion()) el('generate-status').textContent = 'IRIS 검사 횟수 순위 · 기간 입력 가능 · 기간 생략 시 설비 최근 5년 / 튜브 전체 이력 · 범위 미선택 시 VCM1·VCM2 전체';
     else if (groupedCountQuestion()) el('generate-status').textContent = '감육 조건별 공정별 열교환기 수 · 범위 미선택 시 VCM1·VCM2 전체 · 기간 생략 시 설비별 최근 유효 검사';
   }
   el('question').addEventListener('input', questionChanged);
@@ -146,6 +149,19 @@
           el('mode').value === 'unit' ? {unit_codes:selectedUnits()} : {exchanger_ids:selectedIds(), inspection_id:el('inspection').value ? Number(el('inspection').value) : null}),
         question:el('question').value
       });
+      if(payload.query_kind === 'help') {
+        el('help-guidance').textContent = payload.guidance;
+        payload.examples.forEach(question => {
+          const item=document.createElement('li'), button=document.createElement('button');
+          button.type='button'; button.textContent=question;
+          button.addEventListener('click',()=>{el('question').value=question;questionChanged();el('question').focus();});
+          item.append(button);el('help-examples').append(item);
+        });
+        el('help-panel').hidden=false;
+        el('generate-status').textContent='예시 질문을 표시했습니다. 원하는 질문을 선택하세요.';
+        el('help-panel').scrollIntoView({block:'nearest'});
+        return;
+      }
       token = payload.token; el('code').value = payload.proposal.sql;
       el('parameters').textContent = JSON.stringify(payload.proposal.parameters);
       el('copy').disabled = false;
