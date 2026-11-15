@@ -52,7 +52,7 @@ try {
     }throw new Error('Request rendering timed out');
   }
   async function execute(){await page.eval(()=>document.getElementById('sql-execute').click());await wait();await new Promise(r=>setTimeout(r,100));}
-  async function change(key,value){await page.eval(({key,value})=>{const node=document.querySelector(`[data-chart="${key}"]`);node.value=value;node.dispatchEvent(new Event('change'));},{key,value});}
+  async function change(key,value){await page.eval(({key,value})=>{if(key==='type'){document.querySelector(`[data-chart-type="${value}"]`).click();return;}const node=document.querySelector(`[data-chart="${key}"]`);node.value=value;node.dispatchEvent(new Event('change'));},{key,value});}
   await wait();await execute();
   assert.equal(await page.eval(()=>document.querySelectorAll('.sql-chart-bar').length),3);
   assert.equal(await page.eval(()=>document.querySelectorAll('#sql-chart-panel img').length),0);
@@ -60,6 +60,8 @@ try {
   assert.equal(await page.eval(()=>document.getElementById('sql-chart-panel').getBoundingClientRect().top>document.getElementById('sql-result-panel').getBoundingClientRect().top),true);
   checks.push('Bar from returned rows; null excluded, zero retained; counts and limit disclosed; chart below list; safe text');
   await change('type','pie');
+  assert.equal(await page.eval(()=>document.querySelector('[data-chart-type="pie"]').getAttribute('aria-pressed')),'true');
+  assert.equal(await page.eval(()=>document.querySelector('[data-chart-type="bar"]').getAttribute('aria-pressed')),'false');
   assert.equal(await page.eval(()=>document.querySelectorAll('.sql-chart-legend li').length),3);
   assert.match(await page.eval(()=>document.querySelector('[data-chart="hint"]').textContent),/합계 12/);
   for(const width of [1440,768,390]){
@@ -72,6 +74,8 @@ try {
   checks.push('Pie totals, zero share, legend; desktop/tablet/mobile without page overflow');
   await change('metric','wall_loss_percent');
   assert.equal(await page.eval(()=>document.querySelector('[data-chart="type"] [value="pie"]').disabled),true);
+  assert.equal(await page.eval(()=>document.querySelector('[data-chart-type="pie"]').disabled),true);
+  assert.match(await page.eval(()=>document.querySelector('[data-chart-type="pie"]').title),/건수/);
   assert.equal(await page.eval(()=>document.querySelector('[data-chart="type"]').value),'bar');
   checks.push('Non-additive percentage pie disabled; safe fallback after metric changes');
   await page.eval(()=>{window.chartFixture={columns:['year','minimum_mm'],rows:[{year:2025,minimum_mm:1.8},{year:2023,minimum_mm:2.1},{year:2024,minimum_mm:null}],result_count:3,generated_at:new Date().toISOString()};});

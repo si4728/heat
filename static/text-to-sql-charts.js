@@ -63,6 +63,16 @@
     if (!panel) return null;
     const get = key => panel.querySelector(`[data-chart="${key}"]`);
     const metric = get('metric'), category = get('category'), type = get('type'), area = get('area'), note = get('note'), hint = get('hint');
+    const typeButtons = [...panel.querySelectorAll('[data-chart-type]')];
+    function syncTypes(reasons = {}) {
+      typeButtons.forEach(button => {
+        const key = button.dataset.chartType;
+        const reason = reasons[key] || (type.disabled ? 'SQL 실행 후 수치가 있는 결과에서 사용할 수 있습니다.' : '');
+        button.disabled = type.disabled || !!reason;
+        button.setAttribute('aria-pressed', String(type.value === key));
+        button.title = reason || `${button.textContent} 그래프로 전환`;
+      });
+    }
     let result = null;
     const caption = key => typeof labels[key] === 'string' ? labels[key] : key;
     const ns = 'http://www.w3.org/2000/svg';
@@ -177,6 +187,7 @@
       type.querySelector('[value="line"]').disabled=!!lineModel.reason;
       // A previously valid selection may become unsuitable after changing fields.
       if (type.value==='pie' && pieModel.reason || type.value==='line' && lineModel.reason) type.value='bar';
+      syncTypes({pie:pieModel.reason, line:lineModel.reason});
       area.classList.toggle('is-pie',type.value==='pie');
       note.textContent=`현재 표에 반환된 ${data.length}행 기준 · 유효 수치 ${valid.length}행 · 결측 ${data.length-valid.length}행 제외. 전체 DB의 분포를 뜻하지 않습니다.${result.limit_reached ? ' 조회 개수 제한에 도달한 결과입니다.' : ''}`;
       if(!valid.length) { hint.textContent='선택한 항목에 표시할 유효 수치가 없습니다.'; return; }
@@ -188,6 +199,7 @@
     function clear(message='SQL 실행 후 조회 결과를 차트로 확인할 수 있습니다.') {
       result=null; metric.replaceChildren(); category.replaceChildren();
       [metric,category,type].forEach(control => { control.disabled=true; });
+      type.value='bar'; syncTypes();
       area.replaceChildren(); area.classList.remove('is-pie'); note.textContent='차트는 결과 표의 데이터만 사용합니다.'; hint.textContent=message;
     }
     function setResult(value) {
@@ -203,6 +215,10 @@
       render();
     }
     [metric,category,type].forEach(control => control.addEventListener('change',render));
+    typeButtons.forEach(button => button.addEventListener('click', () => {
+      if(button.disabled) return;
+      type.value=button.dataset.chartType; render();
+    }));
     let previousWidth=0;
     if (typeof ResizeObserver!=='undefined') new ResizeObserver(() => {
       const width=area.clientWidth; if(width!==previousWidth) { previousWidth=width; render(); }

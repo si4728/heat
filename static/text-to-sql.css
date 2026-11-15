@@ -58,6 +58,12 @@
 .text-sql .sql-detail-link:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
 .text-sql .sql-chart-panel { margin-top:20px; }
 .text-sql .sql-chart-controls { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; padding:16px 20px 0; }
+.text-sql .sql-chart-type-control { display:grid; gap:8px; align-content:start; }
+.text-sql .sql-chart-switcher { display:flex; gap:4px; }
+.text-sql .sql-chart-switcher button { flex:1; min-height:42px; padding:8px; border:1px solid var(--sql-edge); border-radius:6px; background:transparent; color:inherit; cursor:pointer; }
+.text-sql .sql-chart-switcher button[aria-pressed="true"] { border-color:var(--accent,#c45a0c); background:var(--accent,#c45a0c); color:white; font-weight:600; }
+.text-sql .sql-chart-switcher button:disabled { opacity:.45; cursor:not-allowed; }
+.text-sql .sql-chart-switcher button:focus-visible { outline:2px solid var(--accent,#c45a0c); outline-offset:2px; }
 .text-sql .sql-chart-area { margin:12px 20px; max-height:440px; overflow:auto; min-width:0; }
 .text-sql .sql-chart-area:empty { margin:0; }
 .text-sql .sql-chart-area.is-pie { display:grid; grid-template-columns:minmax(220px,320px) minmax(0,1fr); gap:24px; align-items:center; }

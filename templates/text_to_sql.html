@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Text-to-SQL 분석{% endblock %}
 {% block heading %}Text-to-SQL 분석{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='text-to-sql.css', v='20261115-charts-1') }}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='text-to-sql.css', v='20261115-charts-2') }}">{% endblock %}
 {% block content %}
 <div class="text-sql" id="text-sql" data-csrf="{{ csrf_token }}"
      data-inspections-url="{{ url_for('text_to_sql_inspections') }}"
@@ -77,7 +77,7 @@
   <section class="panel sql-chart-panel" id="sql-chart-panel" aria-labelledby="sql-chart-title">
     <div class="panel-head"><h2 id="sql-chart-title">조회 결과 차트</h2></div>
     <div class="sql-chart-controls">
-      <label for="sql-chart-type">차트 유형<select id="sql-chart-type" data-chart="type" disabled><option value="bar">막대 그래프</option><option value="pie">파이 그래프</option><option value="line">선 그래프</option></select></label>
+      <div class="sql-chart-type-control"><span id="sql-chart-type-label">차트 유형</span><div class="sql-chart-switcher" role="group" aria-labelledby="sql-chart-type-label"><button type="button" data-chart-type="bar" aria-pressed="true" disabled>막대</button><button type="button" data-chart-type="pie" aria-pressed="false" disabled>파이</button><button type="button" data-chart-type="line" aria-pressed="false" disabled>선</button></div><select id="sql-chart-type" data-chart="type" hidden aria-label="차트 유형" disabled><option value="bar">막대 그래프</option><option value="pie">파이 그래프</option><option value="line">선 그래프</option></select></div>
       <label for="sql-chart-category">분류 기준<select id="sql-chart-category" data-chart="category" disabled></select></label>
       <label for="sql-chart-metric">수치 항목<select id="sql-chart-metric" data-chart="metric" disabled></select></label>
     </div>
@@ -87,4 +87,4 @@
   </section>
 </div>
 {% endblock %}
-{% block scripts %}<script defer src="{{ url_for('static', filename='text-to-sql-links.js', v='20261112-tag-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql-charts.js', v='20261115-charts-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql.js', v='20261115-charts-1') }}"></script>{% endblock %}
+{% block scripts %}<script defer src="{{ url_for('static', filename='text-to-sql-links.js', v='20261112-tag-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql-charts.js', v='20261115-charts-2') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql.js', v='20261115-charts-2') }}"></script>{% endblock %}
