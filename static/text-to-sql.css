@@ -56,3 +56,25 @@
 .text-sql .sql-detail-link { color:var(--accent, #006b70); text-decoration:underline; text-underline-offset:3px; }
 .text-sql .sql-detail-link:hover { text-decoration-thickness:2px; }
 .text-sql .sql-detail-link:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+.text-sql .sql-chart-panel { margin-top:20px; }
+.text-sql .sql-chart-controls { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; padding:16px 20px 0; }
+.text-sql .sql-chart-area { margin:12px 20px; max-height:440px; overflow:auto; min-width:0; }
+.text-sql .sql-chart-area:empty { margin:0; }
+.text-sql .sql-chart-area.is-pie { display:grid; grid-template-columns:minmax(220px,320px) minmax(0,1fr); gap:24px; align-items:center; }
+.text-sql .sql-chart-area svg { display:block; max-width:100%; font:12px system-ui,sans-serif; color:var(--workspace-text,var(--text)); }
+.text-sql .sql-chart-area svg text { fill:currentColor; font-variant-numeric:tabular-nums; }
+.text-sql .sql-chart-grid { stroke:var(--sql-edge); stroke-width:1; }
+.text-sql .sql-chart-bar,.text-sql .sql-chart-point { fill:var(--accent,#c45a0c); }
+.text-sql .sql-chart-line { fill:none; stroke:var(--accent,#c45a0c); stroke-width:2; pointer-events:none; }
+.text-sql .sql-chart-hint { margin-bottom:18px; }
+.text-sql .sql-chart-legend { padding:0; margin:0 0 16px; list-style:none; }
+.text-sql .sql-chart-legend li { display:grid; grid-template-columns:12px minmax(0,1fr) auto; align-items:center; gap:12px; padding:8px 0; font-size:13px; }
+.text-sql .sql-chart-legend li span:nth-child(2) { overflow-wrap:anywhere; }
+.text-sql .sql-chart-legend strong { font-weight:500; text-align:right; font-variant-numeric:tabular-nums; }
+.text-sql .sql-chart-swatch { width:10px; height:10px; border-radius:2px; }
+@media(max-width:640px) {
+  .text-sql .sql-chart-controls { grid-template-columns:minmax(0,1fr); gap:12px; padding:16px; }
+  .text-sql .sql-chart-area { margin-inline:12px; }
+  .text-sql .sql-chart-area.is-pie { grid-template-columns:minmax(0,1fr); gap:0; }
+  .text-sql .sql-chart-area.is-pie svg { justify-self:center; }
+}

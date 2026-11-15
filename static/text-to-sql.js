@@ -26,18 +26,21 @@
     tube_no:'튜브번호', bundle_code:'번들', heat_exchanger_id:'열교환기 ID', unit_code:'공정', equipment_tag:'설비 Tag',
     equipment_code:'열교환기 코드', equipment_name:'설비명', inspection_count:'IRIS 검사 횟수',
     latest_inspection_date:'최근 검사일',
+    year:'연도', inspection_year:'검사 연도', inspection_date:'검사일', report_date:'보고일',
     inspected_tubes:'검사 Tube 수', valid_loss_tubes:'유효 감육률 Tube 수',
     minimum_mm:'최소두께 (mm)', maximum_loss:'최대 감육률 (%)', average_loss:'평균 감육률 (%)', mean_loss:'평균 감육률 (%)',
     tube_id:'Tube ID', source_tube_id:'Tube 번호', minimum_wall_thickness_mm:'최소두께 (mm)',
     wall_loss_percent:'감육률 (%)', location_mm:'측정 위치 (mm)', iris_tube_result_id:'측정 결과 ID',
     source_page:'원문 페이지', iris_inspection_id:'검사 ID'
   };
+  const charts = window.TextSqlCharts?.mount(el('chart-panel'), labels);
   function error(message) {
     el('error').textContent = message || '';
     el('error').hidden = !message;
     if (message) el('error').focus();
   }
   function reset() {
+    charts?.clear();
     token = null; el('code').value = ''; el('parameters').textContent = '—';
     el('copy').disabled = true; el('execute').disabled = true;
     el('result-table').hidden = true;
@@ -162,6 +165,7 @@
   el('execute').addEventListener('click', async () => {
     if (busy || !token) return;
     error(''); setBusy(true);
+    charts?.clear('결과를 조회하고 있습니다.');
     el('result-table').hidden = true; el('empty').hidden = false; el('empty').textContent = '결과를 조회하고 있습니다.'; el('result-count').textContent = '조회 중';
     try {
       const {result} = await request(root.dataset.executeUrl, {token});
@@ -199,7 +203,9 @@
           ? `설비·번들·튜브번호별 1행 · 유효 결과를 검사 ID별 1회 집계 · 대체된 검사 제외 · 동률은 공정·설비 태그·설비 ID·번들·튜브번호순 · 최대 ${result.period.limit}개`
           : `IRIS 검사 ID별 1회 집계 · 대체된 검사 제외 · 동률은 최근 검사일, 설비 ID 순 · 최대 ${result.period.limit}대`;
       }
-    } catch (exc) { error(exc.message); el('execute-status').textContent = 'SQL을 실행하지 못했습니다.'; el('empty').textContent = '조회에 실패했습니다. 오류 내용을 확인한 뒤 다시 시도하세요.'; el('result-count').textContent = '실행 실패'; }
+      try { charts?.setResult(result); }
+      catch (_) { charts?.clear('차트를 표시하지 못했습니다. 위 결과 표를 확인하세요.'); }
+    } catch (exc) { charts?.clear('조회에 실패해 차트를 표시하지 않습니다.'); error(exc.message); el('execute-status').textContent = 'SQL을 실행하지 못했습니다.'; el('empty').textContent = '조회에 실패했습니다. 오류 내용을 확인한 뒤 다시 시도하세요.'; el('result-count').textContent = '실행 실패'; }
     finally { setBusy(false); }
   });
   el('copy').addEventListener('click', async () => {
