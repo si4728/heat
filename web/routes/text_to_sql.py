@@ -167,6 +167,14 @@ def register_routes(app):
                     usage_id=record['usage_id'],usage_input=record['input']))
                 return jsonify(proposal=proposal,token=token,query_kind='inspection_frequency',period=period,
                                equipment_list=selected)
+            from iris2.application import wall_loss_exchanger_count as exchanger_count
+            grouped_count = exchanger_count.matches(question)
+            if grouped_count:
+                # Validate the intent before resolving scopes or spending model time.
+                exchanger_count.proposal(question)
+                if not any(key in data for key in ('exchanger_id', 'exchanger_ids', 'unit_codes')):
+                    data['unit_codes'] = ['VCM1', 'VCM2']
+                record['query_kind'] = 'wall_loss_exchanger_count'
             period, model_question = query_period.parse(normalize(question))
             multi = 'exchanger_ids' in data or 'unit_codes' in data
             if period is not None:
@@ -195,7 +203,8 @@ def register_routes(app):
             if not generation_lock.acquire(blocking=False):
                 return jsonify(error='다른 SQL을 생성 중입니다. 잠시 후 다시 시도하세요.'), 429
             try:
-                proposal = analysis.generate_in_worker(model_question.strip())
+                proposal = (exchanger_count.proposal(model_question.strip()) if grouped_count
+                            else analysis.generate_in_worker(model_question.strip()))
                 usage_log.proposal_context(record, proposal)
             finally:
                 generation_lock.release()
@@ -203,15 +212,18 @@ def register_routes(app):
             validate_question_contract(question, proposal)
             proposal = dict(sql=sql, parameters=parameters)
             usage_log.proposal_context(record, proposal)
+            group_units = (data.get('unit_codes') or sorted({s['equipment']['unit_code'] for s in scopes})) if grouped_count else None
             token = serializer().dumps(dict(
                 actor=profile['user_id'], question=question.strip(), proposal=proposal, period=period,
+                query_kind='wall_loss_exchanger_count' if grouped_count else 'tube_analysis', group_units=group_units,
                 usage_id=record['usage_id'],usage_input=record['input'],
                 exchanger_id=equipment['heat_exchanger_id'], inspection_id=inspection['iris_inspection_id'],
                 scopes=[(s['equipment']['heat_exchanger_id'], s['inspection']['iris_inspection_id']) for s in scopes] if multi else None))
             app.logger.info('Text-to-SQL generated actor=%s exchanger=%s inspection=%s',
                             profile['user_id'], equipment['heat_exchanger_id'], inspection['iris_inspection_id'])
             return jsonify(proposal=proposal, token=token, equipment=equipment, inspection=inspection,
-                           scopes=scopes, excluded=excluded, period=period)
+                           scopes=scopes, excluded=excluded, period=period,
+                           query_kind='wall_loss_exchanger_count' if grouped_count else None)
         except Exception as exc:
             return fail(exc)
 
@@ -265,6 +277,14 @@ def register_routes(app):
                 options['period'] = signed['period']
             result = execute_proposal(signed['proposal'], exchanger_id=equipment['heat_exchanger_id'],
                 inspection_id=inspection['iris_inspection_id'], authorized_exchanger_ids=allowed, **options)
+            if signed.get('query_kind') == 'wall_loss_exchanger_count':
+                counts = {row['unit_code']: row['exchanger_count'] for row in result['rows']}
+                result['rows'] = [dict(unit_code=unit, exchanger_count=counts.get(unit, 0))
+                                  for unit in sorted(set(signed['group_units']))]
+                result['result_count'] = len(result['rows'])
+                result['limit_reached'] = False
+                result['query_kind'] = 'wall_loss_exchanger_count'
+                record['query_kind'] = result['query_kind']
             if signed.get('period'):
                 result['period'] = signed['period']
             if result.get('scopes'):

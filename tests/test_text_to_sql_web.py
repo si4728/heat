@@ -71,6 +71,31 @@ class TextToSqlWebTests(unittest.TestCase):
         self.assertNotIn('DELETE',self.execute.call_args.args[0]['sql'])
         self.assertEqual(self.execute.call_args.kwargs['authorized_exchanger_ids'],frozenset({151}))
 
+    def test_wall_loss_exchanger_count_defaults_to_both_units_without_model(self):
+        generated = self.post('generate', {'question':'튜브별 감육률 10% 이상인 교환기 수량은, VCM1과 VCM2로 구분해줘'})
+        self.assertEqual(generated.status_code, 200, generated.json)
+        self.worker.assert_not_called()
+        self.assertEqual(generated.json['query_kind'], 'wall_loss_exchanger_count')
+        self.assertIn('COUNT(DISTINCT heat_exchanger_id)', generated.json['proposal']['sql'])
+        self.execute.return_value = dict(columns=['unit_code','exchanger_count'], rows=[dict(unit_code='VCM2',exchanger_count=3)], scopes=[],result_count=1,query_sha256='fixture')
+        response = self.post('execute', {'token':generated.json['token']})
+        self.assertEqual(response.status_code, 200, response.json)
+        self.assertEqual(response.json['result']['rows'], [dict(unit_code='VCM1',exchanger_count=0),dict(unit_code='VCM2',exchanger_count=3)])
+
+    def test_wall_loss_exchanger_count_period_and_scope(self):
+        response = self.post('generate', {'question':'2025년 감육률 10% 이상 교환기 수량 공정별', 'unit_codes':['VCM2']})
+        self.assertEqual(response.status_code, 200, response.json)
+        self.assertEqual(response.json['period']['start'], '2025-01-01')
+        self.assertEqual(response.json['proposal']['parameters'], [10.0])
+        self.worker.assert_not_called()
+        bad = self.post('generate', {'question':'감육률 10% 이상 교환기 수량 공정별', 'exchanger_ids':[9999]})
+        self.assertEqual(bad.status_code, 403)
+
+    def test_wall_loss_count_rejects_ambiguous_aggregate(self):
+        response = self.post('generate', {'question':'평균 감육률 10% 이상 교환기 수량 공정별'})
+        self.assertEqual(response.status_code, 400)
+        self.worker.assert_not_called()
+
     def test_anonymous_and_missing_permissions_do_not_reach_database(self):
         anonymous=self.app.test_client()
         self.assertEqual(anonymous.get('/inspections/text-to-sql').status_code,302)

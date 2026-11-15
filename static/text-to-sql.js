@@ -25,7 +25,7 @@
   const labels = {
     tube_no:'튜브번호', bundle_code:'번들', heat_exchanger_id:'열교환기 ID', unit_code:'공정', equipment_tag:'설비 Tag',
     equipment_code:'열교환기 코드', equipment_name:'설비명', inspection_count:'IRIS 검사 횟수',
-    latest_inspection_date:'최근 검사일',
+    latest_inspection_date:'최근 검사일', exchanger_count:'열교환기 수 (대)',
     year:'연도', inspection_year:'검사 연도', inspection_date:'검사일', report_date:'보고일',
     inspected_tubes:'검사 Tube 수', valid_loss_tubes:'유효 감육률 Tube 수',
     minimum_mm:'최소두께 (mm)', maximum_loss:'최대 감육률 (%)', average_loss:'평균 감육률 (%)', mean_loss:'평균 감육률 (%)',
@@ -58,13 +58,14 @@
   const selectedUnits = () => [...el('units').querySelectorAll('input:checked')].map(i => i.value);
   let scopeReady = false;
   const frequencyQuestion = () => /열교환기|교환기|설비|튜브|전열관|tube/i.test(el('question').value) && /검사/.test(el('question').value) && /(?:제일|가장)\s*많|많이|횟수|빈도|건수/.test(el('question').value);
+  const groupedCountQuestion = () => /감육/.test(el('question').value) && /교환기/.test(el('question').value) && /수량|개수|몇\s*대|대수|수\b|수[는를가]/.test(el('question').value) && /공정\s*별|라인\s*별|VCM1.*VCM2|구분/i.test(el('question').value);
   function setBusy(value, generating = false) {
     busy = value;
     root.querySelectorAll('#sql-equipment input, #sql-units input, #sql-mode, #sql-filter, #sql-select-visible, #sql-clear-selection').forEach(control => { control.disabled = value; });
     el('inspection').disabled = value || frequencyQuestion() || el('mode').value !== 'equipment' || selectedIds().length !== 1 || !scopeReady;
     el('question').disabled = value;
     root.querySelectorAll('[data-question]').forEach(b => { b.disabled = value; });
-    el('generate').disabled = value || (!scopeReady && !frequencyQuestion());
+    el('generate').disabled = value || (!scopeReady && !frequencyQuestion() && !groupedCountQuestion());
     el('execute').disabled = value || !token;
     root.setAttribute('aria-busy', String(value));
     el('generate-spinner').toggleAttribute('hidden', !(value && generating));
@@ -130,6 +131,7 @@
   function questionChanged() {
     reset(); setBusy(false);
     if (frequencyQuestion()) el('generate-status').textContent = 'IRIS 검사 횟수 순위 · 기간 입력 가능 · 기간 생략 시 설비 최근 5년 / 튜브 전체 이력 · 범위 미선택 시 VCM1·VCM2 전체';
+    else if (groupedCountQuestion()) el('generate-status').textContent = '감육 조건별 공정별 열교환기 수 · 범위 미선택 시 VCM1·VCM2 전체 · 기간 생략 시 설비별 최근 유효 검사';
   }
   el('question').addEventListener('input', questionChanged);
   root.querySelectorAll('[data-question]').forEach(button => button.addEventListener('click', () => {
@@ -140,7 +142,7 @@
     reset(); setBusy(true, true);
     try {
       const payload = await request(root.dataset.generateUrl, {
-        ...(frequencyQuestion() && !(el('mode').value === 'unit' ? selectedUnits().length : selectedIds().length) ? {unit_codes:['VCM1','VCM2']} :
+        ...((frequencyQuestion() || groupedCountQuestion()) && !(el('mode').value === 'unit' ? selectedUnits().length : selectedIds().length) ? {unit_codes:['VCM1','VCM2']} :
           el('mode').value === 'unit' ? {unit_codes:selectedUnits()} : {exchanger_ids:selectedIds(), inspection_id:el('inspection').value ? Number(el('inspection').value) : null}),
         question:el('question').value
       });
@@ -161,6 +163,7 @@
       el('result-scope').textContent = `${periodText}${[...new Set(scopes.map(s => s.equipment.unit_code))].join(' · ')} · ${equipmentCount}대 / ${scopes.length}개 검사 회차 · 제외 ${excluded.length}대 · 선택된 검사 결과를 합쳐 집계합니다. 같은 튜브도 검사 회차가 다르면 별도 결과입니다.`;
       el('scope-list').textContent = scopes.map(s => `분석 · ${s.equipment.unit_code} ${s.equipment.equipment_tag || s.equipment.equipment_code} · 검사 #${s.inspection.iris_inspection_id}`).concat(excluded.map(s => `제외 · ${s.equipment.unit_code} ${s.equipment.equipment_tag || s.equipment.equipment_code} · ${s.reason}`)).join('\n');
       el('scope-details').hidden = false;
+      if(payload.query_kind === 'wall_loss_exchanger_count') el('result-scope').textContent += ' · 감육 조건을 만족하는 유효 튜브가 하나 이상인 교환기를 공정별 1대씩 집계합니다.';
     } catch (exc) { error(exc.message); el('generate-status').textContent = 'SQL을 생성하지 못했습니다.'; }
     finally { setBusy(false); }
   });
@@ -173,7 +176,8 @@
       const {result} = await request(root.dataset.executeUrl, {token});
       const table = el('result-table'), head = table.querySelector('thead'), body = table.querySelector('tbody');
       head.replaceChildren(); body.replaceChildren();
-      const columns = ['equipment_code', ...(result.columns || Object.keys(result.rows[0] || {})).filter(column => column !== 'equipment_code')], header = document.createElement('tr');
+      const resultColumns = result.columns || Object.keys(result.rows[0] || {});
+      const columns = result.query_kind === 'wall_loss_exchanger_count' ? resultColumns : ['equipment_code', ...resultColumns.filter(column => column !== 'equipment_code')], header = document.createElement('tr');
       const combinedSummary = (result.scopes || []).length > 1 && result.rows.every(row => row.heat_exchanger_id == null);
       const numeric = new Set(columns.filter(column => result.rows.some(row => typeof row[column] === 'number')));
       columns.forEach(column => { const th = document.createElement('th'); th.scope = 'col'; th.textContent = column === 'equipment_code' && combinedSummary ? '열교환기 코드 (집계 대상)' : labels[column] || column; if (numeric.has(column)) th.className = 'sql-number'; header.append(th); });
@@ -204,6 +208,9 @@
         el('result-note').textContent = result.period.target === 'tube'
           ? `설비·번들·튜브번호별 1행 · 유효 결과를 검사 ID별 1회 집계 · 대체된 검사 제외 · 동률은 공정·설비 태그·설비 ID·번들·튜브번호순 · 최대 ${result.period.limit}개`
           : `IRIS 검사 ID별 1회 집계 · 대체된 검사 제외 · 동률은 최근 검사일, 설비 ID 순 · 최대 ${result.period.limit}대`;
+      }
+      if(result.query_kind === 'wall_loss_exchanger_count') {
+        el('result-note').textContent = '유효 결과 중 감육 조건에 맞는 튜브가 하나 이상인 열교환기 수 · 튜브·회차가 여러 개여도 교환기별 1대 · 선택한 공정에 해당 교환기가 없으면 0대 · 제외 설비는 분석 대상·제외 설비에서 확인';
       }
       try { charts?.setResult(result); }
       catch (_) { charts?.clear('차트를 표시하지 못했습니다. 위 결과 표를 확인하세요.'); }

@@ -126,6 +126,25 @@ try {
   assert.equal(await page.eval(()=>document.getElementById('sql-generate').getAttribute('aria-busy')),'false');
   assert.match(await page.eval(()=>document.getElementById('sql-generate-status').textContent),/생성하지 못했습니다/);
   checks.push('Generation waiting icon clears on failed generation');
+  await page.eval(()=>{
+    window.fetch=async(url,options)=>{
+      window.lastCountInput=JSON.parse(options.body);
+      return {ok:true,redirected:false,headers:{get:()=> 'application/json'},json:async()=>String(url).endsWith('/generate')?
+        {token:'count-fixture',query_kind:'wall_loss_exchanger_count',proposal:{sql:'SELECT count_fixture',parameters:[10]},
+          scopes:[{equipment:{heat_exchanger_id:1,unit_code:'VCM1'},inspection:{iris_inspection_id:1}}],excluded:[]}:
+        {result:{query_kind:'wall_loss_exchanger_count',columns:['unit_code','exchanger_count'],rows:[{unit_code:'VCM1',exchanger_count:2},{unit_code:'VCM2',exchanger_count:0}],result_count:2,generated_at:new Date().toISOString()}}};
+    };
+    const q=document.getElementById('sql-question');q.value='튜브별 감육률 10% 이상인 교환기 수량은, VCM1과 VCM2로 구분해줘';q.dispatchEvent(new Event('input'));
+    document.getElementById('sql-question-form').requestSubmit();
+  });await wait();
+  assert.deepEqual(await page.eval(()=>window.lastCountInput.unit_codes),['VCM1','VCM2']);
+  await execute();
+  assert.deepEqual(await page.eval(()=>[...document.querySelectorAll('#sql-result-table th')].map(n=>n.textContent)),['공정','열교환기 수 (대)']);
+  assert.equal(await page.eval(()=>document.querySelectorAll('.sql-chart-bar').length),2);
+  assert.match(await page.eval(()=>document.getElementById('sql-result-note').textContent),/교환기별 1대/);
+  await page.eval(()=>document.getElementById('sql-chart-panel').scrollIntoView());
+  await page.screenshot({path:join(output,'exchanger-count-390.png'),format:'png',fullPage:false});
+  checks.push('Grouped exchanger counts render two columns, retain zero, chart and default both units');
   assert.deepEqual(page.consoleErrors,[]);
   writeFileSync(join(output,'validation.json'),JSON.stringify({passed:true,fixture_only:true,checks},null,2));
   console.log(JSON.stringify({passed:true,checks}));

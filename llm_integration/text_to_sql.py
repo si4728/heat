@@ -54,6 +54,12 @@ def validate_question_contract(question: str, proposal: dict) -> None:
     """Check explicit pilot question requirements independently of SQL syntax."""
     question = normalize(question)
     sql, parameters = validate_proposal(proposal)
+    from iris2.application import wall_loss_exchanger_count as exchanger_count
+    if exchanger_count.matches(question):
+        expected_sql, expected_parameters = validate_proposal(exchanger_count.proposal(question))
+        if (sql, parameters) != (expected_sql, expected_parameters):
+            raise QueryRejected('공정별 교환기 수는 조건을 만족하는 교환기를 중복 없이 집계해야 합니다.')
+        return
     tree = sqlglot.parse_one(sql, read="mysql")
     expressions = [e.this if isinstance(e, exp.Alias) else e for e in tree.expressions]
     threshold = re.search(r"감육률?\s*(\d+(?:\.\d+)?)\s*%\s*(이상|초과|이하|미만)", question)
@@ -118,7 +124,7 @@ def validate_proposal(proposal: dict) -> tuple[str, list]:
             raise QueryRejected(f"허용되지 않은 SQL 구조: {type(node).__name__}")
         if isinstance(node, exp.Select) and node is not tree:
             raise QueryRejected("하위 SELECT는 허용하지 않습니다.")
-        if isinstance(node, exp.Column) and (node.table or node.name not in COLUMNS):
+        if isinstance(node, exp.Column) and (node.table or node.name not in COLUMNS | {'heat_exchanger_id', 'unit_code'}):
             raise QueryRejected("허용되지 않은 컬럼입니다.")
         if isinstance(node, exp.Placeholder) and node.this:
             raise QueryRejected("물음표 바인딩만 허용합니다.")
@@ -145,7 +151,12 @@ def validate_proposal(proposal: dict) -> tuple[str, list]:
         tree = tree.limit(MAX_ROWS)
     if tree.args.get("offset"):
         raise QueryRejected("OFFSET은 허용하지 않습니다.")
-    return tree.sql(dialect="mysql"), parameters
+    sql = tree.sql(dialect="mysql")
+    if any(column.name in {'heat_exchanger_id', 'unit_code'} for column in tree.find_all(exp.Column)):
+        from iris2.application import wall_loss_exchanger_count as exchanger_count
+        if not exchanger_count.is_proposal(dict(sql=sql, parameters=parameters)):
+            raise QueryRejected('설비·공정 컬럼은 감육 조건별 공정별 교환기 수 집계에만 사용할 수 있습니다.')
+    return sql, parameters
 
 
 def generate_proposal(question: str, client, *, model_key=None) -> dict:
@@ -157,6 +168,12 @@ def generate_proposal(question: str, client, *, model_key=None) -> dict:
     _, question = query_period.parse(question)
     if not question:
         raise QueryRejected('기간과 함께 조회할 내용을 입력하세요.')
+    from iris2.application import wall_loss_exchanger_count as exchanger_count
+    if exchanger_count.matches(question):
+        value = exchanger_count.proposal(question)
+        sql, parameters = validate_proposal(value)
+        validate_question_contract(question, value)
+        return dict(sql=sql, parameters=parameters)
     if any(word in question.lower() for word in ('잔여수명', '차기', '이전', '비교', '종합의견', 'plugging', '건전성')):
         raise QueryRejected("이 질문은 현재 검사 회차 조회 범위를 벗어납니다. 이력·수명·검사계획 분석 서비스를 사용하세요.")
     prompt = """Translate the Korean question into SQL. Output JSON only.
@@ -211,7 +228,7 @@ Answer: {"sql":"SELECT tube_id, source_tube_id, wall_loss_percent, iris_tube_res
 
 SOURCE_SQL = """SELECT r.iris_tube_result_id, r.iris_inspection_id, r.tube_id,
     r.source_tube_id, r.minimum_wall_thickness_mm, r.wall_loss_percent,
-    r.location_mm, r.source_page, hx.heat_exchanger_id, e.equipment_code
+    r.location_mm, r.source_page, hx.heat_exchanger_id, e.equipment_code, u.unit_code
     FROM iris_tube_result r JOIN iris_inspection i
       ON i.iris_inspection_id=r.iris_inspection_id
     JOIN heat_exchanger hx ON hx.heat_exchanger_id=i.heat_exchanger_id
@@ -292,6 +309,9 @@ def execute_proposal(proposal: dict, *, exchanger_id: int, authorized_exchanger_
                 append=True, copy=False)
         conditions = " OR ".join("(hx.heat_exchanger_id=? AND i.iris_inspection_id=?)" for _ in resolved)
         scoped_source = SOURCE_SQL.replace("hx.heat_exchanger_id=? AND i.iris_inspection_id=?", "(" + conditions + ")")
+        from iris2.application import wall_loss_exchanger_count as exchanger_count
+        if exchanger_count.is_proposal(dict(sql=sql, parameters=parameters)):
+            scoped_source += " AND r.result_status='VALID'"
         source = sqlglot.parse_one(scoped_source, read="mysql").subquery("analysis_tubes")
         next(tree.find_all(exp.Table)).replace(source)
         executable = tree.sql(dialect="mysql")

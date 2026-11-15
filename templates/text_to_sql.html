@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Text-to-SQL 분석{% endblock %}
 {% block heading %}Text-to-SQL 분석{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='text-to-sql.css', v='20261115-wait-1') }}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='text-to-sql.css', v='20261115-count-1') }}">{% endblock %}
 {% block content %}
 <div class="text-sql" id="text-sql" data-csrf="{{ csrf_token }}"
      data-inspections-url="{{ url_for('text_to_sql_inspections') }}"
@@ -43,6 +43,7 @@
             <button type="button" data-question="검사 결과를 요약해 줘.">검사 요약</button>
             <button type="button" data-question="감육이 가장 심한 Tube 5개를 알려줘.">감육 상위 5개</button>
             <button type="button" data-question="감육률 30% 이상인 Tube를 보여줘.">감육률 30% 이상</button>
+            <button type="button" data-question="튜브별 감육률 10% 이상인 교환기 수량은, VCM1과 VCM2로 구분해줘">공정별 감육 교환기 수</button>
             <button type="button" data-question="최근 IRIS 검사를 제일 많이 수행한 열교환기를 리스트해줘.">IRIS 검사 횟수 순위</button>
             <button type="button" data-question="2025년 검사 결과를 요약해 줘.">2025년 검사 요약</button>
             <button type="button" data-question="최근 3개월 검사를 제일 많이한 튜브 10개 리스트 해줘, 튜브번호 별 1행씩">최근 3개월 튜브 검사 순위</button>
@@ -87,4 +88,4 @@
   </section>
 </div>
 {% endblock %}
-{% block scripts %}<script defer src="{{ url_for('static', filename='text-to-sql-links.js', v='20261112-tag-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql-charts.js', v='20261115-wait-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql.js', v='20261115-wait-1') }}"></script>{% endblock %}
+{% block scripts %}<script defer src="{{ url_for('static', filename='text-to-sql-links.js', v='20261112-tag-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql-charts.js', v='20261115-count-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql.js', v='20261115-count-1') }}"></script>{% endblock %}
