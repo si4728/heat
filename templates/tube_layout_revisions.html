@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Tube Layout Revision{% endblock %}
-{% block heading %}Tube Layout Revision 관리{% endblock %}
+{% block heading %}Tube Layout Revision 조회{% endblock %}
 {% block content %}
 <div class="metrics compact-metrics">
   {% for key,label in [('APPROVED','승인'),('REVIEWED','검토'),('DRAFT','초안'),('REJECTED','반려')] %}
@@ -12,7 +12,7 @@
   <select name="status"><option value="">전체 상태</option>{% for key in allowed_statuses %}<option value="{{ key }}" {{ 'selected' if status_filter==key else '' }}>{{ key }}</option>{% endfor %}</select>
   <button class="button">조회</button>
 </form>
-<div class="alert info">원천 좌표 검토 상태를 조회하는 읽기 전용 화면입니다. 승인·반려 및 DB 반영은 대상과 건수를 별도 확인한 뒤 수행합니다.</div>
+<div class="alert info">설비별 원천 좌표, Revision 승인 상태 및 Tube 연결 현황을 조회합니다. 이 화면에서는 승인 상태와 좌표를 변경하지 않습니다.</div>
 <article class="panel"><div class="table-wrap tall"><table>
   <thead><tr><th>설비</th><th>Revision</th><th>상태</th><th>Count 기준</th><th>Physical / Layout</th><th>좌표 검증</th><th>Tube 연결</th><th>방향·Section</th><th>원천</th></tr></thead>
   <tbody>{% for row in rows %}{% set r=row.revision %}<tr>
