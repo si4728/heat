@@ -19,6 +19,8 @@ class PeriodTests(unittest.TestCase):
             ('최근 3일 요약', date(2026,11,13), '2026-11-10', '2026-11-13'),
             ('2025년 요약', date(2026,11,13), '2025-01-01', '2025-12-31'),
             ('2024년 2월 요약', date(2026,11,13), '2024-02-01', '2024-02-29'),
+            ('올해 3월 요약', date(2026,11,15), '2026-03-01', '2026-03-31'),
+            ('작년 3월 요약', date(2026,11,15), '2025-03-01', '2025-03-31'),
             ('2025-01-01부터 2025-12-31까지 요약', date(2026,11,13), '2025-01-01', '2025-12-31'),
             ('2025.1.1~2025.2.28 요약', date(2026,11,13), '2025-01-01', '2025-02-28'),
             ('올해 요약', date(2026,11,13), '2026-01-01', '2026-11-13'),
@@ -34,8 +36,9 @@ class PeriodTests(unittest.TestCase):
     def test_invalid_or_ambiguous_dates_are_not_ignored(self):
         for text in ['최근 0개월 요약', '2025-02-30~2025-03-01 요약',
                      '2025-12-31~2025-01-01 요약', '최근 3개월 2025년 요약',
-                     '지난달 요약', '2025-01-01 이후 요약', '2099년 요약',
-                     '2025년 13월 요약', '올해 3월 요약', '2025년 2월 10일 요약']:
+                     '지난 분기 요약', '2025-01-01 이후 요약', '2099년 요약',
+                     '2025년 13월 요약', '올해 13월 요약', '2025년 2월 10일 요약',
+                     '올해 12월 요약', '3월 요약']:
             with self.subTest(text=text), self.assertRaises(QueryRejected):
                 query_period.parse(text, date(2026,11,13))
 
@@ -62,6 +65,17 @@ class PeriodTests(unittest.TestCase):
 
 
 class PeriodWebTests(TextToSqlWebTests):
+    def test_named_month_is_not_expanded_to_whole_year(self):
+        self.rounds.return_value = [dict(iris_inspection_id=1,effective_date='2026-03-15'),
+                                   dict(iris_inspection_id=2,effective_date='2026-10-15')]
+        with patch('iris2.web.routes.text_to_sql.query_period.datetime') as clock:
+            clock.now.return_value.date.return_value=date(2026,11,15)
+            preview=self.post('generate',dict(exchanger_id=151,question='올해 3월 검사 현황'))
+        self.assertEqual(preview.status_code,200)
+        self.assertEqual(preview.json['period'],dict(start='2026-03-01',end='2026-03-31'))
+        self.assertEqual([s['inspection']['iris_inspection_id'] for s in preview.json['scopes']],[1])
+        self.worker.assert_called_once_with('요약')
+
     def test_period_is_pinned_and_removed_from_model_question(self):
         self.rounds.return_value = [self.inspection,
             dict(iris_inspection_id=388, effective_date='2025-01-01'),

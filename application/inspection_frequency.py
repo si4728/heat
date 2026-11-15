@@ -7,18 +7,22 @@ from iris2 import dbapi
 from iris2.application import query_period
 from iris2.hx_configuration import DB_PATH
 from iris2.llm_integration.text_to_sql import QueryRejected
+from iris2.llm_integration.question_language import normalize
 
 
 def tube_ranking(question):
+    question = normalize(question)
     return bool(re.search(r'튜브|tube', question, re.I))
 
 
 def matches(question):
+    question = normalize(question)
     return bool(re.search(r'열교환기|교환기|설비|튜브|tube', question, re.I) and '검사' in question
                 and re.search(r'(?:제일|가장)\s*많|많이|횟수|빈도|건수', question))
 
 
 def options(question, today=None):
+    question = normalize(question)
     if re.search(r'잔여수명|차기|예측|건전성|종합의견|비교|적은|적게',question):
         raise QueryRejected('검사 횟수 이력 조회만 지원합니다. 수명·차기검사 예측은 별도 분석을 사용하세요.')
     today = today or datetime.now(timezone(timedelta(hours=9))).date()

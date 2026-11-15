@@ -54,7 +54,7 @@
   const selectedIds = () => [...el('equipment').querySelectorAll('input:checked')].map(i => Number(i.value));
   const selectedUnits = () => [...el('units').querySelectorAll('input:checked')].map(i => i.value);
   let scopeReady = false;
-  const frequencyQuestion = () => /열교환기|교환기|설비|튜브|tube/i.test(el('question').value) && /검사/.test(el('question').value) && /(?:제일|가장)\s*많|많이|횟수|빈도|건수/.test(el('question').value);
+  const frequencyQuestion = () => /열교환기|교환기|설비|튜브|전열관|tube/i.test(el('question').value) && /검사/.test(el('question').value) && /(?:제일|가장)\s*많|많이|횟수|빈도|건수/.test(el('question').value);
   function setBusy(value, generating = false) {
     busy = value;
     root.querySelectorAll('#sql-equipment input, #sql-units input, #sql-mode, #sql-filter, #sql-select-visible, #sql-clear-selection').forEach(control => { control.disabled = value; });

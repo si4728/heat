@@ -14,6 +14,7 @@ from iris2 import services
 from iris2.application import text_to_sql_service as analysis
 from iris2.application import inspection_frequency as frequency
 from iris2.application import query_period
+from iris2.llm_integration.question_language import normalize
 from iris2.application import text_to_sql_usage_log as usage_log
 from iris2.hx_configuration import APP_DIR
 from iris2.llm_integration.text_to_sql import (
@@ -166,7 +167,7 @@ def register_routes(app):
                     usage_id=record['usage_id'],usage_input=record['input']))
                 return jsonify(proposal=proposal,token=token,query_kind='inspection_frequency',period=period,
                                equipment_list=selected)
-            period, model_question = query_period.parse(question)
+            period, model_question = query_period.parse(normalize(question))
             multi = 'exchanger_ids' in data or 'unit_codes' in data
             if period is not None:
                 if 'exchanger_id' in data and multi:

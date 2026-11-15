@@ -66,6 +66,14 @@ class FrequencyTests(unittest.TestCase):
 
 
 class FrequencyWebTests(web_tests.TextToSqlWebTests):
+    def test_tube_alias_and_fullwidth_top_limit_use_history_path(self):
+        response=self.post('generate',dict(question='지난달 검사 횟수 상위 전열관 TOP １０'))
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json['query_kind'],'inspection_frequency')
+        self.assertEqual(response.json['period']['target'],'tube')
+        self.assertEqual(response.json['period']['limit'],10)
+        self.worker.assert_not_called()
+
     def test_tube_question_uses_signed_history_query(self):
         preview = self.post('generate', dict(question='검사를 제일 많이한 튜브 10개 리스트 해줘, 튜브번호 별 1행씩'))
         self.assertEqual(preview.status_code, 200)
