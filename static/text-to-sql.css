@@ -21,6 +21,10 @@
 .text-sql .sql-actions { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
 .text-sql .sql-actions span { flex:1 1 140px; color:var(--sql-muted); font-size:12px; line-height:1.6; }
 .text-sql .button { min-height:38px; white-space:nowrap; }
+.text-sql #sql-generate { display:inline-flex; align-items:center; gap:8px; }
+.text-sql .sql-wait-spinner { flex-shrink:0; animation:sql-wait-spin .8s linear infinite; }
+@keyframes sql-wait-spin { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .text-sql .sql-wait-spinner { animation:none; } }
 .text-sql button:disabled { opacity:1; color:var(--sql-muted); background:var(--workspace-frame,var(--panel)); cursor:not-allowed; }
 .text-sql .sql-help { margin:12px 0 0; }
 .text-sql .sql-parameters { margin:10px 0 16px; color:var(--sql-muted); font-size:12px; overflow-wrap:anywhere; }

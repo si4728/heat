@@ -40,8 +40,8 @@ try {
       {equipment_tag:'E-107',tube_no:'2-1',inspection_count:0,wall_loss_percent:0},
       {equipment_tag:'<img src=x onerror=alert(1)>',tube_no:'3-1',inspection_count:null,wall_loss_percent:null}],
       result_count:4,limit_reached:true,generated_at:new Date().toISOString()};
-    window.fetch=async url=>({ok:true,redirected:false,headers:{get:()=> 'application/json'},json:async()=>String(url).endsWith('/generate')?
-      {token:'fixture',proposal:{sql:'SELECT fixture',parameters:[]},query_kind:'inspection_frequency',period:{start:'2025-01-01',end:'2025-12-31',limit:10,target:'tube'},equipment_list:[]}:{result:window.chartFixture}});
+    window.fetch=async url=>({ok:true,redirected:false,headers:{get:()=> 'application/json'},json:async()=>{if(String(url).endsWith('/generate')) await new Promise(resolve=>{window.releaseGeneration=resolve;});return String(url).endsWith('/generate')?
+      {token:'fixture',proposal:{sql:'SELECT fixture',parameters:[]},query_kind:'inspection_frequency',period:{start:'2025-01-01',end:'2025-12-31',limit:10,target:'tube'},equipment_list:[]}:{result:window.chartFixture};}});
     const q=document.getElementById('sql-question');q.value='검사 횟수 많은 튜브 10개';q.dispatchEvent(new Event('input'));
     document.getElementById('sql-question-form').requestSubmit();
   });
@@ -53,7 +53,22 @@ try {
   }
   async function execute(){await page.eval(()=>document.getElementById('sql-execute').click());await wait();await new Promise(r=>setTimeout(r,100));}
   async function change(key,value){await page.eval(({key,value})=>{if(key==='type'){document.querySelector(`[data-chart-type="${value}"]`).click();return;}const node=document.querySelector(`[data-chart="${key}"]`);node.value=value;node.dispatchEvent(new Event('change'));},{key,value});}
-  await wait();await execute();
+  assert.equal(await page.eval(()=>document.getElementById('sql-generate-spinner').hasAttribute('hidden')),false);
+  assert.equal(await page.eval(()=>document.getElementById('sql-generate').getAttribute('aria-busy')),'true');
+  assert.equal(await page.eval(()=>document.getElementById('sql-code').value),'');
+  assert.equal(await page.eval(()=>document.getElementById('sql-generate').disabled),true);
+  for(const width of [1440,768,390]){
+    await page.setViewport({width,height:1000});
+    await page.eval(()=>document.getElementById('sql-generate').scrollIntoView({block:'center'}));
+    assert.equal(await page.eval(()=>getComputedStyle(document.getElementById('sql-generate-spinner')).display!=='none'),true);
+    await page.screenshot({path:join(output,`waiting-${width}.png`),format:'png',fullPage:false});
+  }
+  await page.eval(()=>window.releaseGeneration());await wait();
+  assert.equal(await page.eval(()=>document.getElementById('sql-generate-spinner').hasAttribute('hidden')),true);
+  assert.equal(await page.eval(()=>document.getElementById('sql-generate').getAttribute('aria-busy')),'false');
+  assert.equal(await page.eval(()=>document.getElementById('sql-code').value),'SELECT fixture');
+  checks.push('Generation waiting icon visible until SQL response, responsive and cleared on completion');
+  await execute();
   assert.equal(await page.eval(()=>document.querySelectorAll('.sql-chart-bar').length),3);
   assert.equal(await page.eval(()=>document.querySelectorAll('#sql-chart-panel img').length),0);
   assert.match(await page.eval(()=>document.querySelector('[data-chart="note"]').textContent),/4행 기준.*유효 수치 3행.*결측 1행.*제한/);
@@ -106,6 +121,11 @@ try {
   await page.eval(()=>{const q=document.getElementById('sql-question');q.value='검사 요약';q.dispatchEvent(new Event('input'));});
   assert.equal(await page.eval(()=>document.querySelectorAll('#sql-chart-panel svg').length),0);
   checks.push('Empty, ID-only, failed-query and changed-question states clear old charts');
+  await page.eval(()=>document.getElementById('sql-question-form').requestSubmit());await wait();
+  assert.equal(await page.eval(()=>document.getElementById('sql-generate-spinner').hasAttribute('hidden')),true);
+  assert.equal(await page.eval(()=>document.getElementById('sql-generate').getAttribute('aria-busy')),'false');
+  assert.match(await page.eval(()=>document.getElementById('sql-generate-status').textContent),/생성하지 못했습니다/);
+  checks.push('Generation waiting icon clears on failed generation');
   assert.deepEqual(page.consoleErrors,[]);
   writeFileSync(join(output,'validation.json'),JSON.stringify({passed:true,fixture_only:true,checks},null,2));
   console.log(JSON.stringify({passed:true,checks}));

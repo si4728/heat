@@ -67,7 +67,9 @@
     el('generate').disabled = value || (!scopeReady && !frequencyQuestion());
     el('execute').disabled = value || !token;
     root.setAttribute('aria-busy', String(value));
-    if (value) el(generating ? 'generate-status' : 'execute-status').textContent = generating ? (frequencyQuestion() ? 'IRIS 검사 횟수 조회 SQL을 준비하고 있습니다.' : '로컬 모델이 SQL을 생성하고 있습니다. 최대 120초 소요됩니다.') : 'MariaDB에서 조회하고 있습니다.';
+    el('generate-spinner').toggleAttribute('hidden', !(value && generating));
+    el('generate').setAttribute('aria-busy', String(value && generating));
+    if (value) el(generating ? 'generate-status' : 'execute-status').textContent = generating ? (frequencyQuestion() ? 'SQL 생성 중… IRIS 검사 횟수 조회 조건을 적용합니다.' : 'SQL 생성 중… 최대 120초 소요됩니다.') : 'MariaDB에서 조회하고 있습니다.';
   }
   async function request(url, data) {
     const response = await fetch(url, {
