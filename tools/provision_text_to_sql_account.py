@@ -41,7 +41,8 @@ def provision():
                 cursor.execute("CREATE USER %s@%s IDENTIFIED BY %s", (user, host, password))
                 created.append(host)
                 for table in ('heat_exchanger', 'equipment', 'process_unit', 'iris_inspection', 'iris_tube_result',
-                              'heat_exchanger_tube', 'tube_bundle'):
+                              'heat_exchanger_tube', 'tube_bundle',
+                              'heat_exchanger_spec_revision', 'heat_exchanger_side_spec'):
                     cursor.execute(f"GRANT SELECT ON `{schema}`.`{table}` TO %s@%s", (user, host))
             settings = dict(target, user=user, password=password)
             parser = configparser.ConfigParser(interpolation=None)

@@ -26,6 +26,7 @@
     tube_no:'튜브번호', bundle_code:'번들', heat_exchanger_id:'열교환기 ID', unit_code:'공정', equipment_tag:'설비 Tag',
     equipment_code:'열교환기 코드', equipment_name:'설비명', inspection_count:'IRIS 검사 횟수',
     latest_inspection_date:'최근 검사일', exchanger_count:'열교환기 수 (대)',
+    fluid_name:'유체명', side_code:'유체 측', equipment_list:'열교환기 목록',
     year:'연도', inspection_year:'검사 연도', inspection_date:'검사일', report_date:'보고일',
     inspected_tubes:'검사 Tube 수', valid_loss_tubes:'유효 감육률 Tube 수',
     minimum_mm:'최소두께 (mm)', maximum_loss:'최대 감육률 (%)', average_loss:'평균 감육률 (%)', mean_loss:'평균 감육률 (%)',
@@ -61,15 +62,16 @@
   let scopeReady = false;
   const helpQuestion = () => /^(?:도움말(?:\s*(?:알려\s*줘(?:요)?|보여\s*줘(?:요)?|알려\s*주세요|보여\s*주세요))?|사용법|예시\s*질문|샘플(?:\s*질문)?|help)[.!?。？！]*$/i.test(el('question').value.trim());
   const reportQuestion = () => /pdf|보고서|report/i.test(el('question').value) && !/요약|감육|두께|순위|횟수|통계|비교/.test(el('question').value);
+  const fluidQuestion = () => /유체|fluid/i.test(el('question').value);
   const frequencyQuestion = () => /열교환기|교환기|설비|튜브|전열관|tube/i.test(el('question').value) && /검사/.test(el('question').value) && /(?:제일|가장)\s*많|많이|횟수|빈도|건수/.test(el('question').value);
   const groupedCountQuestion = () => /감육/.test(el('question').value) && /교환기/.test(el('question').value) && /수량|개수|몇\s*대|대수|수\b|수[는를가]/.test(el('question').value) && /공정\s*별|라인\s*별|VCM1.*VCM2|구분/i.test(el('question').value);
   function setBusy(value, generating = false) {
     busy = value;
     root.querySelectorAll('#sql-equipment input, #sql-units input, #sql-mode, #sql-filter, #sql-select-visible, #sql-clear-selection').forEach(control => { control.disabled = value; });
-    el('inspection').disabled = value || frequencyQuestion() || el('mode').value !== 'equipment' || selectedIds().length !== 1 || !scopeReady;
+    el('inspection').disabled = value || fluidQuestion() || frequencyQuestion() || el('mode').value !== 'equipment' || selectedIds().length !== 1 || !scopeReady;
     el('question').disabled = value;
     root.querySelectorAll('[data-question]').forEach(b => { b.disabled = value; });
-    el('generate').disabled = value || (!scopeReady && !frequencyQuestion() && !groupedCountQuestion() && !helpQuestion() && !reportQuestion());
+    el('generate').disabled = value || (!scopeReady && !frequencyQuestion() && !groupedCountQuestion() && !helpQuestion() && !reportQuestion() && !fluidQuestion());
     el('execute').disabled = value || !token;
     root.setAttribute('aria-busy', String(value));
     el('generate-spinner').toggleAttribute('hidden', !(value && generating));
@@ -135,6 +137,7 @@
   function questionChanged() {
     reset(); setBusy(false);
     if (helpQuestion()) el('generate-status').textContent = 'SQL 생성 버튼을 누르면 예시 질문과 사용 방법을 표시합니다.';
+    else if (fluidQuestion()) el('generate-status').textContent = '현재 사양의 유체명별 설비 수·목록 · 기본 Shell·Tube 측별 구분 · 범위 미선택 시 VCM1·VCM2 전체';
     else if (reportQuestion()) el('generate-status').textContent = '검사 보고서 PDF 조회 · 설비 코드 또는 선택 범위 기준 · 연도 입력 가능 · 기간 생략 시 전체 검사 이력';
     else if (frequencyQuestion()) el('generate-status').textContent = 'IRIS 검사 횟수 순위 · 기간 입력 가능 · 기간 생략 시 설비 최근 5년 / 튜브 전체 이력 · 범위 미선택 시 VCM1·VCM2 전체';
     else if (groupedCountQuestion()) el('generate-status').textContent = '감육 조건별 공정별 열교환기 수 · 범위 미선택 시 VCM1·VCM2 전체 · 기간 생략 시 설비별 최근 유효 검사';
@@ -185,6 +188,12 @@
       el('parameters').textContent = JSON.stringify(payload.proposal.parameters);
       el('copy').disabled = false;
       el('generate-status').textContent = 'SQL 검증 완료. 내용을 확인한 뒤 실행하세요.';
+      if (payload.query_kind === 'fluid_grouping') {
+        el('result-scope').textContent = `${payload.equipment_list.length}대 · 현재 사양 · ${payload.settings.sides.join(' · ')} · ${payload.settings.by_unit ? '공정별 구분' : '선택 공정 합산'} · 검사 이력 유무와 관계없이 집계`;
+        el('scope-list').textContent = payload.equipment_list.map(s => `${s.unit_code} · ${s.equipment_tag || s.equipment_code}`).join('\n');
+        el('scope-details').hidden = false;
+        return;
+      }
       if (payload.query_kind === 'inspection_frequency') {
         el('result-scope').textContent = `${payload.period.all_history ? '전체 이력' : payload.period.start + ' ~ ' + payload.period.end} · ${payload.equipment_list.length}대 범위 · IRIS 검사 회차 수 내림차순 · 상위 ${payload.period.limit}${payload.period.target === 'tube' ? '개 튜브' : '대'} · 검사일 없으면 보고일 기준`;
         el('scope-list').textContent = payload.equipment_list.map(s => `${s.unit_code} · ${s.equipment_tag || s.equipment_code}`).join('\n');
@@ -212,7 +221,7 @@
       const table = el('result-table'), head = table.querySelector('thead'), body = table.querySelector('tbody');
       head.replaceChildren(); body.replaceChildren();
       const resultColumns = result.columns || Object.keys(result.rows[0] || {});
-      const columns = result.query_kind === 'wall_loss_exchanger_count' ? resultColumns : ['equipment_code', ...resultColumns.filter(column => column !== 'equipment_code')], header = document.createElement('tr');
+      const columns = ['wall_loss_exchanger_count','fluid_grouping'].includes(result.query_kind) ? resultColumns : ['equipment_code', ...resultColumns.filter(column => column !== 'equipment_code')], header = document.createElement('tr');
       const combinedSummary = (result.scopes || []).length > 1 && result.rows.every(row => row.heat_exchanger_id == null);
       const numeric = new Set(columns.filter(column => result.rows.some(row => typeof row[column] === 'number')));
       columns.forEach(column => { const th = document.createElement('th'); th.scope = 'col'; th.textContent = column === 'equipment_code' && combinedSummary ? '열교환기 코드 (집계 대상)' : labels[column] || column; if (numeric.has(column)) th.className = 'sql-number'; header.append(th); });
@@ -246,6 +255,10 @@
       }
       if(result.query_kind === 'wall_loss_exchanger_count') {
         el('result-note').textContent = '유효 결과 중 감육 조건에 맞는 튜브가 하나 이상인 열교환기 수 · 튜브·회차가 여러 개여도 교환기별 1대 · 선택한 공정에 해당 교환기가 없으면 0대 · 제외 설비는 분석 대상·제외 설비에서 확인';
+      }
+      if (result.query_kind === 'fluid_grouping') {
+        el('empty').textContent = '조건에 맞는 유체 사양이 없습니다.';
+        el('result-note').textContent = `${result.limit_reached ? '최대 100행입니다. 범위를 좁혀 주세요. · ' : ''}현재 사양 기준 · 공백·대소문자 정규화 · 미등록 별도 표시 · 같은 설비는 유체·측·공정 그룹 안에서 1대 · Shell과 Tube 양쪽에 해당하면 각각 집계`;
       }
       try { charts?.setResult(result); }
       catch (_) { charts?.clear('차트를 표시하지 못했습니다. 위 결과 표를 확인하세요.'); }

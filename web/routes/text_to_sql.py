@@ -16,6 +16,7 @@ from iris2.application import inspection_frequency as frequency
 from iris2.application import query_period
 from iris2.application import text_to_sql_help
 from iris2.application import text_to_sql_reports
+from iris2.application import text_to_sql_fluids as fluids
 from iris2.llm_integration.question_language import normalize
 from iris2.application import text_to_sql_usage_log as usage_log
 from iris2.hx_configuration import APP_DIR
@@ -140,6 +141,19 @@ def register_routes(app):
             if text_to_sql_help.matches(question):
                 record['query_kind'] = 'help'
                 return jsonify(text_to_sql_help.response())
+            if fluids.matches(question):
+                record['query_kind'] = 'fluid_grouping'
+                settings = fluids.options(question)
+                selected = fluids.select_equipment(data, question)
+                ids = [row['heat_exchanger_id'] for row in selected]
+                record_scopes([dict(equipment=row, inspection=None) for row in selected])
+                proposal = fluids.proposal(ids, settings)
+                usage_log.proposal_context(record, proposal)
+                token = serializer().dumps(dict(actor=profile['user_id'], query_kind='fluid_grouping',
+                    ids=ids, settings=settings, proposal=proposal, question=question,
+                    usage_id=record['usage_id'], usage_input=record['input']))
+                return jsonify(query_kind='fluid_grouping', proposal=proposal, token=token,
+                               equipment_list=selected, settings=settings)
             if text_to_sql_reports.matches(question):
                 record['query_kind'] = 'inspection_reports'
                 result = text_to_sql_reports.response(question, data)
@@ -258,6 +272,14 @@ def register_routes(app):
             if signed['actor'] != profile['user_id']:
                 raise PermissionError('다른 사용자가 생성한 SQL은 실행할 수 없습니다.')
             signed_usage(signed)
+            if signed.get('query_kind') == 'fluid_grouping':
+                catalog = analysis.catalog()
+                record_scopes([dict(equipment=row, inspection=None) for row in catalog
+                               if row['heat_exchanger_id'] in signed['ids']])
+                result = fluids.execute(signed['ids'], signed['settings'], signed['proposal'],
+                                        {row['heat_exchanger_id'] for row in catalog})
+                record['result'] = {key: result.get(key) for key in ('result_count','query_sha256','limit_reached')}
+                return jsonify(result=result)
             if signed.get('period'):
                 record['period'] = signed['period']
             if signed.get('query_kind') == 'inspection_frequency':

@@ -11,7 +11,10 @@ sys.path.insert(0, str(APP_DIR.parent))
 from iris2.db_config import load_database_config
 
 
-def apply():
+def apply(*, tables=('heat_exchanger_tube', 'tube_bundle')):
+    if not tables or any(table not in ('heat_exchanger_tube', 'tube_bundle',
+            'heat_exchanger_spec_revision', 'heat_exchanger_side_spec') for table in tables):
+        raise ValueError('Unsupported read-only grant table')
     target = load_database_config()
     reader = load_database_config(path=APP_DIR / 'config/database-text-to-sql.conf')
     admin = load_database_config(admin=True)
@@ -34,12 +37,12 @@ def apply():
             if not hosts:
                 raise ValueError('Configured account does not exist')
             for host in hosts:
-                for table in ('heat_exchanger_tube', 'tube_bundle'):
+                for table in tables:
                     cursor.execute(f"GRANT SELECT ON `{target['name']}`.`{table}` TO %s@%s",
                                    (reader['user'], host))
     finally:
         connection.close()
-    print('Tube identity SELECT grants applied; credentials unchanged.')
+    print('Requested table SELECT grants applied; credentials unchanged.')
 
 
 if __name__ == '__main__':

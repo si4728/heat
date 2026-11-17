@@ -76,7 +76,7 @@ class TextToSqlWebTests(unittest.TestCase):
             response = self.post('generate', {'question':question})
             self.assertEqual(response.status_code, 200, response.json)
             self.assertEqual(response.json['query_kind'], 'help')
-            self.assertEqual(len(response.json['examples']), 8)
+            self.assertEqual(len(response.json['examples']), 10)
             self.assertIn('감육률 10%', response.json['examples'][3])
             self.assertNotIn('token', response.json)
             self.assertNotIn('proposal', response.json)
@@ -109,6 +109,18 @@ class TextToSqlWebTests(unittest.TestCase):
         self.profile['permissions'].pop('INSPECTIONS')
         self.assertEqual(self.post('generate', dict(question='E-106 검사 보고서 PDF')).status_code, 403)
         self.catalog.assert_not_called()
+
+    def test_fluid_grouping_signs_scope_and_uses_no_model_or_inspections(self):
+        response = self.post('generate', dict(question='공정별 Shell 유체명별 교환기 수량과 목록'))
+        self.assertEqual(response.status_code, 200, response.json)
+        self.assertEqual(response.json['query_kind'], 'fluid_grouping')
+        self.assertTrue(response.json['settings']['by_unit'])
+        with patch.object(routes.fluids, 'execute', return_value=dict(result_count=1,rows=[],query_sha256='fixture')) as execute:
+            result = self.post('execute', dict(token=response.json['token'], exchanger_ids=[999]))
+        self.assertEqual(result.status_code,200,result.json)
+        self.assertEqual(execute.call_args.args[0], [151])
+        self.assertEqual(execute.call_args.args[3], {151})
+        self.worker.assert_not_called(); self.rounds.assert_not_called(); self.scope.assert_not_called()
 
     def test_wall_loss_exchanger_count_defaults_to_both_units_without_model(self):
         generated = self.post('generate', {'question':'튜브별 감육률 10% 이상인 교환기 수량은, VCM1과 VCM2로 구분해줘'})

@@ -16,6 +16,28 @@ from iris2.llm_integration.tests.test_text_to_sql import SUMMARY
 
 
 class TextToSqlMariaDBTests(unittest.TestCase):
+    def test_fluid_grouping_includes_all_equipment_and_matches_steam_source(self):
+        from iris2.application import text_to_sql_fluids as fluids
+        client = self.client()
+        for question in ['유체명별 교환기 수량과 목록', '공정별 Shell 유체명이 STEAM인 교환기 목록']:
+            preview = client.post('/inspections/text-to-sql/generate',json=dict(question=question),
+                headers={'X-CSRF-Token':'integration-csrf'})
+            self.assertEqual(preview.status_code,200,preview.json)
+            response = client.post('/inspections/text-to-sql/execute',json=dict(token=preview.json['token']),
+                headers={'X-CSRF-Token':'integration-csrf'})
+            self.assertEqual(response.status_code,200,response.json)
+            rows = response.json['result']['rows']
+            if 'STEAM' in question:
+                self.assertEqual(len(rows),1)
+                self.assertEqual(rows[0]['exchanger_count'],10)
+                self.assertEqual(rows[0]['unit_code'],'VCM2')
+                self.assertIn('US-EV-E-105',rows[0]['equipment_list'])
+            else:
+                count = len(fluids.select_equipment({},question))
+                for side in ['SHELL','TUBE']:
+                    self.assertEqual(sum(r['exchanger_count'] for r in rows if r['side_code']==side),count)
+                self.assertTrue(any(r['fluid_name']=='미등록' for r in rows))
+
     def test_equipment_report_links_open_real_pdfs_at_mapped_pages(self):
         client = self.client()
         with patch('iris2.web.routes.text_to_sql.analysis.generate_in_worker') as worker:
