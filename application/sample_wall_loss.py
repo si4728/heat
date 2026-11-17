@@ -3,21 +3,22 @@ from datetime import date, datetime
 import math
 from ..domain.inspection_lifecycle import current_installation_date, is_current_installation_inspection
 from ..domain.sample_wall_loss import MINIMUM_SAMPLE_SIZE, estimate_sample_wall_loss
+from ..domain.measurement_eligibility import exclusion_reason
 
 
 def build_sample_estimate(result_rows, tubes_by_id, equipment, master_spec, *, threshold_percent,
-                          inspections=None):
+                          inspections=None, as_of=None):
     cohorts = {}
     if inspections is not None:
         for inspection in inspections:
             measured = inspection.inspection_date or inspection.report_date
-            if (inspection.superseded_by_inspection_id is None and measured is not None
+            if (not exclusion_reason(inspection, as_of=as_of) and measured is not None
                     and is_current_installation_inspection(measured, equipment.install_date)):
                 cohorts[inspection.iris_inspection_id] = [inspection, {}]
     for result, inspection in result_rows:
         measured = inspection.inspection_date or inspection.report_date
         tube = tubes_by_id.get(result.tube_id)
-        if (tube is None or measured is None or inspection.superseded_by_inspection_id is not None
+        if (tube is None or measured is None or exclusion_reason(inspection, as_of=as_of)
                 or (inspections is not None and inspection.iris_inspection_id not in cohorts)
                 or not is_current_installation_inspection(measured, equipment.install_date, tube.installed_at)):
             continue
@@ -30,7 +31,7 @@ def build_sample_estimate(result_rows, tubes_by_id, equipment, master_spec, *, t
     measured = inspection.inspection_date or inspection.report_date
     latest_date = measured.date() if isinstance(measured, datetime) else measured
     valid = [r for r in results.values()
-             if r.result_status in (None, 'VALID') and r.quality_status in (None, 'VALID')
+             if not exclusion_reason(inspection, r, as_of=as_of)
              and r.wall_loss_percent is not None and math.isfinite(r.wall_loss_percent)
              and 0 <= r.wall_loss_percent <= 100]
     installed_dates = set()
@@ -54,6 +55,10 @@ def build_sample_estimate(result_rows, tubes_by_id, equipment, master_spec, *, t
     installed = next(iter(installed_dates), None) if len(installed_dates) == 1 else None
     reported = inspection.total_tube_count_reported
     estimate.update(inspection_id=inspection.iris_inspection_id, report_number=inspection.report_number,
+        raw_sample_count=len(results), cohort_candidates=[dict(inspection_id=i.iris_inspection_id,
+            bundle_id=getattr(i,'bundle_id',None),label=getattr(i,'original_equipment_id',None) or i.report_number,
+            reported_total=i.total_tube_count_reported) for i,_ in cohorts.values()
+            if (i.inspection_date or i.report_date) == measured],
         measurement_date=latest_date.isoformat(),
         installation_date=installed.isoformat() if installed else None,
         installation_precision=inspection.installation_or_replacement_date_precision or 'DAY',

@@ -3,8 +3,8 @@
 {% set hx=master[0] %}{% set equipment=master[1] %}{% set unit=master[2] %}{% set plant=master[3] %}{% set life=remaining_life %}
 {% set display_exchanger_code = exchanger_display_code(hx.heat_exchanger_id) %}
 {% block title %}{{ display_exchanger_code }}{% endblock %}{% block heading %}{{ display_exchanger_code }}{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='exchanger-detail.css', v='20261029-balanced-2') }}"><link rel="stylesheet" href="{{ url_for('static', filename='sample-wall-loss.css', v='20261112-1') }}">{% endblock %}
-{% block actions %}<nav class="exchanger-actions" aria-label="열교환기 상세 메뉴">{% if can_screen('REMAINING_LIFE') %}<a class="button" href="{{ url_for('precision_analysis', exchanger_id=hx.heat_exchanger_id) }}">정밀 분석</a>{% endif %}<a class="button" href="{{ url_for('exchangers') }}">목록</a> {% if config.get('QR_UI_ENABLED', false) and current_user and current_user.is_admin and can_screen('EXCHANGERS') %}<a class="button" href="{{ url_for('qr_exchanger_lookup', exchanger_id=hx.heat_exchanger_id) }}">QR 간편조회</a>{% endif %} <a class="button" href="{{ url_for('remaining_life_simulation', exchanger_id=hx.heat_exchanger_id) }}">Tube Plugging 예측</a>  <a class="button" href="{{ url_for('exchanger_report', exchanger_id=hx.heat_exchanger_id) }}">인쇄 보고서</a> <a class="button" href="{{ url_for('tube_management', exchanger_id=hx.heat_exchanger_id) }}">튜브 관리</a> <a class="button" href="{{ url_for('exchanger_tube_map', exchanger_id=hx.heat_exchanger_id) }}">2D/3D Tube Map</a> <a class="button primary" href="{{ url_for('exchanger_edit', exchanger_id=hx.heat_exchanger_id) }}">정보 수정</a></nav>{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='exchanger-detail.css', v='20261029-balanced-2') }}"><link rel="stylesheet" href="{{ url_for('static', filename='sample-wall-loss.css', v='20261117-review-1') }}">{% endblock %}
+{% block actions %}<nav class="exchanger-actions" aria-label="열교환기 상세 메뉴">{% if can_screen('REMAINING_LIFE') %}<a class="button" href="{{ url_for('precision_analysis', exchanger_id=hx.heat_exchanger_id) }}">정밀 분석</a>{% endif %}<a class="button" href="{{ url_for('exchangers') }}">목록</a>  <a class="button" href="{{ url_for('remaining_life_simulation', exchanger_id=hx.heat_exchanger_id) }}">Tube Plugging 예측</a>  <a class="button" href="{{ url_for('exchanger_report', exchanger_id=hx.heat_exchanger_id) }}">인쇄 보고서</a> <a class="button" href="{{ url_for('tube_management', exchanger_id=hx.heat_exchanger_id) }}">튜브 관리</a> <a class="button" href="{{ url_for('exchanger_tube_map', exchanger_id=hx.heat_exchanger_id) }}">2D/3D Tube Map</a> <a class="button primary" href="{{ url_for('exchanger_edit', exchanger_id=hx.heat_exchanger_id) }}">정보 수정</a></nav>{% endblock %}
 {% block content %}
 {% include 'sample_wall_loss_estimate.html' %}
 <details class="exchanger-calculation-guide">
@@ -80,7 +80,7 @@
     <h3>결함 목록 <small>({{ life.defect_count|comma }}개)</small></h3>
     <div class="table-wrap defect-scroll">
       <table class="defect-table">
-        <thead><tr><th>#</th><th>Tube</th><th>Row</th><th>Col</th><th>감육률</th><th>두께(mm)</th><th>단기 CR</th><th>장기 CR</th><th>적용 CR</th><th>선정근거</th><th>Plugging 예상</th></tr></thead>
+        <thead><tr><th>#</th><th>Tube</th><th>Row</th><th>Col</th><th>감육률</th><th>두께(mm)</th><th>단기 감육속도(mm/년)</th><th>장기 감육속도(mm/년)</th><th>적용 감육속도(mm/년)</th><th>선정근거</th><th>Plugging 예상</th></tr></thead>
         <tbody>{% for defect in life.defect_rows %}
           <tr>
             <td>{{ loop.index }}</td>
@@ -92,7 +92,7 @@
             <td>{{ '%.4f'|format(defect.long_term_corrosion_rate_mm_per_year) if defect.long_term_corrosion_rate_mm_per_year is not none else '-' }}</td>
             <td>{{ '%.4f'|format(defect.corrosion_rate_mm_per_year) if defect.corrosion_rate_mm_per_year is not none and defect.corrosion_rate_mm_per_year > 0 else '-' }}</td>
             <td>{{ defect.corrosion_rate_selection_label|default('산정 불가') }}</td>
-            <td>{% if defect.plugging_complete %}<strong class="plugging-forecast complete" title="등록된 튜브 상태: PLUGGED">처리 완료</strong>{% elif defect.plugging_threshold_reached %}<strong class="plugging-forecast complete" title="감육률이 Plugging 판정 기준 이상입니다. 실제 처리 완료를 뜻하지 않습니다.">최근 검사에서 기준 도달 확인 — 실제 도달일 미상</strong>{% elif defect.plugging_year %}<strong class="plugging-forecast {{ 'near' if defect.plugging_year <= life.current_year + 10 else 'long' }}">{{ defect.plugging_year }}년</strong>{% else %}<button type="button" class="plugging-forecast long plugging-help-trigger" data-plugging-help>산정 불가</button>{% endif %}</td>
+            <td>{% if defect.plugging_complete %}<strong class="plugging-forecast complete" title="등록된 튜브 상태: PLUGGED">처리 완료</strong>{% elif defect.plugging_threshold_reached %}<strong class="plugging-forecast complete" title="감육률이 Plugging 판정 기준 이상입니다. 실제 처리 완료를 뜻하지 않습니다.">최근 검사에서 기준 도달 확인 — 실제 도달일 미상</strong>{% elif defect.plugging_year %}<strong class="plugging-forecast {{ 'near' if defect.plugging_year <= life.current_year + 10 else 'long' }}">{{ defect.forecast_display|default(defect.plugging_year|string ~ '년') }}</strong>{% else %}<button type="button" class="plugging-forecast long plugging-help-trigger" data-plugging-help>산정 불가</button>{% endif %}</td>
           </tr>
         {% else %}<tr><td colspan="11" class="empty">감육 결함 데이터가 없습니다.</td></tr>{% endfor %}</tbody>
       </table>
@@ -120,7 +120,7 @@
     <footer class="modal-footer"><button type="button" class="button primary" data-plugging-help-close>확인</button></footer>
   </section>
 </div>
-<script src="{{ url_for('static', filename='life-prediction.js', v='20261112-decisions-2') }}"></script>
+<script src="{{ url_for('static', filename='life-prediction.js', v='20261117-review-1') }}"></script>
 <article class="panel"><div class="panel-head"><div><p class="eyebrow">Multi-year</p><h2>검사 이력</h2></div></div><div class="table-wrap"><table><thead><tr><th>검사일</th><th>보고서</th><th>원본 설비명</th><th>범위</th><th>튜브 결과</th><th>최대 감육률</th><th>상태</th></tr></thead><tbody>
 {% for inspection,scope in inspections %}<tr><td>{{ inspection.report_date.strftime('%Y-%m-%d') if inspection.report_date else '-' }}</td><td><a class="strong-link" href="{{ url_for('inspection_detail', inspection_id=inspection.iris_inspection_id) }}">{{ inspection.report_number or ('Report '+inspection.report_sequence|string) }}</a></td><td>{{ inspection.original_equipment_id }}</td><td><span class="tag">{{ scope.scope_code if scope else 'ALL' }}</span></td><td>{{ inspection.extracted_tube_result_count }}</td><td>{{ '%.2f%%'|format(inspection.reported_maximum_wall_loss_percent) if inspection.reported_maximum_wall_loss_percent is not none else '-' }}</td><td>{{ inspection.report_status }}</td></tr>{% else %}<tr><td colspan="7" class="empty">아직 IRIS 검사 이력이 없습니다.</td></tr>{% endfor %}
 </tbody></table></div></article>

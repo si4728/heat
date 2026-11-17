@@ -80,6 +80,9 @@ class UiTemplateTests(unittest.TestCase):
             equipment_summary=dict(latest_inspection_date='2020-10-24',inspected_tube_count=1,
                 total_tube_count=100,shell_fluid='Water',tube_fluid='VCM',tube_material='Steel',
                 representative_corrosion_rate_mm_per_year=.1))
+        from iris2.application.equipment_summary import build_equipment_summary
+        life['equipment_overview']=build_equipment_summary(life,date(2026,11,10))
+        life['plugging_wall_loss_percent']=40
         master=[dict(heat_exchanger_id=1),dict(process_code='',equipment_name='Fixture E-131D'),dict(unit_name='VCM1'),dict(plant_code='VCM1')]
         tube_map=dict(layout=dict(pdf_vector_display_applied=False,is_estimated=False),selected_campaign=None,
             tube_spec=dict(outer_diameter_mm=19,nominal_thickness_mm=2,length_mm=6000),
@@ -125,7 +128,7 @@ class UiTemplateTests(unittest.TestCase):
                 html=''.join(template.blocks['actions'](context))
                 self.assertEqual('QR 간편조회' in html,expected)
 
-    def test_qr_enabled_is_still_admin_only(self):
+    def test_detail_qr_stays_hidden_even_when_enabled(self):
         with patch.dict(self.app.config, {'QR_UI_ENABLED': True}):
             for admin in (False, True):
                 html=self.dashboard_fixture(admin=admin)
@@ -136,7 +139,7 @@ class UiTemplateTests(unittest.TestCase):
                 for admin, permission in [(False, True), (True, True), (True, False)]:
                     context=template.new_context(dict(current_user={'is_admin':admin},can_screen=lambda *args:permission,hx=Obj(heat_exchanger_id=1)))
                     html=''.join(template.blocks['actions'](context))
-                    self.assertEqual('QR 간편조회' in html, admin and permission)
+                    self.assertNotIn('QR 간편조회', html)
 
     def test_prediction_denominators_show_5_of_52_and_5_of_5(self):
         html=self.render('prediction_coverage.html',life=dict(total_tube_count=52,specified_tube_count=52,managed_tube_count=5,projected_tube_count=5,chart_end_year=2050,current_year=2026))

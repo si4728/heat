@@ -1031,14 +1031,17 @@ def dashboard_remaining_life(unit='', band=''):
             identifier = hx.heat_exchanger_id
             life = _remaining_life_projection(session, identifier, equipment,
                 [b for b in bundles if b.heat_exchanger_id == identifier], criteria.get(identifier), as_of_date=as_of)
+            overview = life['equipment_overview']
             rows.append({'heat_exchanger_id': identifier, 'equipment_code': equipment.equipment_code,
                 'exchanger_code': specs.get(identifier), 'equipment_name': equipment.equipment_name,
-                'unit_code': process.unit_code, 'band': life_band(life),
-                'remaining_life_years': max(0, life['remaining_life_years']) if life.get('remaining_life_years') is not None else None,
+                'unit_code': process.unit_code, 'band': overview['band'],
+                'remaining_life_years': overview['remaining_life_years'],
+                'remaining_display': overview['remaining_display'], 'life_source': overview['source'],
+                'target_display': overview['target_display'],
                 'latest_inspection_date': life['equipment_summary'].get('latest_inspection_date'),
                 'projection_coverage_percent': life.get('projection_coverage_percent'),
                 'first_tube_threshold': first_tube_threshold(life.get('tube_projections', [])),
-                'status': life['status']})
+                'status': overview['status'], 'measured_status': life['status']})
     for row in rows:
         row['first_tube_display'] = forecast_display(row['first_tube_threshold'], as_of)
     result = group_life_rows(rows, unit, band)
@@ -1313,10 +1316,11 @@ def precision_analysis_data(
     ranking = exchanger_wall_loss_ranking(search=search, unit_code=unit_code)
     analysis_rows = [row for row in ranking["rows"] if row.get("iris_inspection_id")]
     available_ids = {int(row["heat_exchanger_id"]) for row in analysis_rows}
-    selected_id = int(exchanger_id) if exchanger_id in available_ids else (
-        int(analysis_rows[0]["heat_exchanger_id"]) if analysis_rows else None
-    )
-    detail = exchanger_detail(selected_id) if selected_id is not None else None
+    requested_row = next((row for row in ranking['rows'] if row['heat_exchanger_id'] == exchanger_id), None)
+    selected_id = int(exchanger_id) if exchanger_id is not None else (
+        int(analysis_rows[0]["heat_exchanger_id"]) if analysis_rows else None)
+    selection_status = 'READY' if selected_id in available_ids else 'NO_INSPECTION' if requested_row else 'NOT_AVAILABLE'
+    detail = exchanger_detail(selected_id) if selected_id in available_ids else None
     if detail and corrosion_rate_multiplier != 1.0:
         detail = exchanger_detail(
             selected_id,
@@ -1324,7 +1328,7 @@ def precision_analysis_data(
             simulation_corrosion_rate_multiplier=corrosion_rate_multiplier,
         )
         detail["remaining_life"] = detail["remaining_life_simulation"]
-    tube_map = tube_map_data(selected_id) if selected_id is not None else None
+    tube_map = tube_map_data(selected_id) if detail is not None else None
     if detail and tube_map:
         detail['remaining_life']['tube_histories'] = precision_tube_histories(selected_id)
         pdf_reports = []
@@ -1357,6 +1361,7 @@ def precision_analysis_data(
     return {
         "analysis_rows": analysis_rows,
         "selected_exchanger_id": selected_id,
+        "selection_status": selection_status,
         "selected_detail": detail,
         "tube_map": tube_map,
         "units": ranking["units"],
@@ -1379,6 +1384,8 @@ def precision_tube_histories(exchanger_id):
                 or_(IrisTubeResult.quality_status.is_(None), IrisTubeResult.quality_status != 'NOT_IN_LATEST_JSON'))
             .order_by(func.coalesce(IrisInspection.inspection_date, IrisInspection.report_date), IrisTubeResult.iris_tube_result_id)).all()
         for result, inspection, tube in rows:
+            from .domain.measurement_eligibility import exclusion_reason, REASON_LABELS
+            reason = exclusion_reason(inspection, result, as_of=remaining_life_as_of_date())
             measured = _effective_inspection_date(inspection)
             histories.setdefault(str(tube.tube_id), []).append({
                 'inspection_id': inspection.iris_inspection_id,
@@ -1386,6 +1393,8 @@ def precision_tube_histories(exchanger_id):
                 'date': measured.date().isoformat() if isinstance(measured, datetime) else measured.isoformat() if measured else None,
                 'thickness_mm': result.minimum_wall_thickness_mm,
                 'historical': not is_current_installation_inspection(measured, equipment.install_date, tube.installed_at),
+                'calculation_excluded': bool(reason), 'exclusion_reason': reason,
+                'exclusion_label': REASON_LABELS.get(reason),
             })
     return histories
 
@@ -1670,6 +1679,7 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
     expected_count = None  # Only a current approved specification defines population.
     process = session.get(ProcessUnit, equipment.unit_id)
     short_rate_enabled = bool(process and process.unit_code in ('VCM1', 'VCM2'))
+    from .domain.measurement_eligibility import exclusion_reason
 
     latest_results: dict[int, tuple[IrisTubeResult, IrisInspection]] = {}
     result_rows = []
@@ -1694,9 +1704,7 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
             )
         ).all()
         for result, inspection in result_rows:
-            if short_rate_enabled and (inspection.superseded_by_inspection_id is not None
-                    or result.result_status not in (None, 'VALID')
-                    or result.quality_status not in (None, 'VALID')):
+            if short_rate_enabled and exclusion_reason(inspection, result, as_of=as_of_date):
                 continue
             if not is_current_installation_inspection(
                 _effective_inspection_date(inspection), equipment.install_date,
@@ -1718,8 +1726,7 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
     from .domain.short_term_corrosion import short_term_corrosion_rate
     short_histories = {}
     for result, inspection in result_rows:
-        if (short_rate_enabled and inspection.superseded_by_inspection_id is None
-                and result.result_status in (None, 'VALID') and result.quality_status in (None, 'VALID')):
+        if short_rate_enabled and not exclusion_reason(inspection, result, as_of=as_of_date):
             short_histories.setdefault(result.tube_id, []).append(dict(
                 date=_effective_inspection_date(inspection), thickness_mm=result.minimum_wall_thickness_mm))
     short_profiles = {}
@@ -1730,8 +1737,7 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
                                                inspection.installation_or_replacement_date)
         if inspection.installation_or_replacement_year is not None and inspection.installation_or_replacement_date_precision == 'YEAR':
             installed = current_installation_date(installed, date(inspection.installation_or_replacement_year, 7, 1))
-        valid_current = (inspection.superseded_by_inspection_id is None
-            and result.result_status in (None, 'VALID') and result.quality_status in (None, 'VALID'))
+        valid_current = not exclusion_reason(inspection, result, as_of=as_of_date)
         short_profiles[tube_id] = short_term_corrosion_rate(
             dict(date=_effective_inspection_date(inspection),
                  thickness_mm=result.minimum_wall_thickness_mm if valid_current else None),
@@ -1773,6 +1779,8 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         if profile["selected_rate_mm_per_year"] is not None
     ]
     equipment_summary = {
+        'tube_count_basis': ('PHYSICAL_U_TUBE' if getattr(master_spec,'raw_json',None)
+            and 'REVIEW_20261117_PHYSICAL_UTUBE_COUNT' in master_spec.raw_json else 'CURRENT_SPECIFICATION'),
         "latest_inspection_date": (
             _effective_inspection_date(latest_inspection).date().isoformat()
             if latest_inspection is not None and _effective_inspection_date(latest_inspection) is not None
@@ -1886,8 +1894,7 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
             as_of_date=as_of_date,
             **history_inputs,
         )
-        if short_rate_enabled and (inspection.superseded_by_inspection_id is not None
-                or result.result_status not in (None, 'VALID') or result.quality_status not in (None, 'VALID')):
+        if short_rate_enabled and exclusion_reason(inspection, result, as_of=as_of_date):
             calculation = {'status': 'INVALID_CURRENT_MEASUREMENT'}
         corrosion_rate = calculation.get('corrosion_rate_mm_per_year')
         rate_profile = {
@@ -1905,8 +1912,11 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         }
         rate_profiles[tube.tube_id] = rate_profile
         if "plugging_date" not in calculation:
-            reason_counts["NO_POSITIVE_CORROSION_RATE" if calculation["status"] == "NO_POSITIVE_WALL_LOSS"
-                          else "INVALID_INSTALLATION_DATE"] += 1
+            reason = ('NO_POSITIVE_CORROSION_RATE' if calculation['status'] in
+                      ('NO_POSITIVE_WALL_LOSS','NO_POSITIVE_CORROSION_RATE') else
+                      'INVALID_INSTALLATION_DATE' if calculation['status'] in
+                      ('INSTALLATION_NOT_BEFORE_INSPECTION','INVALID_OR_MISSING_INPUT') else calculation['status'])
+            reason_counts[reason] = reason_counts.get(reason, 0) + 1
             continue
         corrosion_rate = calculation["corrosion_rate_mm_per_year"]
         current_loss = nominal * float(loss_percent) / 100.0
@@ -1992,7 +2002,7 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         )).all() if sample_bundle_ids else []
         summary['sample_wall_loss_estimate'] = build_sample_estimate(
             result_rows, tubes_by_id, equipment, master_spec,
-            threshold_percent=plugging_wall_loss_percent, inspections=sample_inspections)
+            threshold_percent=plugging_wall_loss_percent, inspections=sample_inspections, as_of=as_of_date)
     projection_by_tube = {item["tube_id"]: item for item in projections}
     defect_rows = []
     analysis_tube_rows = []
@@ -2064,6 +2074,8 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         })
     summary["chart_series"] = chart_series
     summary["chart_end_year"] = chart_end_year
+    from .application.equipment_summary import build_equipment_summary
+    summary['equipment_overview'] = build_equipment_summary(summary, as_of_date)
     return summary
 
 

@@ -1,6 +1,36 @@
 .analysis-equipment-panel>h2{margin:0;padding:12px;font-size:14px;font-weight:600;}
 .analysis-workspace .analysis-main-grid h2{font-size:15px;font-weight:600;}
 .analysis-selection-panel{min-width:0;}
+.precision-fullscreen-page .sidebar-collapsed .topbar>div:first-child{padding-left:32px;}
+.precision-fullscreen-page .sidebar-collapsed>.sidebar{display:none;}
+.precision-fullscreen-page .sidebar-collapsed>.main{grid-column:2;min-width:0;}
+.precision-analysis-shell .analysis-equipment-item em,.precision-analysis-shell .precision-map-label,.precision-analysis-shell .wall-loss-legend-entry,.precision-analysis-shell .wall-loss-legend-gradient{font-size:11px;}
+.precision-analysis-shell .analysis-filter input,.precision-analysis-shell .analysis-filter select,.precision-analysis-shell .analysis-filter button,.precision-analysis-shell .analysis-metric,.precision-analysis-shell .history-caption,.precision-analysis-shell .formula-copy,.precision-analysis-shell .formula-copy code,.precision-analysis-shell .analysis-rate-control output{font-size:12px;}
+.precision-analysis-shell .analysis-pdf-shortcut{color:#9a4400;}
+.precision-analysis-shell .analysis-metric{color:#385568;}
+.precision-analysis-shell .analysis-metric span{color:#385568;}
+.precision-analysis-shell .analysis-help-definitions dt{color:#385568;}
+.precision-analysis-shell #annual-plugging-table td,.precision-analysis-shell #annual-plugging-table th{text-align:right;font-variant-numeric:tabular-nums;}
+.precision-analysis-shell table,.precision-analysis-shell .equipment-summary-primary strong{font-variant-numeric:tabular-nums;}
+.precision-analysis-shell .analysis-defect-table td:nth-child(n+2):nth-child(-n+6){text-align:right;}
+@media(max-width:760px){.precision-fullscreen-page .topbar{padding-inline:20px;}.precision-fullscreen-page .sidebar-collapsed .topbar>div:first-child{padding-left:40px;}}
+.analysis-workspace [hidden]{display:none!important;}
+.equipment-summary-primary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0;}
+.equipment-summary-primary>div{border-left:3px solid var(--border,#d5dadd);padding:8px 12px;min-width:0;}
+.equipment-summary-primary span,.equipment-summary-primary small{display:block;line-height:1.6;}
+.equipment-summary-primary strong{display:block;font-size:26px;line-height:1.4;overflow-wrap:anywhere;margin:8px 0;}
+.equipment-summary-primary .summary-urgent{border-color:#b42318;}
+.equipment-summary-primary .summary-urgent strong{color:#b42318;}
+.equipment-summary-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+.equipment-summary-facts>div{min-width:0;}
+.equipment-summary-facts dt,.equipment-summary-facts small{font-size:12px;line-height:1.6;}
+.equipment-summary-facts dd{margin:6px 0;font-weight:600;overflow-wrap:anywhere;}
+.equipment-summary .analysis-table-scroll{max-height:none;}
+.summary-top-tubes{width:100%;min-width:0;table-layout:fixed;font-size:13px;}
+.summary-top-tubes th,.summary-top-tubes td{padding:8px 5px;white-space:normal;overflow-wrap:anywhere;}
+.summary-top-tubes td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums;}
+.summary-top-tubes button{min-height:36px;border:0;background:none;text-decoration:underline;color:inherit;cursor:pointer;touch-action:manipulation;}
+@media(max-width:640px){.equipment-summary-primary,.equipment-summary-facts{grid-template-columns:minmax(0,1fr);}.equipment-summary-primary strong{font-size:24px;}.summary-top-tubes button{min-height:44px;}.analysis-workspace{min-width:0;}.precision-analysis-shell .analysis-filter input,.precision-analysis-shell .analysis-filter select{font-size:16px;min-height:44px;}.precision-analysis-shell .analysis-filter button{min-height:44px;}.precision-map-height-resizer{min-height:44px;}}
 .analysis-selection-panel h3{font-size:14px;margin:16px 0 10px;}
 .tube-thickness-trend{overflow-x:auto;min-height:260px;}
 .tube-thickness-trend svg{display:block;width:100%;min-width:560px;height:auto;font-size:14px;font-family:inherit;}

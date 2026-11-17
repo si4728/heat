@@ -39,17 +39,18 @@
       chart.append(svg('text',{x:width-pad.right,y:y(value)-6,'text-anchor':'end',fill:color},`${label} ${value.toFixed(3)} mm`));
     }
     const current=new Map();
-    for(const point of points) if(!point.historical&&!current.has(point.time)) current.set(point.time,point);
+    for(const point of points) if(!point.historical&&!point.calculation_excluded&&!current.has(point.time)) current.set(point.time,point);
     if(current.size>1) chart.append(svg('polyline',{points:[...current.values()].map(p=>`${x(p.time)},${y(p.value)}`).join(' '),
       fill:'none',stroke:'#16846d','stroke-width':2}));
     for(const point of points) {
-      const dot=svg('circle',{cx:x(point.time),cy:y(point.value),r:4,fill:point.historical?'#ffffff':'#16846d',stroke:point.historical?'#75828c':'#16846d','stroke-width':1.5});
-      dot.append(svg('title',{},`${point.date} · ${point.value.toFixed(3)} mm${point.historical?' · 설치 이전 이력':''}`));
+      const excluded=point.historical||point.calculation_excluded;
+      const dot=svg('circle',{cx:x(point.time),cy:y(point.value),r:4,fill:excluded?'#ffffff':'#16846d',stroke:excluded?'#75828c':'#16846d','stroke-width':1.5});
+      dot.append(svg('title',{},`${point.date} · ${point.value.toFixed(3)} mm${point.historical?' · 설치 이전 이력':''}${point.calculation_excluded?' · '+point.exclusion_label:''}`));
       chart.append(dot);
     }
     node.append(chart);
     const note=document.createElement('p');note.className='analysis-quality-note';
-    note.textContent='실제 측정일과 측정 두께만 표시합니다. 회색 빈 원은 설치 이전 이력이며 현재 설치 이력의 선과 연결하지 않습니다.';
+    note.textContent='실제 측정일과 측정 두께만 표시합니다. 회색 빈 원은 설치 이전 또는 계산 제외 이력이며 현재 유효 측정의 선과 연결하지 않습니다.';
     node.append(note);
   }
   const api={series,render};

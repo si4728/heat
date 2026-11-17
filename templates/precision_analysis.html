@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% block title %}열교환기 분석{% endblock %}
 {% block heading %}열교환기 분석{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='precision-analysis.css', v='20261112-analysis-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='sample-wall-loss.css', v='20261112-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='precision-analysis-integrated.css', v='20261112-1') }}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='precision-analysis.css', v='20261112-analysis-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='sample-wall-loss.css', v='20261117-review-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='precision-analysis-integrated.css', v='20261117-review-1') }}">{% endblock %}
 {% block actions %}
   {% if can_screen('MAINTENANCE') %}<a class="button" href="{{ url_for('maintenance') }}">정비 관리</a>{% endif %}
   {% if selected_exchanger_id %}<a class="button" href="{{ url_for('exchanger_detail', exchanger_id=selected_exchanger_id) }}">열교환기 상세</a>{% endif %}
 {% endblock %}
 {% block content %}
 <div class="precision-analysis-shell">
-  <aside class="analysis-equipment-panel"><h2>열교환기 선택</h2>
+  <details class="analysis-equipment-panel" open><summary>열교환기 선택</summary>
     <form class="analysis-filter" method="get" action="{{ url_for('precision_analysis') }}">
       <input type="hidden" name="rate_multiplier" value="{{ corrosion_rate_multiplier }}">
       <select name="unit" aria-label="공정 선택" onchange="this.form.submit()">
@@ -29,7 +29,7 @@
       </a>
       {% else %}<div class="analysis-empty">분석 가능한 검사 데이터가 없습니다.</div>{% endfor %}
     </div>
-  </aside>
+  </details>
 
   <section class="analysis-workspace">
     <p class="analysis-selection-status">현재 메뉴: 정밀 분석 · 선택 설비: <strong>{{ exchanger_display_code(selected_exchanger_id) if selected_exchanger_id else '선택 없음' }}</strong></p>
@@ -55,6 +55,7 @@
         <div><span>감육속도(mm/년)</span><strong class="warning-value">{{ '%.3f'|format(summary.representative_corrosion_rate_mm_per_year) if summary.representative_corrosion_rate_mm_per_year is not none else '-' }}</strong></div>
       </div>
 
+      {% if summary.tube_count_basis == 'PHYSICAL_U_TUBE' %}<p class="analysis-quality-note">전체 수량은 물리 U-tube 본수입니다. U자 관 1본은 끝단 2개이며 Map의 표시 위치 수와 다를 수 있습니다. 끝단 위치를 물리 튜브 본수로 합산하지 않습니다.</p>{% endif %}
       <div id="precision-panel-layout" class="analysis-main-grid">
         <article id="precision-map-panel" class="analysis-map-panel">
           <div class="precision-map-toolbar">
@@ -73,6 +74,9 @@
         </article>
         <div id="precision-panel-resizer" class="precision-panel-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Map과 선택 튜브 분석의 너비 조절" aria-controls="precision-map-panel precision-results-panel" aria-valuemin="25" aria-valuemax="75" aria-valuenow="50"><span aria-hidden="true"></span></div>
         <article id="precision-results-panel" class="analysis-selection-panel">
+          {% include 'equipment_overview.html' %}
+          <button type="button" id="show-equipment-summary" class="button" hidden>설비 요약으로 돌아가기</button>
+          <div id="selected-tube-view" hidden>
           <h2 id="selected-tube-title">Tube를 선택하면 두께 추이가 표시됩니다</h2>
           <div id="thickness-trend" class="tube-thickness-trend"></div>
           <h3>선택 튜브 측정값과 감육속도</h3>
@@ -84,6 +88,7 @@
             <input type="range" id="corrosion-rate-slider" name="rate_multiplier" min="0.1" max="2.0" step="0.1" value="{{ corrosion_rate_multiplier }}" aria-label="적용 감육속도 배율" title="0.1~2.0배 · 적용 감육속도 = 장기 감육속도 × 배율">
             <output id="corrosion-rate-output" for="corrosion-rate-slider">{{ '%.1f'|format(corrosion_rate_multiplier) }}배</output>
           </form>
+          </div>
         </article>
       </div>
       {% include 'precision_measurement_table.html' %}
@@ -126,9 +131,9 @@
       <script id="precision-map-data" type="application/json">{{ tube_map|tojson }}</script>
       <script id="precision-life-data" type="application/json">{{ life|tojson }}</script>
     {% else %}
-      <div class="analysis-no-selection"><strong>정밀 분석 데이터 없음</strong><p>검사 결과가 등록된 열교환기를 선택해 주세요.</p></div>
+      <div class="analysis-no-selection"><strong>{{ '검사 이력 없음' if selection_status == 'NO_INSPECTION' else '선택 설비 조회 불가' }}</strong><p>{{ '선택한 설비의 유효한 검사 결과가 없습니다. 다른 설비로 자동 전환하지 않습니다.' if selection_status == 'NO_INSPECTION' else '설비 ID와 조회 필터를 확인해 주세요. 다른 설비로 자동 전환하지 않습니다.' }}</p></div>
     {% endif %}
   </section>
 </div>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='tube-thickness-trend.js', v='20261112-1') }}"></script><script src="{{ url_for('static', filename='wall-loss-palette.js', v='20261110-corrections-1') }}"></script><script defer src="{{ url_for('static', filename='precision-analysis.js', v='20261112-decisions-2') }}"></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='tube-thickness-trend.js', v='20261117-review-1') }}"></script><script src="{{ url_for('static', filename='wall-loss-palette.js', v='20261110-corrections-1') }}"></script><script defer src="{{ url_for('static', filename='precision-analysis.js', v='20261117-review-1') }}"></script>{% endblock %}

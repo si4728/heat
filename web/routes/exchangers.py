@@ -66,6 +66,9 @@ def register_routes(app) -> None:
 
     @app.get("/analysis")
     def precision_analysis():
+        if 'exchanger_id' in request.args and (request.args.get('exchanger_id',type=int) is None
+                or request.args.get('exchanger_id',type=int) <= 0):
+            abort(400, description='올바른 열교환기 ID를 지정하세요.')
         return render_template(
             "precision_analysis.html",
             **services.precision_analysis_data(

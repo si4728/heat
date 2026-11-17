@@ -60,6 +60,53 @@
 
   const mapData = JSON.parse(mapJson.textContent);
   const lifeData = JSON.parse(lifeJson.textContent);
+  function bindActivation(node,activate) {
+    if(!node) return;
+    let press=null,lastTouch=-Infinity;
+    const nestedControl=event=>event.target.closest('a,input,select') && event.target.closest('a,input,select')!==node;
+    node.addEventListener('pointerdown',event=>{
+      if(event.pointerType==='touch' && !nestedControl(event)) press={x:event.clientX,y:event.clientY,id:event.pointerId};
+    });
+    node.addEventListener('pointercancel',()=>{press=null;});
+    node.addEventListener('pointerup',event=>{
+      const start=press;press=null;
+      if(event.pointerType!=='touch'||!start||start.id!==event.pointerId||nestedControl(event))return;
+      if(Math.hypot(event.clientX-start.x,event.clientY-start.y)>8)return;
+      event.preventDefault();lastTouch=performance.now();activate();
+    });
+    node.addEventListener('click',event=>{
+      if(nestedControl(event) || (event.detail>0&&performance.now()-lastTouch<700))return;
+      activate();
+    });
+  }
+  function forecastLabel(projected) {
+    if(!projected) return '산정 불가';
+    const origin=new Date(`${lifeData.as_of_date}T00:00:00Z`);
+    const year=origin.getUTCFullYear()+30, month=origin.getUTCMonth(), day=origin.getUTCDate();
+    const boundary=Date.UTC(year,month,Math.min(day,new Date(Date.UTC(year,month+1,0)).getUTCDate()));
+    return projected.projectedDate > boundary ? '30년 이상' : `${projected.projectedYear}년`;
+  }
+  function showSummary() {
+    selectedTubeId=null;
+    document.getElementById('equipment-summary').hidden=false;
+    document.getElementById('selected-tube-view').hidden=true;
+    document.getElementById('show-equipment-summary').hidden=true;
+    document.querySelectorAll('.precision-tube.selected,[data-analysis-tube].selected').forEach(node=>{
+      node.classList.remove('selected','linked-tube-pulse');
+      if(node.matches('.precision-tube')) node.setAttribute('aria-pressed','false');
+      else node.removeAttribute('aria-current');
+    });
+    const url=new URL(window.location.href);url.searchParams.delete('tube_id');history.replaceState(null,'',url);
+    const link=document.getElementById('precision-3d-link');
+    if(link){const target=new URL(link.href);target.searchParams.delete('tube_id');link.href=target.href;}
+    document.getElementById('thickness-history').textContent='튜브를 선택하면 실제 검사 이력을 표시합니다.';
+    updateRateAnalysis();
+  }
+  bindActivation(document.getElementById('show-equipment-summary'),()=>{
+    showSummary(); document.getElementById('equipment-summary-title').setAttribute('tabindex','-1');
+    document.getElementById('equipment-summary-title').focus();
+  });
+  document.querySelectorAll('[data-summary-tube]').forEach(button=>bindActivation(button,()=>selectTube(Number(button.dataset.summaryTube),'summary')));
   if (rateSlider) {
     rateSlider.value = '1.0';
     rateSlider.addEventListener('input', () => {
@@ -205,7 +252,7 @@
     button.title = `Tube ${tube.tube_no} · 행 ${tube.row ?? '미등록'} / 열 ${tube.column ?? '미등록'} · ${legendItem.label} · ${lossKey(tube) === 'UNREGISTERED' ? '표시용 위치 · 운전 상태와 검사 여부 미확인' : tube.wall_loss_percent == null ? '감육률 미등록' : `감육률 ${Number(tube.wall_loss_percent).toFixed(1)}%`}`;
     button.setAttribute('aria-label', button.title);
     button.setAttribute('aria-pressed', 'false');
-    if (tube.tube_id) button.addEventListener('click', () => selectTube(Number(tube.tube_id), 'map'));
+    if (tube.tube_id) bindActivation(button, () => selectTube(Number(tube.tube_id), 'map'));
     mapCanvas.appendChild(button);
   });
 
@@ -241,10 +288,13 @@
     const defect = defectByTube.get(selectedTubeId);
     const baseRate = defect?.selected_base_corrosion_rate_mm_per_year;
     const rate = baseRate == null ? null : Number(baseRate) * multiplier;
-    document.getElementById('long-term-rate').textContent = fmt(defect?.long_term_corrosion_rate_mm_per_year,4);
+    const longRate = document.getElementById('long-term-rate');
+    if(longRate) longRate.textContent = fmt(defect?.long_term_corrosion_rate_mm_per_year,4);
     const applied = document.getElementById('applied-corrosion-rate');
-    applied.textContent = fmt(rate,4);
-    applied.className = rate == null ? '' : rate >= .08 ? 'danger' : rate >= .04 ? 'warn' : 'good';
+    if(applied) {
+      applied.textContent = fmt(rate,4);
+      applied.className = rate == null ? '' : rate >= .08 ? 'danger' : rate >= .04 ? 'warn' : 'good';
+    }
     const projections = projectTubeDates(lifeData.tube_projections || [], multiplier);
     const reachedDate = limitExceedanceDate(projections, lifeData.allowable_plugging_count);
     const reachedYear = reachedDate == null ? null : new Date(reachedDate).getUTCFullYear();
@@ -256,7 +306,7 @@
     const futureCount = projections.filter(row => row.projectedDate > asOf && row.basis !== 'ALREADY_PLUGGED' && !defectByTube.get(Number(row.tube_id))?.plugging_threshold_reached).length;
     renderAnnualPlugging(projections, Number(lifeData.current_year), lifeData.allowable_plugging_count);
     const selected = projections.find(row => Number(row.tube_id) === selectedTubeId);
-    const plugYear = defect?.plugging_complete ? '처리 완료' : defect?.plugging_threshold_reached ? '최근 검사에서 기준 도달 확인 — 실제 도달일 미상' : selected ? `${selected.projectedYear}년` : '산정 불가';
+    const plugYear = defect?.plugging_complete ? '처리 완료' : defect?.plugging_threshold_reached ? '최근 검사에서 기준 도달 확인 — 실제 도달일 미상' : forecastLabel(selected);
     document.getElementById('remaining-life-analysis').innerHTML = [
       metric('허용 Plugging 한도', `${lifeData.limit_percent ?? '-'}% (${lifeData.allowable_plugging_count ?? '-'}개)`),
       metric('실제 Plugging 완료 수량', `${lifeData.actual_plugged_count ?? 0}개`),
@@ -287,7 +337,7 @@
       if (appliedCell) appliedCell.textContent = fmt(item?.selected_base_corrosion_rate_mm_per_year == null ? null : item.selected_base_corrosion_rate_mm_per_year * multiplier,4);
       const forecastCell = row.querySelector('[data-analysis-forecast]');
       const projected = projections.find(p => Number(p.tube_id) === Number(row.dataset.analysisTube));
-      if (forecastCell) forecastCell.textContent = item?.plugging_complete ? '처리 완료' : item?.plugging_threshold_reached ? '검사 시 기준 도달' : projected ? `${projected.projectedYear}년` : '산정 불가';
+      if (forecastCell) forecastCell.textContent = item?.plugging_complete ? '처리 완료' : item?.plugging_threshold_reached ? '검사 시 기준 도달' : forecastLabel(projected);
     });
     const rates = projections.filter(row => row.basis === 'CALCULATED' && row.corrosion_rate_mm_per_year > 0).map(row => row.corrosion_rate_mm_per_year * multiplier).sort((a, b) => a - b);
     const middle = Math.floor(rates.length / 2);
@@ -346,7 +396,7 @@
       const thickness = item.thickness_mm;
       const valid = thickness != null && Number.isFinite(Number(thickness)) && Number(thickness) >= 0;
       const caption = document.createElement('div');
-      caption.textContent = `${item.date || '검사일 미등록'} · ${valid ? Number(thickness).toFixed(2) + ' mm' : '유효 두께 미등록'}${item.historical ? ' · 설치 이전 이력(조회 전용)' : ''}`;
+      caption.textContent = `${item.date || '검사일 미등록'} · ${valid ? Number(thickness).toFixed(2) + ' mm' : '유효 두께 미등록'}${item.historical ? ' · 설치 이전 이력(조회 전용)' : ''}${item.calculation_excluded ? ' · '+item.exclusion_label : ''}`;
       row.appendChild(caption);
       if (valid && nominal > 0) {
         const track = document.createElement('div'); track.className = 'history-track';
@@ -426,9 +476,13 @@
     } : null);
     if (!tube) return;
     selectedTubeId = Number(tubeId);
+    document.getElementById('equipment-summary').hidden=true;
+    document.getElementById('selected-tube-view').hidden=false;
+    document.getElementById('show-equipment-summary').hidden=false;
+    const currentUrl=new URL(window.location.href);currentUrl.searchParams.set('tube_id',String(selectedTubeId));history.replaceState(null,'',currentUrl);
     const threeLink = document.getElementById('precision-3d-link');
     if (threeLink) {
-      const url = new URL(threeLink.href, window.location.origin);
+      const url = new URL(threeLink.href, window.location.href);
       url.searchParams.set('tube_id', String(selectedTubeId));
       threeLink.href = url.href;
     }
@@ -449,8 +503,8 @@
     selectedTable.className = 'selected-tube-table';
     const body = document.createElement('tbody');
     const fields = [
-      ['최근 측정일',defect?.measurement_date || tube.inspection_date || '-'],
-      ['최근 측정 두께 (mm)',fmt(defect?.minimum_wall_thickness_mm ?? tube.minimum_wall_thickness_mm,3)],
+      ['계산 기준 측정일',defect?.measurement_date || tube.inspection_date || '-'],
+      ['계산 기준 두께 (mm)',fmt(defect?.minimum_wall_thickness_mm ?? tube.minimum_wall_thickness_mm,3)],
       ['감육률 (%)',fmt(defect?.wall_loss_percent ?? tube.wall_loss_percent,2)],
       ['단기 감육속도(mm/년)',fmt(defect?.short_term_corrosion_rate_mm_per_year,4),'short-term-rate'],
       ['장기 감육속도(mm/년)','-','long-term-rate'],
@@ -480,12 +534,13 @@
 
   document.querySelectorAll('[data-analysis-tube]').forEach(row => {
     const activate = () => selectTube(Number(row.dataset.analysisTube), 'table');
-    row.addEventListener('click', activate);
+    bindActivation(row, activate);
     row.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activate(); } });
   });
-  const initialTube=defects[0]?.tube_id || tubes.find(tube => tube.tube_id)?.tube_id;
-  if (initialTube) selectTube(Number(initialTube));
-  else renderAnnualPlugging((lifeData.tube_projections || []).map(row => ({projectedDate: Date.parse(`${row.plugging_date}T00:00:00Z`)})), Number(lifeData.current_year), lifeData.allowable_plugging_count);
+  const initialTube=Number(new URL(window.location.href).searchParams.get('tube_id'));
+  updateRateAnalysis();
+  if (initialTube && (tubes.some(t=>Number(t.tube_id)===initialTube)||defectByTube.has(initialTube))) selectTube(initialTube);
+  else showSummary();
 })();
 
 document.querySelectorAll('[data-pdf-reports-open]').forEach(link => {

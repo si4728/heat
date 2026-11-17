@@ -1,0 +1,20 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync('static/precision-analysis.js','utf8');
+const body=source.slice(source.indexOf('  function bindActivation('),source.indexOf('  function forecastLabel('));
+let now=0;
+const context={performance:{now:()=>now}};
+vm.runInNewContext(body+'\nglobalThis.bind=bindActivation;',context);
+const handlers={},node={addEventListener:(type,fn)=>handlers[type]=fn};
+let calls=0;
+context.bind(node,()=>calls++);
+const event=(extra={})=>({pointerType:'touch',pointerId:1,clientX:10,clientY:10,
+  target:{closest:()=>null},preventDefault(){this.prevented=true;},...extra});
+handlers.pointerdown(event());handlers.pointerup(event());assert.equal(calls,1);
+handlers.click(event({detail:1}));assert.equal(calls,1,'compatibility click must not select twice');
+handlers.click(event({detail:0}));assert.equal(calls,2,'keyboard activation stays available');
+now=1000;handlers.click(event({detail:1}));assert.equal(calls,3);
+handlers.pointerdown(event());handlers.pointerup(event({clientY:40}));assert.equal(calls,3,'scroll does not select');
+handlers.pointerdown(event());handlers.pointercancel();handlers.pointerup(event());assert.equal(calls,3,'cancel does not select');
+const link={};handlers.pointerdown(event({target:{closest:()=>link}}));handlers.pointerup(event({target:{closest:()=>link}}));
+handlers.click(event({target:{closest:()=>link},detail:1}));assert.equal(calls,3,'nested PDF controls retain their own action');
+console.log('PASS: touch tap, drag, cancellation, ghost-click suppression, keyboard and nested PDF controls');
