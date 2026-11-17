@@ -89,6 +89,27 @@ class TextToSqlWebTests(unittest.TestCase):
         self.assertEqual(self.post('generate', {'question':'도움말 알려줘'}).status_code,403)
         self.worker.assert_not_called()
 
+    def test_report_request_uses_existing_pdf_endpoint_without_model(self):
+        self.app.add_url_rule('/inspections/<int:inspection_id>/pdf', 'inspection_pdf_view', lambda inspection_id: 'PDF')
+        with patch('iris2.application.text_to_sql_reports.services.find_inspection_pdf', return_value=dict(page=44)):
+            response = self.post('generate', dict(question='E-106 2025년 IRIS 검사 보고서 PDF 보여줘', exchanger_ids=[]))
+        self.assertEqual(response.status_code, 200, response.json)
+        self.assertEqual(response.json['query_kind'], 'inspection_reports')
+        self.assertEqual(response.json['reports'][0]['url'], '/inspections/389/pdf#page=44')
+        self.assertNotIn('token', response.json)
+        self.worker.assert_not_called(); self.execute.assert_not_called()
+
+    def test_report_request_rejects_unknown_and_conflicting_equipment(self):
+        for question, ids in [('E-999 보고서 PDF', []), ('E-111 검사 보고서', [151])]:
+            response = self.post('generate', dict(question=question, exchanger_ids=ids))
+            self.assertEqual(response.status_code, 400, response.json)
+        self.worker.assert_not_called()
+
+    def test_report_request_requires_inspection_permission(self):
+        self.profile['permissions'].pop('INSPECTIONS')
+        self.assertEqual(self.post('generate', dict(question='E-106 검사 보고서 PDF')).status_code, 403)
+        self.catalog.assert_not_called()
+
     def test_wall_loss_exchanger_count_defaults_to_both_units_without_model(self):
         generated = self.post('generate', {'question':'튜브별 감육률 10% 이상인 교환기 수량은, VCM1과 VCM2로 구분해줘'})
         self.assertEqual(generated.status_code, 200, generated.json)

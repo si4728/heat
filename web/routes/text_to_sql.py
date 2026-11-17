@@ -15,6 +15,7 @@ from iris2.application import text_to_sql_service as analysis
 from iris2.application import inspection_frequency as frequency
 from iris2.application import query_period
 from iris2.application import text_to_sql_help
+from iris2.application import text_to_sql_reports
 from iris2.llm_integration.question_language import normalize
 from iris2.application import text_to_sql_usage_log as usage_log
 from iris2.hx_configuration import APP_DIR
@@ -139,6 +140,12 @@ def register_routes(app):
             if text_to_sql_help.matches(question):
                 record['query_kind'] = 'help'
                 return jsonify(text_to_sql_help.response())
+            if text_to_sql_reports.matches(question):
+                record['query_kind'] = 'inspection_reports'
+                result = text_to_sql_reports.response(question, data)
+                record_scopes(result.pop('scopes'))
+                record['result'] = dict(result_count=len(result['reports']), limit_reached=result['limit_reached'])
+                return jsonify(result)
             if frequency.matches(question):
                 record['query_kind'] = 'inspection_frequency'
                 catalog = analysis.catalog()

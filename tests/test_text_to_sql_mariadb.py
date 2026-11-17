@@ -16,6 +16,25 @@ from iris2.llm_integration.tests.test_text_to_sql import SUMMARY
 
 
 class TextToSqlMariaDBTests(unittest.TestCase):
+    def test_equipment_report_links_open_real_pdfs_at_mapped_pages(self):
+        client = self.client()
+        with patch('iris2.web.routes.text_to_sql.analysis.generate_in_worker') as worker:
+            response = client.post('/inspections/text-to-sql/generate',
+                json=dict(question='E-111의 2025년 IRIS 검사 보고서 PDF 보여줘', exchanger_ids=[]),
+                headers={'X-CSRF-Token':'integration-csrf'})
+            self.assertEqual(response.status_code, 200, response.json)
+            self.assertTrue(response.json['reports'])
+            for row in response.json['reports']:
+                self.assertEqual(row['equipment_tag'], 'US-VC-E-111')
+                self.assertTrue(row['inspection_date'].startswith('2025'))
+                self.assertGreater(row['page'], 0)
+                pdf = client.get(row['url'].split('#')[0], headers={'Range':'bytes=0-4'})
+                self.assertIn(pdf.status_code, (200, 206))
+                self.assertEqual(pdf.mimetype, 'application/pdf')
+                self.assertTrue(pdf.data.startswith(b'%PDF-'))
+                pdf.close()
+            worker.assert_not_called()
+
     def test_period_summary_matches_independent_history_count(self):
         from iris2.application import text_to_sql_service as analysis
         from iris2.llm_integration import text_to_sql as sql

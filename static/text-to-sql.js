@@ -40,6 +40,7 @@
     if (message) el('error').focus();
   }
   function reset() {
+    el('help-title').textContent = 'Text-to-SQL 예시 질문';
     el('help-panel').hidden = true; el('help-examples').replaceChildren(); el('help-guidance').textContent = '';
     charts?.clear();
     token = null; el('code').value = ''; el('parameters').textContent = '—';
@@ -59,6 +60,7 @@
   const selectedUnits = () => [...el('units').querySelectorAll('input:checked')].map(i => i.value);
   let scopeReady = false;
   const helpQuestion = () => /^(?:도움말(?:\s*(?:알려\s*줘(?:요)?|보여\s*줘(?:요)?|알려\s*주세요|보여\s*주세요))?|사용법|예시\s*질문|샘플(?:\s*질문)?|help)[.!?。？！]*$/i.test(el('question').value.trim());
+  const reportQuestion = () => /pdf|보고서|report/i.test(el('question').value) && !/요약|감육|두께|순위|횟수|통계|비교/.test(el('question').value);
   const frequencyQuestion = () => /열교환기|교환기|설비|튜브|전열관|tube/i.test(el('question').value) && /검사/.test(el('question').value) && /(?:제일|가장)\s*많|많이|횟수|빈도|건수/.test(el('question').value);
   const groupedCountQuestion = () => /감육/.test(el('question').value) && /교환기/.test(el('question').value) && /수량|개수|몇\s*대|대수|수\b|수[는를가]/.test(el('question').value) && /공정\s*별|라인\s*별|VCM1.*VCM2|구분/i.test(el('question').value);
   function setBusy(value, generating = false) {
@@ -67,7 +69,7 @@
     el('inspection').disabled = value || frequencyQuestion() || el('mode').value !== 'equipment' || selectedIds().length !== 1 || !scopeReady;
     el('question').disabled = value;
     root.querySelectorAll('[data-question]').forEach(b => { b.disabled = value; });
-    el('generate').disabled = value || (!scopeReady && !frequencyQuestion() && !groupedCountQuestion() && !helpQuestion());
+    el('generate').disabled = value || (!scopeReady && !frequencyQuestion() && !groupedCountQuestion() && !helpQuestion() && !reportQuestion());
     el('execute').disabled = value || !token;
     root.setAttribute('aria-busy', String(value));
     el('generate-spinner').toggleAttribute('hidden', !(value && generating));
@@ -133,6 +135,7 @@
   function questionChanged() {
     reset(); setBusy(false);
     if (helpQuestion()) el('generate-status').textContent = 'SQL 생성 버튼을 누르면 예시 질문과 사용 방법을 표시합니다.';
+    else if (reportQuestion()) el('generate-status').textContent = '검사 보고서 PDF 조회 · 설비 코드 또는 선택 범위 기준 · 연도 입력 가능 · 기간 생략 시 전체 검사 이력';
     else if (frequencyQuestion()) el('generate-status').textContent = 'IRIS 검사 횟수 순위 · 기간 입력 가능 · 기간 생략 시 설비 최근 5년 / 튜브 전체 이력 · 범위 미선택 시 VCM1·VCM2 전체';
     else if (groupedCountQuestion()) el('generate-status').textContent = '감육 조건별 공정별 열교환기 수 · 범위 미선택 시 VCM1·VCM2 전체 · 기간 생략 시 설비별 최근 유효 검사';
   }
@@ -149,6 +152,22 @@
           el('mode').value === 'unit' ? {unit_codes:selectedUnits()} : {exchanger_ids:selectedIds(), inspection_id:el('inspection').value ? Number(el('inspection').value) : null}),
         question:el('question').value
       });
+      if (payload.query_kind === 'inspection_reports') {
+        el('help-title').textContent = 'IRIS 검사 보고서 PDF';
+        el('help-guidance').textContent = `검사 보고서 ${payload.reports.length}건 · 링크를 누르면 새 탭에서 PDF를 엽니다. 페이지 연결이 없는 보고서는 첫 페이지부터 열립니다.${payload.missing_count ? ` PDF 파일 미연결 ${payload.missing_count}건.` : ''}${payload.limit_reached ? ' 최대 100건입니다. 설비나 기간을 좁혀 주세요.' : ''}`;
+        payload.reports.forEach(report => {
+          const item = document.createElement('li'), link = document.createElement('a');
+          if (!/^\/(?!\/)/.test(report.url)) return;
+          link.href = report.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+          link.textContent = `${report.unit_code} · ${report.equipment_tag} · ${report.inspection_date || '날짜 없음'} · ${report.report_number || '검사 보고서'} · ${report.page ? report.page + '쪽' : '페이지 미연결'}`;
+          item.append(link); el('help-examples').append(item);
+        });
+        el('help-panel').hidden = false;
+        el('generate-status').textContent = payload.reports.length ? '검사 보고서 조회 완료. PDF 링크를 선택하세요.' : '조건에 맞는 검사 보고서 PDF가 없습니다.';
+        el('empty').textContent = '검사 보고서 링크는 위 목록에서 확인하세요.';
+        el('help-panel').scrollIntoView({block:'nearest'});
+        return;
+      }
       if(payload.query_kind === 'help') {
         el('help-guidance').textContent = payload.guidance;
         payload.examples.forEach(question => {
