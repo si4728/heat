@@ -12,8 +12,10 @@ from .layouts import register_routes as register_layout_routes
 from .llm_reports import register_routes as register_llm_report_routes
 from .ai_query import register_routes as register_ai_query_routes
 from .text_to_sql import register_routes as register_text_to_sql_routes
+from .access_logs import register_routes as register_access_log_routes
 
 ROUTE_REGISTRARS = (
+    register_access_log_routes,
     register_dashboard_routes,
     register_exchanger_routes,
     register_remaining_life_routes,

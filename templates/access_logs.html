@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}로그온·화면 접근 이력{% endblock %}
+{% block heading %}로그온·화면 접근 이력{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static',filename='access-logs.css',v='20261119-1') }}">{% endblock %}
+{% block actions %}<a class="button" href="{{ csv_url }}">CSV 다운로드</a>{% endblock %}
+{% block content %}
+<div class="access-log-workspace">
+  {% if audit_state.failures %}<div class="alert error" role="alert">이 서버 실행 중 이력 저장 실패 {{ audit_state.failures }}건이 감지됐습니다. 마지막 실패 {{ audit_state.last_failure_at }} (UTC). 해당 요청의 기록은 누락됐을 수 있습니다.</div>{% endif %}
+  <form method="get" class="panel access-log-filters">
+    <label>시작일 (KST)<input type="date" name="start" value="{{ filters.start }}" required></label>
+    <label>종료일 (KST)<input type="date" name="end" value="{{ filters.end }}" required></label>
+    <label>사용자<input name="user" value="{{ filters.user }}" maxlength="100" placeholder="사용자 ID 검색"></label>
+    <label>이벤트<select name="event"><option value="">전체 이벤트</option>{% for key,label in event_labels.items() %}<option value="{{ key }}" {{ 'selected' if filters.event==key else '' }}>{{ label }}</option>{% endfor %}</select></label>
+    <label>결과<select name="result"><option value="">전체 결과</option>{% for key,label in result_labels.items() %}<option value="{{ key }}" {{ 'selected' if filters.result==key else '' }}>{{ label }}</option>{% endfor %}</select></label>
+    <label>접속 IP<input name="ip" value="{{ filters.ip }}" maxlength="45" placeholder="예: 127.0.0.1"></label>
+    <label>화면 코드<input name="screen" value="{{ filters.screen }}" maxlength="60" placeholder="예: EXCHANGERS"></label>
+    <label>접근 경로<input name="path" value="{{ filters.path }}" maxlength="200" placeholder="예: /analysis"></label>
+    <label class="access-log-session">접속 식별자<input name="session" value="{{ filters.session }}" maxlength="32" placeholder="로그인 이후 접근 묶음 조회"></label>
+    <div class="access-log-filter-actions"><button type="submit" class="button primary">조회</button><a class="button" href="{{ url_for('access_logs') }}">초기화</a></div>
+  </form>
+  <section class="panel access-log-results" aria-label="접근 이력 결과">
+    <div class="panel-head"><h2>조회 결과 {{ total|comma }}건</h2><span>{{ page }} / {{ pages }} 페이지 · 최신순 · KST</span></div>
+    <div class="table-wrap"><table><thead><tr><th>일시</th><th>사용자</th><th>이벤트</th><th>결과</th><th>화면 / 경로</th><th>HTTP</th><th>접속 IP</th><th>상세</th></tr></thead><tbody>
+    {% for row in rows %}<tr>
+      <td class="access-log-time">{{ row.occurred_at }}</td>
+      <td>{{ row.username or '비로그인 / 확인 불가' }}{% if row.user_id %}<small>사용자 #{{ row.user_id }}</small>{% endif %}</td>
+      <td>{{ event_labels.get(row.event_type,row.event_type) }}</td>
+      <td class="audit-result-{{ row.result|lower }}">{{ result_labels.get(row.result,row.result) }}<small>{{ reason_labels.get(row.reason,row.reason) }}</small></td>
+      <td class="access-log-path">{{ row.screen_key or row.endpoint or '경로 없음' }}<small>{{ row.path }}</small></td>
+      <td class="audit-number">{{ row.status_code }}<small>{{ row.method }}</small></td>
+      <td>{{ row.client_ip or '−' }}</td>
+      <td><details><summary>상세</summary><dl><dt>이력 ID</dt><dd>{{ row.audit_event_id }}</dd><dt>처리 시간</dt><dd>{{ row.duration_ms }} ms</dd><dt>브라우저</dt><dd>{{ row.user_agent or '−' }}</dd><dt>엔드포인트</dt><dd>{{ row.endpoint or '−' }}</dd><dt>요청 식별자</dt><dd>{{ row.request_id }}</dd><dt>접속 식별자</dt><dd>{% if row.audit_session_id %}<a href="{{ url_for('access_logs',start=filters.start,end=filters.end,session=row.audit_session_id) }}">{{ row.audit_session_id }}</a>{% else %}−{% endif %}</dd></dl></details></td>
+    </tr>{% else %}<tr><td colspan="8" class="empty">조회 조건에 맞는 이력이 없습니다.</td></tr>{% endfor %}
+    </tbody></table></div>
+    <nav class="access-log-pagination" aria-label="이력 페이지">{% if page>1 %}<a class="button" href="{{ page_url(page-1) }}">이전</a>{% endif %}{% if page<pages %}<a class="button" href="{{ page_url(page+1) }}">다음</a>{% endif %}</nav>
+  </section>
+  <details class="panel access-log-help"><summary>기록 범위와 조회 기준 ⓘ</summary><p>로그인·로그아웃·만료 이벤트와 각 요청의 접근 결과를 별도 행으로 기록합니다. 같은 요청 식별자는 동일 요청이며, 접속 식별자로 로그인 이후의 화면 이동을 묶어 조회할 수 있습니다. 이 화면과 CSV 조회도 기록됩니다.</p><p>정적 파일·상태 점검은 제외합니다. IP는 서버에 직접 연결한 주소이며 전달 헤더를 신뢰하지 않습니다. 비밀번호·쿠키·토큰·검색어와 요청 본문은 저장하지 않습니다. CSV는 동일 조건의 최신 10,000건까지 제공하므로 그 이상이면 기간을 나누어 조회하세요.</p><p>브라우저 종료는 감지할 수 없습니다. 미사용 만료는 다음 요청에서 확인될 때 기록되며, 이미 만료·삭제된 쿠키는 이전 접속을 식별할 수 없습니다. 이력 수정·삭제 기능과 자동 삭제는 제공하지 않습니다.</p></details>
+</div>
+{% endblock %}

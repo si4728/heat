@@ -1,0 +1,24 @@
+.access-log-workspace{max-width:1600px;margin:0 auto;color:var(--text,#24343c)}
+.access-log-filters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;padding:20px;margin-bottom:18px}
+.access-log-filters label{display:flex;flex-direction:column;gap:7px;font-size:13px;min-width:0}
+.access-log-filters input,.access-log-filters select{width:100%;min-width:0;min-height:38px;font:inherit}
+.access-log-filter-actions{display:flex;align-items:end;gap:8px;flex-wrap:wrap}
+.access-log-results{overflow:hidden}
+.access-log-results .table-wrap{max-height:640px;overflow:auto}
+.access-log-results table{min-width:1100px;width:100%;font-size:13px;border-collapse:collapse}
+.access-log-results th{position:sticky;top:0;background:var(--panel,#fff);z-index:1;font-weight:500}
+.access-log-results td,.access-log-results th{padding:12px 10px;vertical-align:top;text-align:left}
+.access-log-results small{display:block;margin-top:5px;font-size:12px;color:var(--muted,#52616a)}
+.access-log-results .audit-number{text-align:right;font-variant-numeric:tabular-nums}
+.access-log-time{white-space:nowrap;font-variant-numeric:tabular-nums}
+.access-log-path{max-width:280px;overflow-wrap:anywhere}
+.access-log-results details{max-width:300px;min-width:52px}
+.access-log-results details[open]{min-width:230px}
+.access-log-results summary,.access-log-help summary{cursor:pointer}
+.access-log-results dd{margin:4px 0 12px;overflow-wrap:anywhere;font-size:12px}
+.access-log-results dt{font-size:12px;color:var(--muted,#52616a)}
+.audit-result-denied,.audit-result-failure,.audit-result-error{color:#a32b25;font-weight:600}
+.access-log-pagination{display:flex;justify-content:flex-end;gap:8px;padding:14px 20px}
+.access-log-help{padding:18px 20px;margin-top:18px;font-size:13px;line-height:1.7}
+@media(max-width:1100px){.access-log-filters{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:640px){.access-log-filters{grid-template-columns:repeat(2,minmax(0,1fr));padding:14px;gap:12px}.access-log-filter-actions,.access-log-session{grid-column:1/-1}.access-log-filters input,.access-log-filters select{font-size:16px;min-height:44px}.access-log-results .panel-head{align-items:start;gap:8px;flex-wrap:wrap}}

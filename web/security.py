@@ -9,6 +9,7 @@ from flask import abort, flash, g, redirect, render_template, request, session, 
 from iris2 import services
 from iris2.hx_configuration import DB_PATH, ENDPOINT_PERMISSIONS
 from iris2.application.organization_service import organization_catalog
+from iris2.web.access_audit import auth_event, register_access_audit
 
 
 def register_security(app) -> None:
@@ -51,12 +52,14 @@ def register_security(app) -> None:
                         "api_health", "api_exchanger_create", "api_exchanger_update"}
     authenticated_only_endpoints = {"logout", "user_preferences"}
     csrf_exempt_endpoints = {"api_health", "api_exchanger_create", "api_exchanger_update"}
+    register_access_audit(app, endpoint_permissions)
 
     def start_authenticated_session(user_id: int) -> None:
         session.clear()
         session.permanent = True
         session["user_id"] = user_id
         session["last_activity_at"] = time.time()
+        session['audit_session_id'] = secrets.token_hex(16)
 
     @app.before_request
     def enforce_authentication_and_permissions():
@@ -69,9 +72,14 @@ def register_security(app) -> None:
             expected = session.get("csrf_token")
             supplied = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token")
             if not expected or not supplied or not secrets.compare_digest(expected, supplied):
+                g.audit_reason = 'CSRF_REJECTED'
+                if request.endpoint == 'login' and request.method == 'POST':
+                    g.audit_username = request.form.get('username','')
+                    g.audit_user_id = None
+                    auth_event('LOGIN_FAILURE','FAILURE','CSRF_REJECTED')
                 abort(400, description="Invalid or missing CSRF token")
         if app.config.get("AUTH_DISABLED"):
-            if request.endpoint in pdf_review_endpoints:
+            if request.endpoint in pdf_review_endpoints or request.endpoint in {'access_logs','access_logs_export'}:
                 abort(403)
             return None
         endpoint = request.endpoint
@@ -87,6 +95,8 @@ def register_security(app) -> None:
             except (TypeError, ValueError):
                 idle_seconds = app.config["SESSION_IDLE_TIMEOUT_SECONDS"]
             if idle_seconds >= app.config["SESSION_IDLE_TIMEOUT_SECONDS"]:
+                g.audit_reason = 'SESSION_EXPIRED'
+                auth_event('SESSION_EXPIRED','SUCCESS','SESSION_EXPIRED')
                 session.clear()
                 flash("30분 동안 사용이 없어 자동 로그아웃되었습니다.", "warning")
                 next_path = request.full_path.rstrip("?")
@@ -94,13 +104,20 @@ def register_security(app) -> None:
             session["last_activity_at"] = now
         profile = services.user_access_profile(session.get("user_id")) if session.get("user_id") else None
         if not profile:
+            g.audit_reason = 'SESSION_INVALID' if session.get('user_id') else 'AUTH_REQUIRED'
+            if session.get('user_id'):
+                auth_event('SESSION_INVALID','SUCCESS','SESSION_INVALID')
             session.clear()
             next_path = request.full_path.rstrip("?")
             return redirect(url_for("login", next=next_path))
         g.current_user = profile
+        if not session.get('audit_session_id'):
+            session['audit_session_id'] = secrets.token_hex(16)
+        session['audit_username'] = profile.get('username','')
+        g.audit_session_id = session['audit_session_id']
         if endpoint in pdf_review_endpoints and not profile["is_admin"]:
             abort(403)
-        if endpoint in {"users_admin", "database_monitor", "backup_manager", "data_entry_status", "imports"}:
+        if endpoint in {"users_admin", "database_monitor", "backup_manager", "data_entry_status", "imports", "access_logs", "access_logs_export"}:
             if not profile["is_admin"]:
                 abort(403)
             return None
@@ -148,6 +165,8 @@ def register_security(app) -> None:
             try:
                 user = services.create_initial_admin(request.form.to_dict())
                 start_authenticated_session(user["user_id"])
+                session['audit_username'] = user['username']
+                auth_event('INITIAL_ADMIN','SUCCESS','INITIAL_ADMIN',user)
                 flash("초기 관리자 계정이 생성되었습니다.", "success")
                 return redirect(url_for("dashboard"))
             except ValueError as exc:
@@ -164,15 +183,21 @@ def register_security(app) -> None:
             )
             if user:
                 start_authenticated_session(user["user_id"])
+                session['audit_username'] = user['username']
+                auth_event('LOGIN_SUCCESS','SUCCESS','AUTHENTICATED',user)
                 next_path = request.form.get("next", "")
                 if not next_path.startswith("/") or next_path.startswith("//"):
                     next_path = url_for("dashboard")
                 return redirect(next_path)
+            g.audit_username = request.form.get('username','')
+            g.audit_user_id = None
+            auth_event('LOGIN_FAILURE','FAILURE','INVALID_CREDENTIALS')
             flash("사용자 ID 또는 비밀번호가 올바르지 않습니다.", "error")
         return render_template("login.html", next_path=request.args.get("next", ""))
 
     @app.post("/logout")
     def logout():
+        auth_event('LOGOUT','SUCCESS','USER_LOGOUT',g.current_user)
         session.clear()
         return redirect(url_for("login"))
 

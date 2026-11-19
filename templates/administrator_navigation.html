@@ -13,6 +13,7 @@
     <a href="{{ url_for('data_entry_status') }}">데이터 입력 현황</a>
     <h2>사용자·권한</h2>
     <a href="{{ url_for('users_admin') }}">사용자·권한 관리</a>
+    <a href="{{ url_for('access_logs') }}">로그온·화면 접근 이력</a>
     <h2>조직 코드·기준값</h2>
     {% if can_screen('PLANT_LINES') %}<a href="{{ url_for('organization_codes') }}">조직 코드 관리</a>{% endif %}
     {% if can_screen('WALL_LOSS_COLORS') %}<a href="{{ url_for('wall_loss_colors') }}">Wall Loss 색상</a><a href="{{ url_for('system_theme_settings') }}">화면 테마 설정</a>{% endif %}
