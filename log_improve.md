@@ -2,6 +2,8 @@
 
 대상: `C:\access\heat\iris2`의 MariaDB와 활성 Flask 앱. 기존 `iris` 및 SQLite는 변경하지 않습니다.
 
+운영 PC용 확인 SQL·적용 순서·검증 기대값은 [운영 DB 변경 확인·적용 안내](docs/DB_CHANGE_PRODUCTION_CHECK_20261120.md)를 참고하세요. 개발 PC 적용 상태와 운영 PC 적용 상태는 별도로 확인해야 합니다.
+
 ## DB 변경
 
 - 신규 `access_audit_event` 테이블: 발생 시각(UTC), 사용자 ID·로그인 ID, 로그인 접속 식별자, 요청 식별자, 이벤트, 허용·거부·성공·실패·오류 결과, 사유, 화면 코드, 엔드포인트, HTTP 메서드·경로·상태, 직접 연결 IP, 브라우저 정보, 응답 생성 처리시간.
