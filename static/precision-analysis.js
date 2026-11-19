@@ -1,10 +1,26 @@
 (() => {
   const rateSlider = document.getElementById('corrosion-rate-slider');
   let selectedTubeId = null;
+  const allTubesButton = document.getElementById('toggle-all-tubes');
+  allTubesButton?.addEventListener('click', () => {
+    const expanded = allTubesButton.getAttribute('aria-expanded') !== 'true';
+    allTubesButton.setAttribute('aria-expanded', String(expanded));
+    allTubesButton.textContent = expanded ? '상위 10개만 보기' : '전체 보기';
+    document.querySelectorAll('[data-analysis-tube]').forEach((row, index) => { row.hidden = !expanded && index >= 10; });
+  });
   const mapNode = document.getElementById('precision-tube-map');
   const mapJson = document.getElementById('precision-map-data');
   const lifeJson = document.getElementById('precision-life-data');
   if (!mapNode || !mapJson || !lifeJson) return;
+
+  function helpDisclosure(content, label = 'ⓘ 설명 보기') {
+    const details = document.createElement('details');
+    details.className = 'analysis-section-help';
+    const summary = document.createElement('summary');
+    summary.textContent = label;
+    details.append(summary, content);
+    return details;
+  }
 
   const panelLayout = document.getElementById('precision-panel-layout');
   const widthResizer = document.getElementById('precision-panel-resizer');
@@ -121,7 +137,15 @@
   const defectByTube = new Map(defects.map(row => [Number(row.tube_id), row]));
   const validCoordinate = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
   const validPoints = tubes.filter(tube => validCoordinate(tube.x) && validCoordinate(tube.y));
-  const palette = window.IrisWallLossPalette;
+  const originalPalette = window.IrisWallLossPalette;
+  const pluggingBand = {key:'LOSS_40_PLUS', label:'40% 이상 · Plugging 대상', color:'#dc2626'};
+  const palette = {
+    bands: [...originalPalette.bands.filter(b => ['NOMINAL','LOSS_10','LOSS_20','LOSS_30','LOSS_40'].includes(b.key)).map(b => b.key === 'LOSS_40' ? {...b,label:'31~40% 미만'} : b), pluggingBand, ...originalPalette.bands.filter(b => ['NOT_INSPECTED','UNREGISTERED','PLUGGED'].includes(b.key))],
+    tubeGrade(tube) {
+      const grade = originalPalette.tubeGrade(tube);
+      return !['NOT_INSPECTED','UNREGISTERED','PLUGGED'].includes(grade.key) && Number(tube.wall_loss_percent) >= 40 ? pluggingBand : grade;
+    }
+  };
   const lossLegend = palette.bands;
   const legendByKey = new Map(lossLegend.map(item => [item.key, {...item, count: 0}]));
   const lossKey = tube => palette.tubeGrade(tube).key;
@@ -325,7 +349,7 @@
       scopeNote = document.createElement('p');
       scopeNote.id = 'remaining-life-scope-note';
       scopeNote.className = 'analysis-quality-note';
-      document.getElementById('remaining-life-analysis').after(scopeNote);
+      document.getElementById('remaining-life-analysis').after(helpDisclosure(scopeNote));
     }
     const unregistered = lifeData.unregistered_tube_count == null ? '미등록 수량은 미확인이며 평가에서 제외됩니다.' : `미등록 ${Number(lifeData.unregistered_tube_count).toLocaleString('ko-KR')}개는 평가에서 제외됩니다.`;
     scopeNote.textContent = `예측 가능한 등록 튜브 중 향후 추가 도달 대상 ${futureCount}개이며, ${unregistered} 설비 최근 검사일: ${lifeData.equipment_summary?.latest_inspection_date || '미확인'} · 계산 기준일: ${lifeData.as_of_date || '미확인'}. 기준 도달 수량은 각 튜브의 최근 검사값에 따른 판정이며 실제 작업 완료나 계산 기준일의 재측정 결과를 뜻하지 않습니다.`;
@@ -372,15 +396,15 @@
     }
     const rows = annualPluggingSeries(projections, startYear, startYear + 25);
     const limit = Number(allowable);
-    const max = Math.max(1, limit, ...rows.map(row => row.cumulative));
+    const max = Math.max(1, Math.ceil(Math.max(...rows.map(row => row.cumulative)) * 1.15));
     const left = 55, top = 25, height = 180, width = 800, step = width / rows.length;
     const y = count => top + height * (1 - count / max);
     const bars = rows.map((row, index) => `<rect x="${left + index * step + 3}" y="${y(row.cumulative)}" width="${step - 6}" height="${height * row.cumulative / max}" fill="${pluggingBarColor(row.cumulative, limit)}"><title>${row.year}년: 누적 ${row.cumulative}개 / 당해 ${row.added}개</title></rect>${index % 5 === 0 ? `<text x="${left + index * step}" y="225" font-size="12" fill="currentColor">${row.year}</text>` : ''}`).join('');
-    node.innerHTML = `<svg viewBox="0 0 900 250" style="width:100%;min-width:520px;max-height:320px" role="img" aria-label="${startYear}년부터 25년간 누적 예측. 허용 ${limit}개"><text x="8" y="20" fill="currentColor" font-size="12">수량(개)</text><text x="8" y="${top + 8}" fill="currentColor" font-size="12">${max}</text><text x="30" y="${top + height}" fill="currentColor" font-size="12">0</text>${bars}<line x1="${left}" x2="${left + width}" y1="${y(limit)}" y2="${y(limit)}" stroke="#b45309" stroke-width="2" stroke-dasharray="6 4"/><text x="${left}" y="${Math.max(13, y(limit) - 5)}" fill="currentColor" font-size="12">허용 한도 ${limit}개 (초과 시 도달)</text></svg>`;
+    node.innerHTML = `<svg viewBox="0 0 900 250" style="width:100%;min-width:520px;max-height:320px" role="img" aria-label="${startYear}년부터 25년간 누적 예측. 허용 ${limit}개"><text x="8" y="20" fill="currentColor" font-size="12">수량(개)</text><text x="8" y="${top + 8}" fill="currentColor" font-size="12">${max}</text><text x="30" y="${top + height}" fill="currentColor" font-size="12">0</text>${bars}${limit <= max ? `<line x1="${left}" x2="${left + width}" y1="${y(limit)}" y2="${y(limit)}" stroke="#b45309" stroke-width="2" stroke-dasharray="6 4"/>` : ''}<text x="${left}" y="${limit <= max ? Math.max(13, y(limit) - 5) : 15}" fill="currentColor" font-size="12">허용 한도 ${limit}개 (초과 시 도달)</text></svg>`;
     const beyond = projections.filter(row => row.projectedDate >= Date.UTC(startYear + 26, 0, 1)).length;
     const note = document.createElement('p');
     note.textContent = `녹색: 허용 한도의 70% 이하 / 황색: 70% 초과~한도 이하 / 적색: 한도 초과. 표시 기간: ${startYear}~${startYear + 25}년. 기간 이후 예상 ${beyond}개. 이전 연도 도달분은 누적에 포함됩니다.`;
-    node.appendChild(note);
+    node.appendChild(helpDisclosure(note));
     table.innerHTML = `<table><thead><tr><th>연도</th><th>당해 도달</th><th>누적 대상</th><th>허용 한도</th></tr></thead><tbody>${rows.map(row => `<tr><td>${row.year}</td><td>${row.added}</td><td>${row.cumulative}</td><td>${limit}</td></tr>`).join('')}</tbody></table>`;
   }
 
@@ -450,6 +474,7 @@
       node.setAttribute('aria-current', String(selected));
       node.classList.remove('linked-tube-pulse');
     });
+    if (selectedRow?.hidden) { document.getElementById('toggle-all-tubes')?.click(); }
     if (source === 'map' && selectedRow) {
       const viewport = selectedRow.closest('.analysis-table-scroll');
       const header = viewport?.querySelector('thead')?.getBoundingClientRect().height || 0;
@@ -476,7 +501,7 @@
     } : null);
     if (!tube) return;
     selectedTubeId = Number(tubeId);
-    document.getElementById('equipment-summary').hidden=true;
+    document.getElementById('equipment-summary').hidden=false;
     document.getElementById('selected-tube-view').hidden=false;
     document.getElementById('show-equipment-summary').hidden=false;
     const currentUrl=new URL(window.location.href);currentUrl.searchParams.set('tube_id',String(selectedTubeId));history.replaceState(null,'',currentUrl);
@@ -495,6 +520,9 @@
       trend.dataset.tubeId = String(tubeId);
       window.TubeThicknessTrend.render(trend, lifeData.tube_histories?.[String(tubeId)] || [],
         nominal,Number(lifeData.plugging_wall_loss_percent || 40),tube.tube_no);
+      trend.querySelectorAll(':scope > .analysis-quality-note').forEach(note => {
+        note.replaceWith(helpDisclosure(note.cloneNode(true)));
+      });
     }
     const rateForm = document.getElementById('corrosion-rate-form');
     // Keep the existing slider and listeners when switching the selected tube.
@@ -506,7 +534,7 @@
       ['계산 기준 측정일',defect?.measurement_date || tube.inspection_date || '-'],
       ['계산 기준 두께 (mm)',fmt(defect?.minimum_wall_thickness_mm ?? tube.minimum_wall_thickness_mm,3)],
       ['감육률 (%)',fmt(defect?.wall_loss_percent ?? tube.wall_loss_percent,2)],
-      ['단기 감육속도(mm/년)',fmt(defect?.short_term_corrosion_rate_mm_per_year,4),'short-term-rate'],
+      ['단기 감육속도(mm/년)',defect?.short_term_corrosion_rate_mm_per_year > 0 ? fmt(defect.short_term_corrosion_rate_mm_per_year,4) : '−','short-term-rate'],
       ['장기 감육속도(mm/년)','-','long-term-rate'],
       ['회귀 추세 감육속도(mm/년)',fmt(defect?.regression_corrosion_rate_mm_per_year,4)],
       ['감육속도(mm/년)','-','applied-corrosion-rate'],
@@ -527,7 +555,7 @@
     const shortNote=document.createElement('p');shortNote.className='analysis-quality-note';
     shortNote.textContent=defect?.short_term_previous_date ?
       `단기 계산: (${fmt(defect.short_term_previous_thickness_mm,3)} − ${fmt(defect.short_term_current_thickness_mm,3)}) mm ÷ ${fmt(defect.short_term_elapsed_years,3)}년 · ${defect.short_term_previous_date} ~ ${defect.short_term_current_date}${defect.short_term_status==='NON_POSITIVE'?' · 0 이하 값은 측정 편차 확인 대상입니다.':''}` : '단기 감육속도는 최근 두 유효 측정 두께가 있어야 계산합니다.';
-    analysis.appendChild(shortNote);
+    analysis.appendChild(helpDisclosure(shortNote, '단기 계산 기준 ⓘ 설명 보기'));
     if (rateForm) document.getElementById('corrosion-rate-slot').appendChild(rateForm);
     updateRateAnalysis();
   }

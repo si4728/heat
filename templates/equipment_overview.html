@@ -1,7 +1,7 @@
 {% set overview = life.equipment_overview %}
 <section id="equipment-summary" class="equipment-summary" aria-labelledby="equipment-summary-title">
   <h2 id="equipment-summary-title">설비 Summary</h2>
-  <p class="analysis-quality-note">튜브를 선택하면 두께 이력과 감육속도를 표시합니다.</p>
+  <details class="analysis-section-help"><summary>ⓘ 설명 보기</summary><p class="analysis-quality-note">튜브를 선택하면 두께 이력과 감육속도를 표시합니다.</p></details>
   <div class="equipment-summary-primary">
     <div class="{{ 'summary-urgent' if overview.urgent else '' }}"><span>예상 잔여수명</span><strong>{{ overview.remaining_display }}</strong><small>{{ overview.source }} · {{ overview.target_display }}</small></div>
     <div class="{{ 'summary-urgent' if overview.first_urgent else '' }}"><span>최초 Plugging 기준 도달</span><strong>{{ overview.first_display }}</strong><small>{{ overview.first_source }}{% if overview.first and overview.first.tube_no %} · Tube {{ overview.first.tube_no }}{% endif %}</small></div>
@@ -11,10 +11,19 @@
     <div><dt>차기 검사 권고일</dt><dd>{{ overview.recommendation_date or '산정 불가' }}</dd><small>실측 최초 도달 기준</small></div>
     <div><dt>유효 검사 표본 / 전체 수량</dt><dd>{{ overview.sample_count }} / {{ overview.total_tube_count if overview.total_tube_count is not none else '미등록' }}본</dd><small>검사일 {{ overview.measurement_date or '미등록' }}</small></div>
   </dl>
-  {% if overview.sample_status != 'ESTIMATED' %}<p class="analysis-quality-note" role="status">{{ {'SAMPLE_INSUFFICIENT':'유효 표본 10본 미만', 'NO_VALID_SAMPLE':'유효 표본 없음', 'DEGENERATE_SAMPLE':'표본 감육률의 분산 없음', 'AMBIGUOUS_INSPECTION':'같은 날짜의 여러 검사·번들 식별 필요', 'MIXED_INSTALLATION_DATES':'설치·교체 시점 혼재', 'INVALID_TOTAL_COUNT':'전체 튜브 수량 불일치'}.get(overview.sample_status,'추정 조건 미충족') }} · 기존 실측 예측을 유지합니다.</p>{% endif %}
-  <h3>감육률 상위 튜브 5개</h3>
-  <div class="analysis-table-scroll"><table class="summary-top-tubes"><thead><tr><th>Tube</th><th>감육률</th><th>감육속도<br>(mm/년)</th><th>도달 예상</th></tr></thead><tbody>
-  {% for row in overview.top_tubes %}<tr><td><button type="button" data-summary-tube="{{ row.tube_id }}">{{ row.tube_no }}</button></td><td>{{ '%.2f%%'|format(row.wall_loss_percent) }}</td><td>{{ '%.4f'|format(row.corrosion_rate_mm_per_year) if row.corrosion_rate_mm_per_year is not none else '－' }}</td><td>{{ '처리 완료' if row.plugging_complete else '검사 시 기준 도달' if row.plugging_threshold_reached else row.forecast_display|default('산정 불가') }}</td></tr>{% else %}<tr><td colspan="4">유효 감육 측정 튜브가 없습니다.</td></tr>{% endfor %}
-  </tbody></table></div>
-  <p class="analysis-quality-note">개별 튜브 감육률 기준 {{ life.plugging_wall_loss_percent|int }}% · 통계 추정은 배율 시뮬레이션과 별도입니다. 도달·추정상 도달은 실제 Plugging 작업 완료를 뜻하지 않습니다.</p>
+  {% if overview.sample_status != 'ESTIMATED' %}<details class="analysis-section-help"><summary>ⓘ 설명 보기</summary><p class="analysis-quality-note" role="status">{{ {'SAMPLE_INSUFFICIENT':'유효 표본 10본 미만', 'NO_VALID_SAMPLE':'유효 표본 없음', 'DEGENERATE_SAMPLE':'표본 감육률의 분산 없음', 'AMBIGUOUS_INSPECTION':'같은 날짜의 여러 검사·번들 식별 필요', 'MIXED_INSTALLATION_DATES':'설치·교체 시점 혼재', 'INVALID_TOTAL_COUNT':'전체 튜브 수량 불일치'}.get(overview.sample_status,'추정 조건 미충족') }} · 기존 실측 예측을 유지합니다.</p></details>{% endif %}
+
+  <details class="analysis-section-help"><summary>ⓘ 설명 보기</summary><p class="analysis-quality-note">개별 튜브 감육률 기준 {{ life.plugging_wall_loss_percent|int }}% · 통계 추정은 배율 시뮬레이션과 별도입니다. 도달·추정상 도달은 실제 Plugging 작업 완료를 뜻하지 않습니다.</p></details>
+  <details><summary>표본 추정 계산 기준 ⓘ 설명 보기</summary>
+    {% set estimate = life.get('sample_wall_loss_estimate') %}
+    {% if estimate %}
+      <p>상위 20% 경계 감육률: {{ '%.1f%%'|format(estimate.upper_20_wall_loss_percent) if estimate.upper_20_wall_loss_percent is not none else '−' }} · 유효 표본 {{ estimate.sample_count }}본</p>
+      {% if estimate.status == 'ESTIMATED' %}
+        <p>감육률 = {{ '%.4f'|format(estimate.mu) }} + {{ '%.4f'|format(estimate.beta) }} × y · R² {{ '%.3f'|format(estimate.r_squared) }} · y = −ln(−ln(F)), F = (순위 − 0.3) / (표본 수 + 0.4).</p>
+        <p>최대값은 F = 1 − 1 / 전체 수량, 상위 20% 경계값은 F = 0.8로 계산합니다. 추정 감육률 상한은 100%이며 추정 최대값은 실측 최대값 이상으로 적용합니다.</p>
+        <p>도달 예상일 = 최근 검사일 + (기준 감육률 − 추정 감육률) / (추정 감육률 / 설치 후 사용연수) · 설치 기준일 {{ estimate.installation_date or '미등록' }}.</p>
+      {% endif %}
+      <p>통계 추정은 튜브별 배율 시뮬레이션과 별도이며 실제 Plugging 완료 수량을 의미하지 않습니다.</p>
+    {% endif %}
+  </details>
 </section>

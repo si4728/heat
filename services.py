@@ -918,7 +918,7 @@ def dashboard_data(life_unit: str = '', life_band_filter: str = '') -> dict[str,
     with session_scope(DB_PATH) as session:
         registered_exchangers = select(HeatExchanger.heat_exchanger_id).join(Equipment,
             Equipment.equipment_id == HeatExchanger.equipment_id).join(ProcessUnit,
-            ProcessUnit.unit_id == Equipment.unit_id).where(ProcessUnit.unit_code.in_(['VCM1','VCM2']))
+            ProcessUnit.unit_id == Equipment.unit_id).where(ProcessUnit.unit_code.notin_(['VCM3', 'VCM4']))
         registered_inspections = select(IrisInspection.iris_inspection_id).where(
             IrisInspection.heat_exchanger_id.in_(registered_exchangers))
         registered_documents = select(IrisInspection.source_document_id).where(
@@ -965,16 +965,19 @@ def dashboard_data(life_unit: str = '', life_band_filter: str = '') -> dict[str,
                 func.count(IrisInspection.iris_inspection_id).label("inspection_count"),
                 func.count(func.distinct(IrisInspection.heat_exchanger_id)).label("exchanger_count"),
                 func.coalesce(func.sum(IrisInspection.extracted_tube_result_count), 0).label("tube_result_count"),
+                Equipment.production_team_code.label('team_code'),
             )
             .join(InspectionCampaign, InspectionCampaign.unit_id == ProcessUnit.unit_id)
             .join(IrisInspection, IrisInspection.campaign_id == InspectionCampaign.campaign_id)
+            .join(HeatExchanger, HeatExchanger.heat_exchanger_id == IrisInspection.heat_exchanger_id)
+            .join(Equipment, Equipment.equipment_id == HeatExchanger.equipment_id)
             .where(IrisInspection.heat_exchanger_id.in_(registered_exchangers),
-                   ProcessUnit.unit_code.in_(['VCM1','VCM2']))
-            .group_by(ProcessUnit.unit_code, InspectionCampaign.campaign_year)
+                   ProcessUnit.unit_code.notin_(['VCM3', 'VCM4']))
+            .group_by(ProcessUnit.unit_code, InspectionCampaign.campaign_year, Equipment.production_team_code)
             .order_by(InspectionCampaign.campaign_year.desc(), ProcessUnit.unit_code)
         ).all()
         yearly_rows = [
-            (*row, find_pdf_report(row.inspection_year, row.unit_code) is not None)
+            (*row[:5], find_pdf_report(row.inspection_year, row.unit_code) is not None, row.team_code)
             for row in yearly_query_rows
         ]
         recent = session.execute(
@@ -997,15 +1000,18 @@ def dashboard_data(life_unit: str = '', life_band_filter: str = '') -> dict[str,
         from .application.life_dashboard import annual_team_rows
         team_years = annual_team_rows(yearly_rows)
         # An exchanger inspected in both process campaigns still counts once per team/year.
-        distinct_by_year = dict(session.execute(select(InspectionCampaign.campaign_year,
+        distinct_by_year = session.execute(select(InspectionCampaign.campaign_year, Equipment.production_team_code,
             func.count(func.distinct(IrisInspection.heat_exchanger_id)))
             .join(IrisInspection, IrisInspection.campaign_id == InspectionCampaign.campaign_id)
             .join(ProcessUnit, ProcessUnit.unit_id == InspectionCampaign.unit_id)
-            .where(ProcessUnit.unit_code.in_(['VCM1', 'VCM2']),
+            .join(HeatExchanger, HeatExchanger.heat_exchanger_id == IrisInspection.heat_exchanger_id)
+            .join(Equipment, Equipment.equipment_id == HeatExchanger.equipment_id)
+            .where(ProcessUnit.unit_code.notin_(['VCM3', 'VCM4']),
                    IrisInspection.heat_exchanger_id.in_(registered_exchangers))
-            .group_by(InspectionCampaign.campaign_year)).all())
+            .group_by(InspectionCampaign.campaign_year, Equipment.production_team_code)).all()
         for row in team_years:
-            row['exchanger_count'] = distinct_by_year.get(row['year'], 0)
+            row['exchanger_count'] = sum(count for year, team, count in distinct_by_year
+                if year == row['year'] and f'{team} 생산팀' == row['team'])
         return {"counts": counts, "units": units, "yearly_rows": yearly_rows,
                 "team_yearly_rows": team_years,
                 "recent": recent, "batches": batches, "upcoming_plans": upcoming_plans,
@@ -1020,7 +1026,7 @@ def dashboard_remaining_life(unit='', band=''):
         masters = session.execute(select(HeatExchanger, Equipment, ProcessUnit)
             .join(Equipment, Equipment.equipment_id == HeatExchanger.equipment_id)
             .join(ProcessUnit, ProcessUnit.unit_id == Equipment.unit_id)
-            .where(ProcessUnit.unit_code.in_(['VCM1', 'VCM2']))).all()
+            .where(ProcessUnit.unit_code.notin_(['VCM3', 'VCM4']))).all()
         ids = [h.heat_exchanger_id for h, e, u in masters]
         bundles = session.scalars(select(TubeBundle).where(TubeBundle.heat_exchanger_id.in_(ids))).all()
         criteria = {r.heat_exchanger_id: r for r in session.scalars(select(HeatExchangerManagementCriteria)
@@ -1034,7 +1040,7 @@ def dashboard_remaining_life(unit='', band=''):
             overview = life['equipment_overview']
             rows.append({'heat_exchanger_id': identifier, 'equipment_code': equipment.equipment_code,
                 'exchanger_code': specs.get(identifier), 'equipment_name': equipment.equipment_name,
-                'unit_code': process.unit_code, 'band': overview['band'],
+                'team_code': equipment.production_team_code, 'unit_code': process.unit_code, 'band': overview['band'],
                 'remaining_life_years': overview['remaining_life_years'],
                 'remaining_display': overview['remaining_display'], 'life_source': overview['source'],
                 'target_display': overview['target_display'],

@@ -42,12 +42,15 @@ def life_band(life):
 
 
 def group_life_rows(rows, unit='', band=''):
-    unit = unit if unit in {'VCM1', 'VCM2'} else ''
+    unit = unit if unit in {r['unit_code'] for r in rows} else ''
     band = band if band in BANDS else ''
-    rows = [r for r in rows if r['unit_code'] in ('VCM1', 'VCM2')]
-    groups = [{'team': 'VCM', 'label': 'VCM 생산팀',
-               'counts': {key: sum(r['band'] == key for r in rows) for key in BANDS},
-               'total': len(rows)}]
+    rows = [r for r in rows if r['unit_code'] not in ('VCM3', 'VCM4')]
+    teams = sorted({r.get('team_code') or ('VCM' if r['unit_code'].startswith('VCM') else 'PE') for r in rows})
+    groups = []
+    for team in teams:
+        members = [r for r in rows if (r.get('team_code') or ('VCM' if r['unit_code'].startswith('VCM') else 'PE')) == team]
+        groups.append(dict(team=team, label=f'{team} 생산팀',
+            counts={key: sum(r['band'] == key for r in members) for key in BANDS}, total=len(members)))
     totals = {key: sum(g['counts'][key] for g in groups) for key in BANDS}
     return {'groups': groups, 'totals': totals, 'total': len(rows), 'bands': BANDS,
             'selected_unit': unit, 'selected_band': band,
@@ -72,10 +75,13 @@ def forecast_display(first, as_of):
 def annual_team_rows(rows):
     """Aggregate the two processes once per year, retaining process report links."""
     years = {}
-    for unit, year, inspections, exchangers, results, pdf in rows:
-        if unit not in ('VCM1', 'VCM2'):
+    for entry in rows:
+        unit, year, inspections, exchangers, results, pdf = entry[:6]
+        if unit in ('VCM3', 'VCM4'):
             continue
-        group = years.setdefault(year, dict(year=year, team='VCM 생산팀',
+        code = entry[6] if len(entry) > 6 else ('VCM' if unit.startswith('VCM') else 'PE')
+        team = f'{code or "미지정"} 생산팀'
+        group = years.setdefault((year, team), dict(year=year, team=team,
             inspection_count=0, exchanger_count=0, result_count=0, processes=[]))
         group['inspection_count'] += inspections
         group['exchanger_count'] += exchangers

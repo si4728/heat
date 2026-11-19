@@ -54,8 +54,10 @@ class ShortTermCorrosionTests(unittest.TestCase):
     def test_analysis_content_is_visible_without_tabs_or_dialogs(self):
         source=(Path(__file__).resolve().parents[1]/'templates/precision_analysis.html').read_text(encoding='utf-8')
         workspace=source.split('<section class="analysis-workspace">',1)[1]
-        for tag in ['<dialog','<details','role="tab','showModal']:
+        for tag in ['<dialog','role="tab','showModal']:
             self.assertNotIn(tag,workspace)
+        self.assertIn('<details id="corrosion-help-dialog"',workspace)
+        self.assertNotIn('<details id="corrosion-help-dialog" open',workspace)
         self.assertIn('<details class="analysis-equipment-panel"',source)
         self.assertIn('thickness-trend',source)
         self.assertIn('precision_measurement_table.html',source)

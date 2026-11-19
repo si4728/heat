@@ -58,15 +58,15 @@ def select_corrosion_rate(current, history, *, long_term_rate=None, installed_at
     short_rate = short['short_term_rate_mm_per_year']
     selected, basis, label = positive_long, 'LONG_TERM', '장기'
     if count >= 3:
-        if trend is not None and trend > 0:
-            selected, basis, label = trend, 'REGRESSION', f'추세({count}회)'
-        elif trend is not None:
-            basis, label = 'REGRESSION_NON_POSITIVE_LONG_TERM', '추세 0 이하 → 장기'
-        else:
-            basis, label = 'REGRESSION_INVALID_LONG_TERM', '추세 산정 불가 → 장기'
+        if trend is not None and trend > 0 and (positive_long is None or trend > positive_long):
+            selected, basis, label = trend, 'REGRESSION', '추세'
+        elif trend is not None and trend <= 0:
+            basis, label = 'REGRESSION_NON_POSITIVE_LONG_TERM', '장기'
+        elif trend is None:
+            basis, label = 'REGRESSION_INVALID_LONG_TERM', '장기'
     elif short_rate is not None:
         if short_rate <= 0:
-            basis, label = 'SHORT_TERM_NON_POSITIVE_LONG_TERM', '단기 0 이하 → 장기'
+            basis, label = 'SHORT_TERM_NON_POSITIVE_LONG_TERM', '장기'
         elif positive_long is None or short_rate > positive_long:
             selected, basis, label = short_rate, 'SHORT_TERM', '단기'
     if selected is None:

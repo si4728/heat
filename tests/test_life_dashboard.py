@@ -81,3 +81,16 @@ class LifeDashboardTests(unittest.TestCase):
         self.assertEqual(result[0]['result_count'],30)
         self.assertEqual([p['unit'] for p in result[0]['processes']],['VCM1','VCM2'])
         self.assertTrue(result[0]['processes'][0]['pdf_available'])
+
+    def test_pe_and_other_teams_share_the_list_population(self):
+        rows = [dict(unit_code='VCM1', team_code='VCM', band='short'),
+                dict(unit_code='PE', team_code='PE', band='unknown'),
+                dict(unit_code='PVC1', team_code='PVC1', band='long')]
+        report = group_life_rows(rows)
+        self.assertEqual(report['total'], 3)
+        self.assertEqual(sum(report['totals'].values()), 3)
+        self.assertEqual({g['team'] for g in report['groups']}, {'VCM', 'PE', 'PVC1'})
+        annual = annual_team_rows([('VCM1',2025,3,2,10,True,'VCM'),
+                                   ('PE',2025,1,1,5,False,'PE')])
+        self.assertEqual({r['team']:r['exchanger_count'] for r in annual},
+                         {'VCM 생산팀':2, 'PE 생산팀':1})

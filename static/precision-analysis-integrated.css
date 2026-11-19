@@ -53,3 +53,9 @@
 .non-positive-short-rate{color:#9c4a14!important;}
 .analysis-workspace .analysis-quality-note{font-size:12px;line-height:1.6;}
 @media(max-width:760px){.analysis-secondary-grid{grid-template-columns:1fr;}.analysis-workspace .analysis-info-bar span{font-size:11px;}.analysis-workspace .analysis-info-bar strong{font-size:12px;}.selected-tube-table{font-size:12px;}}
+
+.analysis-workspace details summary{cursor:pointer;font-size:13px;padding:8px 0;}
+.analysis-measurement-panel tr[hidden]{display:none;}
+.analysis-measurement-panel td:nth-child(8){white-space:normal;min-width:64px;}
+.analysis-selection-panel{overflow:auto;}
+@media(min-width:1101px){.analysis-main-grid>.analysis-selection-panel{max-height:920px;}.equipment-summary-primary strong{font-size:22px;}.equipment-summary-facts{gap:8px;}}

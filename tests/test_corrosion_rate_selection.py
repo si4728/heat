@@ -17,10 +17,10 @@ class CorrosionSelectionTests(unittest.TestCase):
         rows = [dict(date=f'{2020+i}-01-01', thickness_mm=value) for i, value in enumerate(values)]
         return select_corrosion_rate(rows[-1], rows, long_term_rate=long, **kwargs)
 
-    def test_three_inspections_use_regression_even_when_long_rate_is_larger(self):
+    def test_three_inspections_choose_larger_long_rate(self):
         result = self.select([2.5, 2.4, 2.3], long=.3)
-        self.assertEqual(result['selection_label'], '추세(3회)')
-        self.assertAlmostEqual(result['selected_rate_mm_per_year'], .1, places=3)
+        self.assertEqual(result['selection_label'], '장기')
+        self.assertEqual(result['selected_rate_mm_per_year'], .3)
         self.assertEqual(result['measurement_count'], 3)
 
     def test_two_inspections_use_larger_positive_rate_and_one_uses_long(self):
@@ -32,20 +32,20 @@ class CorrosionSelectionTests(unittest.TestCase):
     def test_nonpositive_short_uses_long_without_clamping_the_measured_rate(self):
         for values in ([2.4, 2.5], [2.4, 2.4]):
             result = self.select(values)
-            self.assertEqual(result['selection_label'], '단기 0 이하 → 장기')
+            self.assertEqual(result['selection_label'], '장기')
             self.assertEqual(result['selected_rate_mm_per_year'], .02)
             self.assertLessEqual(result['short_term_rate_mm_per_year'], 0)
 
     def test_nonpositive_regression_uses_long_even_when_last_pair_is_positive(self):
         for values in ([2.0, 2.5, 2.4], [2.4, 2.4, 2.4]):
             result = self.select(values)
-            self.assertEqual(result['selection_label'], '추세 0 이하 → 장기')
+            self.assertEqual(result['selection_label'], '장기')
             self.assertEqual(result['selected_rate_mm_per_year'], .02)
 
     def test_regression_averages_a_positive_trend_despite_last_measurement_noise(self):
         result = self.select([3, 2, 2.1])
         self.assertLess(result['short_term_rate_mm_per_year'], 0)
-        self.assertEqual(result['selection_label'], '추세(3회)')
+        self.assertEqual(result['selection_label'], '추세')
         self.assertGreater(result['selected_rate_mm_per_year'], 0)
 
     def test_missing_or_nonpositive_long_cannot_be_used_as_fallback(self):
