@@ -29,6 +29,8 @@
     latest_inspection_date:'최근 검사일', exchanger_count:'열교환기 수 (대)',
     fluid_name:'유체명', side_code:'유체 측', equipment_list:'열교환기 목록',
     remaining_display:'예상 잔여수명', recommendation_date:'차기 검사 권고일', life_source:'산정 근거', calculation_date:'계산 기준일',
+    team_code:'생산팀', exchanger_code:'설비', matching_tube_count:'조건 해당 튜브 수',
+    first_display:'최초 Plugging 기준 도달', measured_estimated_loss:'측정 / 추정 최대 감육률 (%)',
     year:'연도', inspection_year:'검사 연도', inspection_date:'검사일', report_date:'보고일',
     inspected_tubes:'검사 Tube 수', valid_loss_tubes:'유효 감육률 Tube 수',
     minimum_mm:'최소두께 (mm)', maximum_loss:'최대 감육률 (%)', average_loss:'평균 감육률 (%)', mean_loss:'평균 감육률 (%)',

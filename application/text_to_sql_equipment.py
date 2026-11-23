@@ -12,11 +12,13 @@ from iris2.llm_integration.text_to_sql import QueryRejected
 def options(question):
     if not re.search(r'열교환기|교환기|설비|검사|잔여|감육|권고|분석',question):
         raise QueryRejected('열교환기 목록·잔여수명·차기 검사 권고일을 질문하세요.')
-    if re.search(r'평균|최소|재질|온도|압력|기간|비교|예측해|계산해|\d{4}\s*년|최근\s*\d', question):
+    date_filter=re.search(r'차기\s*검사\s*권고일(?:이|은|가)?\s*(\d{4})\s*년\s*(이내|이전|이후)',question)
+    remaining_question=question[:date_filter.start()]+question[date_filter.end():] if date_filter else question
+    if re.search(r'평균|최소|재질|온도|압력|기간|비교|예측해|계산해|\d{4}\s*년|최근\s*(?:\d|두|한)|감육\s*속도|표본|추이|회차별|증가|Plugging|적용\s*대상', remaining_question,re.I):
         raise QueryRejected('열교환기 결과는 현재 분석값을 조회합니다. 평균·최소·기간·운전조건 비교는 지원하지 않습니다.')
     conditions = []
-    for field, pattern in [('remaining_life_years',r'잔여\s*수명\s*(\d+(?:\.\d+)?)\s*년\s*(이하|미만|이상|초과)'),
-                           ('maximum_loss',r'감육률\s*(\d+(?:\.\d+)?)\s*%\s*(이하|미만|이상|초과)')]:
+    for field, pattern in [('remaining_life_years',r'잔여\s*수명(?:이|은|가)?\s*(\d+(?:\.\d+)?)\s*년\s*(이하|미만|이상|초과)'),
+                           ('maximum_loss',r'감육률(?:이|은|가)?\s*(\d+(?:\.\d+)?)\s*%\s*(이하|미만|이상|초과)')]:
         found = re.findall(pattern, question)
         if len(found)>1:
             raise QueryRejected('각 조회 항목에 조건을 하나만 지정하세요.')
@@ -25,9 +27,13 @@ def options(question):
             if field=='maximum_loss' and float(value)>100:
                 raise QueryRejected('감육률은 0~100%입니다.')
             conditions.append([field,op,float(value)])
-    if re.search(r'잔여\s*수명\s*\d|감육률\s*\d',question) and not conditions:
+    if date_filter:
+        year,op=date_filter.groups()
+        conditions.append(['recommendation_date',{'이내':'이하','이전':'미만','이후':'초과'}[op],
+                           f'{year}-12-31' if op=='이내' else f'{year}-01-01'])
+    if re.search(r'잔여\s*수명(?:이|은|가)?\s*\d|감육률(?:이|은|가)?\s*\d',question) and not conditions:
         raise QueryRejected('조건은 잔여수명 5년 이하 또는 최대 감육률 30% 이상처럼 입력하세요.')
-    if re.search(r'차기.*(?:이전|이후|까지|부터)|미검사|미등록|STEAM|유체',question,re.I):
+    if re.search(r'차기.*(?:이전|이후|까지|부터)|미검사|미등록|STEAM|유체',remaining_question,re.I):
         raise QueryRejected('해당 조건은 열교환기 분석 조회에서 아직 지원하지 않습니다. 유체명별 집계는 별도 질문으로 조회하세요.')
     match = re.search(r'(?:상위\s*)?(\d+)\s*(?:대|개)',question)
     limit = int(match[1]) if match else 100
@@ -71,13 +77,29 @@ def execute(ids, settings, signed, allowed):
         life=detail['remaining_life']; overview=life['equipment_overview']
         summary=life['equipment_summary']
         losses=[r['wall_loss_percent'] for r in life.get('analysis_tube_rows',[]) if r.get('wall_loss_percent') is not None]
+        team=getattr(detail.get('master',[None,None])[1],'production_team_code',None)
+        short_code=getattr(detail.get('spec'),'exchanger_code',None)
+        if not short_code:
+            match=re.search(r'(?:AE|E)-?\d+[A-Za-z]*$',master.get('equipment_tag',''))
+            short_code=match[0] if match else master.get('equipment_tag')
         row=dict(master,latest_inspection_date=summary.get('latest_inspection_date'),
+                 team_code=team,exchanger_code=short_code,
                  maximum_loss=max(losses) if losses else None,
                  remaining_life_years=overview['remaining_life_years'],
                  remaining_display=overview['remaining_display'],life_source=overview['source'],
                  recommendation_date=overview['recommendation_date'],
+                 first_display=overview.get('first_display'),
+                 measured_max=overview.get('measured_max'),estimated_max=overview.get('estimated_max'),
                  calculation_date=life.get('as_of_date'))
+        measured,estimated=row['measured_max'],row['estimated_max']
+        row['measured_estimated_loss']=('—' if measured is None else f'{measured:.1f}')+' / '+('—' if estimated is None else f'{estimated:.1f}')
         keep=True
+        tube_conditions=[(op,value) for field,op,value in settings['conditions'] if field=='maximum_loss']
+        row['matching_tube_count']=None
+        if tube_conditions:
+            op,value=tube_conditions[0]
+            check={'이하':lambda x:x<=value,'미만':lambda x:x<value,'이상':lambda x:x>=value,'초과':lambda x:x>value}[op]
+            row['matching_tube_count']=sum(check(loss) for loss in losses)
         for field,op,value in settings['conditions']:
             actual=row[field]
             keep=keep and actual is not None and {'이하':lambda x:x<=value,'미만':lambda x:x<value,
@@ -86,8 +108,10 @@ def execute(ids, settings, signed, allowed):
     if settings['sort']=='loss':
         rows.sort(key=lambda r:(r['maximum_loss'] is None,-(r['maximum_loss'] or 0),r['heat_exchanger_id']))
     limit=settings['limit']; total=len(rows)
-    return dict(query_kind='equipment_analysis',columns=['unit_code','equipment_tag','equipment_name',
-        'latest_inspection_date','maximum_loss','remaining_display','recommendation_date','life_source','calculation_date'],
+    columns=['team_code','unit_code','exchanger_code','equipment_name','latest_inspection_date']
+    if any(c[0]=='maximum_loss' for c in settings['conditions']):columns+=['matching_tube_count','maximum_loss']
+    columns+=['remaining_display','life_source','first_display','measured_estimated_loss','recommendation_date']
+    return dict(query_kind='equipment_analysis',columns=columns,
         rows=rows[:limit],result_count=min(total,limit),matched_count=total,limit_reached=total>limit,
         query_sha256=hashlib.sha256(expected['sql'].encode()).hexdigest(),
         generated_at=datetime.now(timezone.utc).isoformat())

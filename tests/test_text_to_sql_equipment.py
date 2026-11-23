@@ -17,23 +17,36 @@ class EquipmentOptionsTests(unittest.TestCase):
             def fetchall(self):return self.rows
         class Connection:
             def execute(self,sql,parameters=()):
-                return Rows([('GRANT SELECT ON iris2.* TO reader',)]) if sql=='SHOW GRANTS' else Rows([dict(heat_exchanger_id=i) for i in [1,2]])
+                return Rows([('GRANT SELECT ON iris2.* TO reader',)]) if sql=='SHOW GRANTS' else Rows([dict(heat_exchanger_id=i) for i in [1,2,3]])
             def rollback(self):pass
             def close(self):pass
         def detail(identifier):
             return dict(remaining_life=dict(analysis_tube_rows=[],equipment_summary={},
-                equipment_overview=dict(remaining_life_years=None if identifier==1 else 0,
-                    remaining_display='산정 불가' if identifier==1 else '0.0년',source='통계 추정',recommendation_date=None)))
+                equipment_overview=dict(remaining_life_years={1:None,2:0,3:5.4}[identifier],
+                    remaining_display={1:'산정 불가',2:'0.0년',3:'5.4년'}[identifier],source='통계 추정',recommendation_date=None)))
         with patch.object(query.dbapi,'connect',return_value=Connection()),patch.object(query.services,'exchanger_detail',side_effect=detail):
-            result=query.execute([1,2],query.options('잔여수명 5년 이하 열교환기'),query.proposal([1,2]),{1,2})
+            result=query.execute([1,2,3],query.options('잔여수명 5년 이하 열교환기'),query.proposal([1,2,3]),{1,2,3})
         self.assertEqual([r['heat_exchanger_id'] for r in result['rows']],[2])
         self.assertEqual(result['rows'][0]['remaining_display'],'0.0년')
 
     def test_filters_and_missing_are_explicit(self):
         self.assertEqual(query.options('잔여수명 5년 이하인 열교환기')['conditions'],[['remaining_life_years','이하',5]])
         self.assertEqual(query.options('감육이 심한 열교환기 5대')['sort'],'loss')
+        self.assertEqual(query.options('예상 잔여수명이 5년 이하인 열교환기를 보여줘')['conditions'],[['remaining_life_years','이하',5]])
+        self.assertEqual(query.options('공정별 차기 검사 권고일이 2027년 이내인 열교환기를 보여줘')['conditions'],[['recommendation_date','이하','2027-12-31']])
         for text in ['평균 감육률 교환기','2025년 검사 결과','차기 검사일 이전 설비','hello']:
             with self.subTest(text=text),self.assertRaises(QueryRejected):query.options(text)
+
+    def test_image_examples_not_yet_supported_are_rejected(self):
+        questions=['최근 두 번의 검사 사이 최대 감육률이 5%p 이상 증가한 열교환기는?',
+            '감육속도가 0.1 mm/년 이상인 튜브가 있는 열교환기를 알려줘',
+            'Plugging 20% 도달까지 10년 이하인 열교환기를 생산팀별로 세어줘',
+            '검사 표본이 10본 미만이라 재검사 범위를 늘려야 하는 열교환기는?',
+            'IRIS 적용 대상인데 최근 5년간 검사 이력이 없는 열교환기는?',
+            'Tube 재질이 Cu-Ni인 열교환기 중 최대 감육률 상위 10대',
+            'E-106의 검사 회차별 최대 감육률과 Plugging 수량 추이를 보여줘']
+        for question in questions:
+            with self.subTest(question=question),self.assertRaises(QueryRejected):query.options(question)
 
     def test_tampered_sql_or_revoked_scope_never_connect(self):
         settings=query.options('열교환기 목록')

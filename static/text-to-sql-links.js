@@ -16,12 +16,18 @@
     if (column === 'tube_id' || column === 'source_tube_id') {
       // A report's printed tube number is not the application's primary key.
       id = identifier(row.tube_id); template = urls.tubeUrl; title = 'Tube 상세 조회';
-    } else if (['heat_exchanger_id', 'equipment_code', 'equipment_tag', 'equipment_name'].includes(column)) {
+    } else if (['heat_exchanger_id', 'equipment_code', 'equipment_tag', 'equipment_name', 'exchanger_code'].includes(column)) {
       // Only a single-equipment result may supply a result-level fallback.
       id = identifier(row.heat_exchanger_id == null ? result.heat_exchanger_id : row.heat_exchanger_id);
       template = urls.exchangerUrl; title = '교환기 상세 조회';
+      if (result.query_kind === 'equipment_analysis') {
+        template = urls.analysisUrl; title = '열교환기 분석';
+      }
     } else if (column === 'iris_inspection_id') {
       id = identifier(row.iris_inspection_id); template = urls.inspectionUrl; title = '검사 상세 조회';
+    }
+    if (id && template && result.query_kind === 'equipment_analysis' && template.startsWith('/') && !template.startsWith('//') && /[?&]exchanger_id=0(?:&|$)/.test(template)) {
+      return {href:template.replace(/([?&]exchanger_id=)0(?=&|$)/, '$1' + id), title};
     }
     if (!id || !template || !template.startsWith('/') || template.startsWith('//') || !template.includes('/0')) return null;
     return {href: template.replace(/\/0(?=\/|$)/, '/' + id), title};

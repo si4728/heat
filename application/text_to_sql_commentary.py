@@ -12,12 +12,16 @@ from iris2.llm_integration.text_to_sql import QueryRejected
 
 def evidence(result):
     rows=result['rows']
-    keys=['heat_exchanger_id','equipment_tag','remaining_display','recommendation_date','maximum_loss','life_source']
-    return dict(total_rows=len(rows),matched_count=result.get('matched_count',len(rows)),
+    keys=['heat_exchanger_id','exchanger_code','team_code','unit_code','matching_tube_count',
+          'remaining_display','recommendation_date','maximum_loss','life_source','first_display','measured_estimated_loss']
+    facts=dict(total_rows=len(rows),matched_count=result.get('matched_count',len(rows)),
         missing_life=sum(r.get('remaining_life_years') is None for r in rows),
         missing_recommendation=sum(not r.get('recommendation_date') for r in rows),
         short_life=sum(r.get('remaining_life_years') is not None and r['remaining_life_years']<=5 for r in rows),
         examples=[{k:r.get(k) for k in keys} for r in rows[:10]])
+    while len(json.dumps(facts,ensure_ascii=False))>2200 and len(facts['examples'])>1:
+        facts['examples'].pop()
+    return facts
 
 
 def validate(payload, facts):
@@ -51,4 +55,4 @@ def generate(facts):
     if process.returncode or output.get('error'):
         raise QueryRejected('로컬 모델 실행에 실패했습니다. 조회 표는 그대로 확인할 수 있습니다.')
     return dict(status='generated',text=validate(output,facts),model=name,
-                scope='조회 표 전체의 집계와 앞 10대의 상세 근거',example_count=len(facts['examples']))
+                scope=f"조회 표 전체의 집계와 앞 {len(facts['examples'])}대의 상세 근거",example_count=len(facts['examples']))

@@ -31,6 +31,19 @@ class TextToSqlMariaDBTests(unittest.TestCase):
         self.assertEqual(row['remaining_display'],overview['remaining_display'])
         self.assertEqual(row['recommendation_date'],overview['recommendation_date'])
         self.assertEqual(row['heat_exchanger_id'],100)
+        self.assertEqual(row['first_display'],overview['first_display'])
+        self.assertEqual(row['measured_max'],overview['measured_max'])
+        self.assertEqual(row['estimated_max'],overview['estimated_max'])
+        self.assertEqual(row['team_code'],'VCM')
+
+    def test_matching_tube_count_is_counted_from_current_analysis_rows(self):
+        from iris2.application import text_to_sql_equipment as query
+        result=query.execute([151],query.options('감육률 30% 이상 튜브가 있는 열교환기를 보여줘'),query.proposal([151]),{151})
+        detail=services.exchanger_detail(151)['remaining_life']
+        expected=sum(r.get('wall_loss_percent') is not None and r['wall_loss_percent']>=30 for r in detail['analysis_tube_rows'])
+        self.assertEqual(len(result['rows']),1)
+        self.assertEqual(result['rows'][0]['matching_tube_count'],expected)
+        self.assertIn('matching_tube_count',result['columns'])
 
     def test_fluid_grouping_includes_all_equipment_and_matches_steam_source(self):
         from iris2.application import text_to_sql_fluids as fluids

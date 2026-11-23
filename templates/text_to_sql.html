@@ -10,6 +10,7 @@
      data-summary-url="{{ url_for('text_to_sql_summarize') }}"
      data-tube-url="{{ url_for('tube_detail', tube_id=0) }}"
      data-exchanger-url="{{ url_for('exchanger_detail', exchanger_id=0) }}"
+     data-analysis-url="{{ url_for('precision_analysis', exchanger_id=0) }}"
      data-inspection-url="{{ url_for('inspection_detail', inspection_id=0) }}">
   <p class="sql-intro">VCM1 · VCM2 · 기본 결과는 열교환기별 1행입니다. 잔여수명·차기 검사 권고일은 현재 분석 화면의 기본 계산값을 사용합니다.</p>
   {% if catalog_error %}<p class="sql-error" role="alert">{{ catalog_error }}</p>{% endif %}
