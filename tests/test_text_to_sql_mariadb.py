@@ -16,6 +16,22 @@ from iris2.llm_integration.tests.test_text_to_sql import SUMMARY
 
 
 class TextToSqlMariaDBTests(unittest.TestCase):
+    def test_equipment_values_equal_current_analysis_overview(self):
+        client=self.client()
+        generated=client.post('/inspections/text-to-sql/generate',json=dict(
+            question='열교환기 잔여수명과 차기 검사 권고일',result_unit='equipment',exchanger_ids=[100]),
+            headers={'X-CSRF-Token':'integration-csrf'})
+        self.assertEqual(generated.status_code,200,generated.json)
+        response=client.post('/inspections/text-to-sql/execute',json=dict(token=generated.json['token']),
+            headers={'X-CSRF-Token':'integration-csrf'})
+        self.assertEqual(response.status_code,200,response.json)
+        self.assertEqual(len(response.json['result']['rows']),1)
+        row=response.json['result']['rows'][0]
+        overview=services.exchanger_detail(100)['remaining_life']['equipment_overview']
+        self.assertEqual(row['remaining_display'],overview['remaining_display'])
+        self.assertEqual(row['recommendation_date'],overview['recommendation_date'])
+        self.assertEqual(row['heat_exchanger_id'],100)
+
     def test_fluid_grouping_includes_all_equipment_and_matches_steam_source(self):
         from iris2.application import text_to_sql_fluids as fluids
         client = self.client()

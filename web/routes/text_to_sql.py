@@ -17,6 +17,8 @@ from iris2.application import query_period
 from iris2.application import text_to_sql_help
 from iris2.application import text_to_sql_reports
 from iris2.application import text_to_sql_fluids as fluids
+from iris2.application import text_to_sql_equipment as equipment_query
+from iris2.application import text_to_sql_commentary as commentary
 from iris2.llm_integration.question_language import normalize
 from iris2.application import text_to_sql_usage_log as usage_log
 from iris2.hx_configuration import APP_DIR
@@ -84,7 +86,7 @@ def register_routes(app):
         return value
 
     def fail(exc):
-        if request.endpoint in ('text_to_sql_generate', 'text_to_sql_execute'):
+        if request.endpoint in ('text_to_sql_generate', 'text_to_sql_execute', 'text_to_sql_summarize'):
             usage_record()['error_type'] = type(exc).__name__
         if isinstance(exc, PermissionError):
             return jsonify(error=str(exc)), 403
@@ -141,6 +143,22 @@ def register_routes(app):
             if text_to_sql_help.matches(question):
                 record['query_kind'] = 'help'
                 return jsonify(text_to_sql_help.response())
+            if (data.get('result_unit') == 'equipment' and not text_to_sql_reports.matches(question)
+                    and not fluids.matches(question) and not frequency.matches(question)):
+                if not all(services.user_can(profile,key) for key in ('REMAINING_LIFE','EXCHANGERS')):
+                    raise PermissionError('열교환기·잔여수명 조회 권한이 필요합니다.')
+                settings=equipment_query.options(question)
+                selected=fluids.select_equipment(data,question)
+                ids=[r['heat_exchanger_id'] for r in selected]
+                proposal=equipment_query.proposal(ids)
+                record['query_kind']='equipment_analysis'
+                record_scopes([dict(equipment=row,inspection=None) for row in selected])
+                usage_log.proposal_context(record,proposal)
+                token=serializer().dumps(dict(actor=profile['user_id'],query_kind='equipment_analysis',
+                    ids=ids,settings=settings,proposal=proposal,question=question,
+                    usage_id=record['usage_id'],usage_input=record['input']))
+                return jsonify(query_kind='equipment_analysis',proposal=proposal,token=token,
+                    equipment_list=selected,settings=settings)
             if fluids.matches(question):
                 record['query_kind'] = 'fluid_grouping'
                 settings = fluids.options(question)
@@ -272,6 +290,18 @@ def register_routes(app):
             if signed['actor'] != profile['user_id']:
                 raise PermissionError('다른 사용자가 생성한 SQL은 실행할 수 없습니다.')
             signed_usage(signed)
+            if signed.get('query_kind') == 'equipment_analysis':
+                if not all(services.user_can(profile,key) for key in ('REMAINING_LIFE','EXCHANGERS')):
+                    raise PermissionError('열교환기·잔여수명 조회 권한이 필요합니다.')
+                catalog=analysis.catalog()
+                result=equipment_query.execute(signed['ids'],signed['settings'],signed['proposal'],
+                    {r['heat_exchanger_id'] for r in catalog})
+                record_scopes([dict(equipment=r,inspection=None) for r in catalog if r['heat_exchanger_id'] in signed['ids']])
+                result['summary_token']=serializer().dumps(dict(actor=profile['user_id'],
+                    kind='result_commentary',ids=[r['heat_exchanger_id'] for r in result['rows']],
+                    facts=commentary.evidence(result)))
+                record['result']={k:result.get(k) for k in ('result_count','query_sha256','limit_reached')}
+                return jsonify(result=result)
             if signed.get('query_kind') == 'fluid_grouping':
                 catalog = analysis.catalog()
                 record_scopes([dict(equipment=row, inspection=None) for row in catalog
@@ -330,11 +360,38 @@ def register_routes(app):
         except Exception as exc:
             return fail(exc)
 
+    @app.post('/inspections/text-to-sql/summarize')
+    def text_to_sql_summarize():
+        profile=authorize()
+        try:
+            if not all(services.user_can(profile,key) for key in ('REMAINING_LIFE','EXCHANGERS')):
+                raise PermissionError('열교환기·잔여수명 조회 권한이 필요합니다.')
+            token=body().get('token')
+            if not isinstance(token,str) or len(token)>24000:
+                raise QueryRejected('먼저 결과를 조회하세요.')
+            try:
+                signed=serializer().loads(token,max_age=900)
+            except (BadSignature,SignatureExpired) as exc:
+                raise QueryRejected('조회 결과가 만료되었거나 변경되었습니다. 다시 조회하세요.') from exc
+            if signed.get('actor')!=profile['user_id'] or signed.get('kind')!='result_commentary':
+                raise PermissionError('본인이 조회한 결과만 요약할 수 있습니다.')
+            if not set(signed['ids'])<={r['heat_exchanger_id'] for r in analysis.catalog()}:
+                raise PermissionError('조회 범위가 변경되었습니다. 다시 조회하세요.')
+            record=usage_record();record['query_kind']='result_commentary'
+            if not generation_lock.acquire(blocking=False):
+                return jsonify(error='다른 모델 작업이 진행 중입니다. 잠시 후 종합 의견을 다시 요청하세요.'),429
+            try:
+                return jsonify(commentary=commentary.generate(signed['facts']))
+            finally:
+                generation_lock.release()
+        except Exception as exc:
+            return fail(exc)
+
     @app.after_request
     def protect_text_to_sql_response(response):
         if request.endpoint and request.endpoint.startswith('text_to_sql'):
             response.headers['Cache-Control'] = 'no-store'
-        if request.endpoint in ('text_to_sql_generate', 'text_to_sql_execute'):
+        if request.endpoint in ('text_to_sql_generate', 'text_to_sql_execute', 'text_to_sql_summarize'):
             try:
                 record = usage_record()
                 payload = response.get_json(silent=True) or {}

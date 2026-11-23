@@ -37,7 +37,8 @@ def register_security(app) -> None:
         endpoint_permissions[endpoint] = 'INSPECTIONS'
     for endpoint in ('text_to_sql', 'text_to_sql_inspections', 'text_to_sql_generate', 'text_to_sql_execute'):
         endpoint_permissions[endpoint] = 'TEXT_TO_SQL'
-    read_only_post_endpoints = {'text_to_sql_generate', 'text_to_sql_execute'}
+    endpoint_permissions['text_to_sql_summarize'] = 'TEXT_TO_SQL'
+    read_only_post_endpoints = {'text_to_sql_generate', 'text_to_sql_execute', 'text_to_sql_summarize'}
     endpoint_permissions["api510_settings"] = endpoint_permissions.get("api510_management", "REMAINING_LIFE")
     pdf_review_endpoints = {"pdf_ocr_review_dashboard", "pdf_ocr_source", "pdf_ocr_approve"}
     for endpoint in pdf_review_endpoints:
