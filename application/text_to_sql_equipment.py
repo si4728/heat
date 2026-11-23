@@ -39,7 +39,7 @@ def options(question):
     limit = int(match[1]) if match else 100
     if not 1<=limit<=100:
         raise QueryRejected('조회 개수는 1~100대입니다.')
-    return dict(conditions=conditions,limit=limit,sort='loss' if re.search(r'감육.*(?:상위|심한|큰)|(?:상위|심한).*감육',question) else 'equipment')
+    return dict(conditions=conditions,limit=limit,explicit_limit=bool(match),sort='loss' if re.search(r'감육.*(?:상위|심한|큰)|(?:상위|심한).*감육',question) else 'equipment')
 
 
 def proposal(ids):
@@ -90,6 +90,8 @@ def execute(ids, settings, signed, allowed):
                  recommendation_date=overview['recommendation_date'],
                  first_display=overview.get('first_display'),
                  measured_max=overview.get('measured_max'),estimated_max=overview.get('estimated_max'),
+                 sample_count=overview.get('sample_count'),sample_status=overview.get('sample_status'),
+                 analysis_status=overview.get('status'),
                  calculation_date=life.get('as_of_date'))
         measured,estimated=row['measured_max'],row['estimated_max']
         row['measured_estimated_loss']=('—' if measured is None else f'{measured:.1f}')+' / '+('—' if estimated is None else f'{estimated:.1f}')
@@ -111,7 +113,19 @@ def execute(ids, settings, signed, allowed):
     columns=['team_code','unit_code','exchanger_code','equipment_name','latest_inspection_date']
     if any(c[0]=='maximum_loss' for c in settings['conditions']):columns+=['matching_tube_count','maximum_loss']
     columns+=['remaining_display','life_source','first_display','measured_estimated_loss','recommendation_date']
-    return dict(query_kind='equipment_analysis',columns=columns,
+    names={'remaining_life_years':'예상 잔여수명','maximum_loss':'최대 감육률','recommendation_date':'차기 검사 권고일'}
+    units={'remaining_life_years':'년','maximum_loss':'%','recommendation_date':''}
+    filter_description=' · '.join(f'{names[field]} {value}{units[field]} {op}' for field,op,value in settings['conditions']) or '선택한 설비 범위의 현재 기본 분석값'
+    result=dict(query_kind='equipment_analysis',columns=columns,
         rows=rows[:limit],result_count=min(total,limit),matched_count=total,limit_reached=total>limit,
+        filter_description=filter_description,
         query_sha256=hashlib.sha256(expected['sql'].encode()).hexdigest(),
         generated_at=datetime.now(timezone.utc).isoformat())
+    from iris2.application.text_to_sql_commentary import evidence
+    if settings.get('explicit_limit'):
+        summary_result=dict(result,matched_count=len(rows[:limit]),
+            filter_description=filter_description+f' · 조건 부합 전체 {total}대 중 요청한 {limit}대 범위')
+        result['_commentary_facts']=evidence(summary_result,all_rows=rows[:limit])
+    else:
+        result['_commentary_facts']=evidence(result,all_rows=rows)
+    return result

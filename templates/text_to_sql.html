@@ -86,8 +86,8 @@
     <p class="sql-result-note" id="sql-result-note">읽기 전용 · 최대 100행 · SQL 실행 제한 5초 · 생성 SQL 유효시간 15분</p>
   </section>
   <section class="panel sql-results" id="sql-commentary-panel" aria-labelledby="sql-commentary-title" hidden>
-    <div class="panel-head"><h2 id="sql-commentary-title">종합 의견</h2><button class="button" id="sql-commentary-retry" type="button">다시 생성</button></div>
-    <div class="sql-panel-body"><p id="sql-commentary-status" role="status" aria-live="polite"></p><p id="sql-commentary-text" style="white-space:pre-line"></p><p class="sql-result-note" id="sql-commentary-model"></p></div>
+    <div class="panel-head"><h2 id="sql-commentary-title">종합 의견 (AI 작성)</h2><button class="button" id="sql-commentary-retry" type="button">다시 생성</button></div>
+    <div class="sql-panel-body"><p id="sql-commentary-status" role="status" aria-live="polite"></p><div id="sql-commentary-text" style="white-space:pre-line"></div><p class="sql-result-note" id="sql-commentary-model"></p></div>
   </section>
   <section class="panel sql-chart-panel" id="sql-chart-panel" aria-labelledby="sql-chart-title">
     <div class="panel-head"><h2 id="sql-chart-title">조회 결과 차트</h2></div>
@@ -102,4 +102,4 @@
   </section>
 </div>
 {% endblock %}
-{% block scripts %}<script defer src="{{ url_for('static', filename='text-to-sql-links.js', v='20261112-tag-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql-charts.js', v='20261115-help-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql.js', v='20261123-equipment-1') }}"></script>{% endblock %}
+{% block scripts %}<script defer src="{{ url_for('static', filename='text-to-sql-links.js', v='20261123-analysis-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql-charts.js', v='20261115-help-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql.js', v='20261123-commentary-2') }}"></script>{% endblock %}

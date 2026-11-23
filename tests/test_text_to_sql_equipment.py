@@ -26,8 +26,14 @@ class EquipmentOptionsTests(unittest.TestCase):
                     remaining_display={1:'산정 불가',2:'0.0년',3:'5.4년'}[identifier],source='통계 추정',recommendation_date=None)))
         with patch.object(query.dbapi,'connect',return_value=Connection()),patch.object(query.services,'exchanger_detail',side_effect=detail):
             result=query.execute([1,2,3],query.options('잔여수명 5년 이하 열교환기'),query.proposal([1,2,3]),{1,2,3})
+            explicit=query.execute([1,2,3],query.options('열교환기 1대'),query.proposal([1,2,3]),{1,2,3})
+            display_settings=query.options('열교환기 목록');display_settings['limit']=1
+            display=query.execute([1,2,3],display_settings,query.proposal([1,2,3]),{1,2,3})
         self.assertEqual([r['heat_exchanger_id'] for r in result['rows']],[2])
         self.assertEqual(result['rows'][0]['remaining_display'],'0.0년')
+        self.assertEqual(explicit['_commentary_facts']['analyzed_count'],1)
+        self.assertEqual(display['_commentary_facts']['analyzed_count'],3)
+        self.assertEqual(display['_commentary_facts']['examples'][0]['heat_exchanger_id'],2)
 
     def test_filters_and_missing_are_explicit(self):
         self.assertEqual(query.options('잔여수명 5년 이하인 열교환기')['conditions'],[['remaining_life_years','이하',5]])
@@ -56,10 +62,13 @@ class EquipmentOptionsTests(unittest.TestCase):
             connect.assert_not_called()
 
     def test_commentary_grounding_and_no_fake_fallback(self):
-        facts=dict(total_rows=1,examples=[dict(remaining_display='5.0년',recommendation_date='2028-01-01')])
-        self.assertEqual(commentary.validate(dict(text='잔여기간은 5.0년으로 표시됩니다.'),facts),'잔여기간은 5.0년으로 표시됩니다.')
-        for text in ['2030년 검사하세요.','안전합니다.']:
-            with self.assertRaises(QueryRejected):commentary.validate(dict(text=text),facts)
+        row=dict(heat_exchanger_id=1,remaining_life_years=5,remaining_display='5.0년',recommendation_date='2028-01-01')
+        facts=commentary.evidence(dict(rows=[row]))
+        valid={key:[s['id'] for s in facts['statements'] if s['section']==key] for key in ('overview','priorities','limitations')}
+        sections=commentary.validate(valid,facts)
+        self.assertEqual([s['title'] for s in sections],['조회 요약','우선 확인 대상','해석의 한계'])
+        for payload in [dict(text='2030년 검사하세요.'),dict(valid,priorities=['UNKNOWN']),dict(valid,limitations=[])]:
+            with self.assertRaises(QueryRejected):commentary.validate(payload,facts)
 
 
 class EquipmentWebTests(TextToSqlWebTests):

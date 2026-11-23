@@ -297,9 +297,9 @@ def register_routes(app):
                 result=equipment_query.execute(signed['ids'],signed['settings'],signed['proposal'],
                     {r['heat_exchanger_id'] for r in catalog})
                 record_scopes([dict(equipment=r,inspection=None) for r in catalog if r['heat_exchanger_id'] in signed['ids']])
+                facts=result.pop('_commentary_facts',None) or commentary.evidence(result)
                 result['summary_token']=serializer().dumps(dict(actor=profile['user_id'],
-                    kind='result_commentary',ids=[r['heat_exchanger_id'] for r in result['rows']],
-                    facts=commentary.evidence(result)))
+                    kind='result_commentary',ids=signed['ids'],facts=facts))
                 record['result']={k:result.get(k) for k in ('result_count','query_sha256','limit_reached')}
                 return jsonify(result=result)
             if signed.get('query_kind') == 'fluid_grouping':

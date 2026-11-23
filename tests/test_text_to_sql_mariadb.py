@@ -26,6 +26,7 @@ class TextToSqlMariaDBTests(unittest.TestCase):
             headers={'X-CSRF-Token':'integration-csrf'})
         self.assertEqual(response.status_code,200,response.json)
         self.assertEqual(len(response.json['result']['rows']),1)
+        self.assertNotIn('_commentary_facts',response.json['result'])
         row=response.json['result']['rows'][0]
         overview=services.exchanger_detail(100)['remaining_life']['equipment_overview']
         self.assertEqual(row['remaining_display'],overview['remaining_display'])

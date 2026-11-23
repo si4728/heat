@@ -296,8 +296,15 @@
     try {
       const payload = await request(root.dataset.summaryUrl, {token:currentToken});
       if (version !== resultVersion) return;
-      el('commentary-text').textContent = payload.commentary.text;
-      el('commentary-model').textContent = `${payload.commentary.model} · ${payload.commentary.scope || '조회 결과 없음'} · 모델 요약은 분석 계산값을 변경하지 않습니다.`;
+      el('commentary-text').replaceChildren();
+      if (payload.commentary.sections) {
+        payload.commentary.sections.forEach(section => {
+          const heading = document.createElement('h3'); heading.textContent = section.title;
+          el('commentary-text').append(heading);
+          section.items.forEach(item => { const p = document.createElement('p'); p.textContent = item.text; el('commentary-text').append(p); });
+        });
+      } else el('commentary-text').textContent = payload.commentary.text;
+      el('commentary-model').textContent = `${payload.commentary.model} · ${payload.commentary.scope || '조회 결과 없음'} · ${payload.commentary.method || '모델 요약은 분석 계산값을 변경하지 않습니다.'}`;
       el('commentary-status').textContent = payload.commentary.status === 'empty' ? '결과 없음' : '로컬 LLM 종합 의견';
     } catch (exc) {
       if (version === resultVersion) el('commentary-status').textContent = exc.message + ' 결과 표는 계속 확인할 수 있습니다.';
