@@ -6,5 +6,6 @@ Do not change C:/access/heat/iris. Do not create junctions or symlinks to that d
 The only active entry point is server.py and app.py. legacy_app.py and legacy_server.py are unported reference source, not launchers.
 Use the local .venv. Web port 4824; database port 3307; schema/account prefix iris2; cookie iris2_session.
 Only MariaDB is supported by the active runtime. There is no SQLite fallback.
-Scope: VCM1 and VCM2 only; VCM3 and VCM4 excluded.
+Review scope effective 2026-11-24: PE, VCM1 and VCM2, including uninspected equipment; VCM3 and VCM4 excluded.
+Verify each feature's actual runtime/query scope separately; this review policy does not automatically change deployed allowlists or data.
 The active app registers secured MariaDB business routes. Validation evidence is in reports/mariadb_transition. Field UAT and engineering/model approval remain separate.

@@ -4,7 +4,8 @@ Keep all work in iris2. Never modify iris. Do not import iris.
 Run tests with iris2/.venv/Scripts/python.exe. Never use the parent environment.
 Do not expose copied legacy routes until their MariaDB data access and authorization are verified.
 Never use operational SQLite as a writable migration source. Accept only a separately provided snapshot within iris2/data/import.
-Scope: VCM1 and VCM2. Do not add VCM3/VCM4 work.
+Review scope (effective 2026-11-24): PE, VCM1 and VCM2 for all reviews, including uninspected equipment. Do not add VCM3/VCM4 work.
+This review-scope rule does not itself broaden runtime/query allowlists or authorize data corrections; apply implementation changes within the user's requested task.
 
 ## Two-PC GitHub workflow (effective 2026-11-12)
 GitHub origin (si4728/heat) is the shared source of truth for the production and development PCs.

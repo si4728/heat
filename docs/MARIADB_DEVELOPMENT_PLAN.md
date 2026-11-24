@@ -1,6 +1,7 @@
 # IRIS2 MariaDB development and migration plan
 
-Date: 2026-10-17. Scope: VCM1 and VCM2 only.
+Original plan date: 2026-10-17. Original scope: VCM1 and VCM2.
+Current review scope (user instruction effective 2026-11-24): PE, VCM1 and VCM2, including uninspected equipment. VCM3/VCM4 remain excluded. Earlier scope statements below are historical; runtime/query changes and data corrections remain separate task actions.
 Original iris remains unchanged. iris2 is a separate application, not a production replacement yet.
 
 1. Foundation: isolated source/package/environment/config/ports/schema/accounts; no fallback or shared secrets.
