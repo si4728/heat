@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-import threading
 import time
+from copy import deepcopy
 from datetime import datetime
 from http import HTTPStatus
 from uuid import uuid4
 from iris2 import dbapi
 
-from flask import abort, g, jsonify, render_template, request, session
+from flask import abort, copy_current_request_context, g, jsonify, render_template, request, session, url_for
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from werkzeug.exceptions import HTTPException
 
 from iris2 import services
 from iris2.application import text_to_sql_service as analysis
@@ -21,6 +22,7 @@ from iris2.application import text_to_sql_equipment as equipment_query
 from iris2.application import text_to_sql_commentary as commentary
 from iris2.llm_integration.question_language import normalize
 from iris2.application import text_to_sql_usage_log as usage_log
+from iris2.application.model_queue import ModelQueue, QueueFull
 from iris2.hx_configuration import APP_DIR
 from iris2.llm_integration.text_to_sql import (
     QueryRejected, execute_proposal, validate_proposal, validate_question_contract,
@@ -28,7 +30,61 @@ from iris2.llm_integration.text_to_sql import (
 
 
 def register_routes(app):
-    generation_lock = threading.Lock()
+    model_queue = ModelQueue()
+    app.extensions['text_to_sql_model_queue'] = model_queue
+
+    def enqueue_model(handler, profile):
+        owner = profile['user_id']
+        submitted_record = deepcopy(usage_record())
+        submitted_at = g.text_sql_started
+
+        @copy_current_request_context
+        def run():
+            g.text_sql_usage = submitted_record
+            g.text_sql_started = submitted_at
+            g.text_sql_model_worker = True
+            try:
+                # A waiting user's account/permissions may have changed since submission.
+                g.current_user = services.user_access_profile(owner)
+                if not g.current_user or not g.current_user.get('is_active'):
+                    response = app.make_response((jsonify(
+                        error='계정이 비활성화되었거나 조회 권한이 변경되었습니다.'), 403))
+                else:
+                    response = app.make_response(handler())
+            except HTTPException as exc:
+                response = app.make_response((jsonify(error='조회 권한을 확인하세요.'), exc.code))
+            except Exception as exc:
+                response = app.make_response(fail(exc))
+            response = protect_text_to_sql_response(response)
+            return (response.get_json(silent=True) or dict(error='모델 요청 처리에 실패했습니다.'),
+                    response.status_code, response.headers.get('X-Text-to-SQL-Usage-ID'))
+
+        try:
+            key = model_queue.submit(owner, run, kind=request.endpoint)
+        except QueueFull:
+            return jsonify(error='현재 모델 대기 요청이 3개입니다. 나중에 다시 이용해 주세요.'), 429
+        g.text_sql_queue_submission = True  # The worker writes the final usage record.
+        if body().get('async_model') is True:
+            state = model_queue.status(key, owner)
+            state['status_url'] = url_for('text_to_sql_model_job', job_id=key)
+            return jsonify(model_job=state), 202
+        completed = model_queue.wait(key, owner)
+        response = jsonify(completed['result'])
+        response.status_code = completed['http_status']
+        if completed['usage_id']:
+            response.headers['X-Text-to-SQL-Usage-ID'] = completed['usage_id']
+        return response
+
+    @app.get('/inspections/text-to-sql/model-jobs/<job_id>')
+    def text_to_sql_model_job(job_id):
+        profile = authorize()
+        state = model_queue.status(job_id, profile['user_id'])
+        if state is None:
+            return jsonify(error='대기 요청이 없거나 만료되었습니다. 다시 요청하세요.'), 404
+        if state['kind'] == 'text_to_sql_summarize' and not all(
+                services.user_can(profile, key) for key in ('REMAINING_LIFE', 'EXCHANGERS')):
+            abort(403)
+        return jsonify(model_job=state)
 
     def usage_record():
         if not hasattr(g, 'text_sql_usage'):
@@ -243,14 +299,11 @@ def register_routes(app):
                     identifier(data.get('inspection_id'), optional=True))
                 scopes, excluded = [dict(equipment=equipment, inspection=inspection)], []
             record_scopes(scopes, excluded)
-            if not generation_lock.acquire(blocking=False):
-                return jsonify(error='다른 SQL을 생성 중입니다. 잠시 후 다시 시도하세요.'), 429
-            try:
-                proposal = (exchanger_count.proposal(model_question.strip()) if grouped_count
-                            else analysis.generate_in_worker(model_question.strip()))
-                usage_log.proposal_context(record, proposal)
-            finally:
-                generation_lock.release()
+            if not grouped_count and not g.get('text_sql_model_worker'):
+                return enqueue_model(text_to_sql_generate, profile)
+            proposal = (exchanger_count.proposal(model_question.strip()) if grouped_count
+                        else analysis.generate_in_worker(model_question.strip()))
+            usage_log.proposal_context(record, proposal)
             sql, parameters = validate_proposal(proposal)
             validate_question_contract(question, proposal)
             proposal = dict(sql=sql, parameters=parameters)
@@ -378,12 +431,9 @@ def register_routes(app):
             if not set(signed['ids'])<={r['heat_exchanger_id'] for r in analysis.catalog()}:
                 raise PermissionError('조회 범위가 변경되었습니다. 다시 조회하세요.')
             record=usage_record();record['query_kind']='result_commentary'
-            if not generation_lock.acquire(blocking=False):
-                return jsonify(error='다른 모델 작업이 진행 중입니다. 잠시 후 종합 의견을 다시 요청하세요.'),429
-            try:
-                return jsonify(commentary=commentary.generate(signed['facts']))
-            finally:
-                generation_lock.release()
+            if not g.get('text_sql_model_worker'):
+                return enqueue_model(text_to_sql_summarize, profile)
+            return jsonify(commentary=commentary.generate(signed['facts']))
         except Exception as exc:
             return fail(exc)
 
@@ -391,6 +441,8 @@ def register_routes(app):
     def protect_text_to_sql_response(response):
         if request.endpoint and request.endpoint.startswith('text_to_sql'):
             response.headers['Cache-Control'] = 'no-store'
+        if g.get('text_sql_queue_submission'):
+            return response
         if request.endpoint in ('text_to_sql_generate', 'text_to_sql_execute', 'text_to_sql_summarize'):
             try:
                 record = usage_record()

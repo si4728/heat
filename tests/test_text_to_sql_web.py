@@ -236,10 +236,17 @@ class TextToSqlWebTests(unittest.TestCase):
         thread.start()
         try:
             self.assertTrue(entered.wait(3))
-            self.assertEqual(self.generate().status_code,429)
+            waiting = self.post('generate', dict(exchanger_id=151, inspection_id=389,
+                question='검사 결과 요약', async_model=True))
+            self.assertEqual(waiting.status_code,202)
+            self.assertEqual(waiting.json['model_job']['position'],1)
+            self.worker.assert_called_once()
         finally:
             released.set();thread.join(5)
         self.assertEqual(responses[0].status_code,200)
+        queue = self.app.extensions['text_to_sql_model_queue']
+        completed = queue.wait(waiting.json['model_job']['job_id'], 1)
+        self.assertEqual(completed['http_status'],200)
 
 
 class WorkerTests(unittest.TestCase):

@@ -98,6 +98,20 @@
     if (!response.ok) throw new Error(payload.error || '조회 요청에 실패했습니다.');
     return payload;
   }
+  async function modelRequest(url, data, progress) {
+    let payload = await request(url, {...data, async_model:true});
+    if (!payload.model_job) return payload;
+    const statusUrl = payload.model_job.status_url;
+    if (typeof statusUrl !== 'string' || !/^\/(?!\/)/.test(statusUrl)) throw new Error('대기 요청 경로를 확인할 수 없습니다. 다시 요청하세요.');
+    while (true) {
+      const job = payload.model_job;
+      if (job.state === 'succeeded') return job.result;
+      if (job.state === 'failed') throw new Error(job.result.error || '모델 요청을 처리하지 못했습니다.');
+      progress(job.message);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      payload = await request(statusUrl);
+    }
+  }
   async function scopeChanged() {
     reset(); const sequence = ++inspectionRequest;
     scopeReady = false;
@@ -158,11 +172,11 @@
     event.preventDefault(); if (busy) return;
     reset(); setBusy(true, true);
     try {
-      const payload = await request(root.dataset.generateUrl, {
+      const payload = await modelRequest(root.dataset.generateUrl, {
         ...((frequencyQuestion() || groupedCountQuestion()) && !(el('mode').value === 'unit' ? selectedUnits().length : selectedIds().length) ? {unit_codes:['VCM1','VCM2']} :
           el('mode').value === 'unit' ? {unit_codes:selectedUnits()} : {exchanger_ids:selectedIds(), inspection_id:el('inspection').value ? Number(el('inspection').value) : null}),
         question:el('question').value, result_unit:el('result-unit').value
-      });
+      }, message => { el('generate-status').textContent = message; });
       if (payload.query_kind === 'inspection_reports') {
         el('help-title').textContent = 'IRIS 검사 보고서 PDF';
         el('help-guidance').textContent = `검사 보고서 ${payload.reports.length}건 · 링크를 누르면 새 탭에서 PDF를 엽니다. 페이지 연결이 없는 보고서는 첫 페이지부터 열립니다.${payload.missing_count ? ` PDF 파일 미연결 ${payload.missing_count}건.` : ''}${payload.limit_reached ? ' 최대 100건입니다. 설비나 기간을 좁혀 주세요.' : ''}`;
@@ -294,7 +308,9 @@
     el('commentary-text').textContent = ''; el('commentary-model').textContent = '';
     el('commentary-status').textContent = '로컬 LLM이 조회 결과를 요약하고 있습니다. 표는 바로 확인할 수 있습니다.';
     try {
-      const payload = await request(root.dataset.summaryUrl, {token:currentToken});
+      const payload = await modelRequest(root.dataset.summaryUrl, {token:currentToken}, message => {
+        if (version === resultVersion) el('commentary-status').textContent = message;
+      });
       if (version !== resultVersion) return;
       el('commentary-text').replaceChildren();
       if (payload.commentary.sections) {
