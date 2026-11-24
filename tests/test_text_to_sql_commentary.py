@@ -43,7 +43,7 @@ class CommentaryTests(unittest.TestCase):
               self.row(2,remaining_life_years=None,analysis_status='LIMIT_NOT_REACHED'),
               self.row(3,remaining_life_years=0)]
         facts=commentary.evidence(dict(rows=rows))
-        self.assertEqual(facts['stats']['missing_life'],1)
+        self.assertEqual(facts['stats']['missing_life'],2)
         self.assertEqual(facts['stats']['not_reached'],1)
         self.assertEqual(facts['stats']['reached'],1)
         self.assertEqual(facts['stats']['missing_recommendation'],1)

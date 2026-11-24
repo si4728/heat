@@ -28,6 +28,7 @@ def options(question):
 
 
 def select_equipment(data, question):
+    from .text_to_sql_scope import mentioned_units
     equipment = analysis.catalog()
     ids, units = data.get('exchanger_ids'), data.get('unit_codes')
     if 'exchanger_id' in data:
@@ -36,18 +37,16 @@ def select_equipment(data, question):
         ids = [data['exchanger_id']]
     if ids is not None and (not isinstance(ids, list) or len(ids)>500 or any(type(i) is not int or i<=0 for i in ids)):
         raise QueryRejected('설비 선택을 확인하세요.')
-    if units is not None and (ids is not None or not isinstance(units, list) or any(u not in ('VCM1','VCM2') for u in units)):
-        raise QueryRejected('VCM1·VCM2 공정 또는 교환기를 선택하세요.')
+    if units is not None and (ids is not None or not isinstance(units, list) or any(u not in ('PE','VCM1','VCM2') for u in units)):
+        raise QueryRejected('PE·VCM1·VCM2 공정 또는 교환기를 선택하세요.')
     if ids and not set(ids)<={r['heat_exchanger_id'] for r in equipment}:
-        raise PermissionError('VCM1·VCM2 범위의 설비를 선택하세요.')
-    mentioned = re.findall(r'VCM\s*(\d+)', question, re.I)
-    if any(u not in ('1','2') for u in mentioned):
-        raise QueryRejected('VCM1·VCM2만 조회할 수 있습니다.')
+        raise PermissionError('PE·VCM1·VCM2 범위의 설비를 선택하세요.')
+    mentioned = mentioned_units(question)
     named = set()
     canonical = lambda value: re.sub(r'[^A-Z0-9]', '', value.upper())
-    for tag in re.findall(r'(?<![A-Za-z0-9])(?:AE|E)\s*-?\s*\d+[A-Za-z]*(?![A-Za-z0-9])', question, re.I):
+    for tag in re.findall(r'(?<![A-Za-z0-9])(?:AE|ER|E)\s*-?\s*\d+[A-Za-z]*(?:-\d+)?(?![A-Za-z0-9])', question, re.I):
         found = [r['heat_exchanger_id'] for r in equipment if canonical(tag) in
-                 [canonical(t) for t in re.findall(r'(?:AE|E)\s*-?\s*\d+[A-Za-z]*$', r.get('equipment_tag') or '', re.I)]]
+                 [canonical(t) for t in re.findall(r'(?:AE|ER|E)\s*-?\s*\d+[A-Za-z]*(?:-\d+)?$', r.get('equipment_tag') or '', re.I)]]
         if not found:
             raise QueryRejected(f'{tag}: 설비를 찾을 수 없습니다.')
         named.update(found)
@@ -58,7 +57,7 @@ def select_equipment(data, question):
     selected = [r for r in equipment if (not ids or r['heat_exchanger_id'] in ids)
                 and (not units or r['unit_code'] in units)
                 and (not named or r['heat_exchanger_id'] in named)
-                and (not mentioned or r['unit_code'] in {'VCM'+u for u in mentioned})]
+                and (not mentioned or r['unit_code'] in mentioned)]
     if not selected:
         raise QueryRejected('조회 범위에 교환기가 없습니다.')
     return selected
@@ -83,7 +82,7 @@ def proposal(ids, settings):
             JOIN process_unit u ON u.unit_id=e.unit_id
             LEFT JOIN heat_exchanger_spec_revision s ON s.heat_exchanger_id=hx.heat_exchanger_id AND s.is_current=1
             LEFT JOIN heat_exchanger_side_spec ss ON ss.spec_revision_id=s.spec_revision_id AND ss.side_code='{side}'
-            WHERE hx.heat_exchanger_id IN ({','.join('?' for _ in ids)}) AND u.unit_code IN ('VCM1','VCM2')''')
+            WHERE hx.heat_exchanger_id IN ({','.join('?' for _ in ids)}) AND u.unit_code IN ('PE','VCM1','VCM2')''')
         parameters.extend(ids)
     unit = 'unit_code, ' if settings['by_unit'] else ''
     where = 'WHERE fluid_name=?' if settings.get('fluid') else ''
@@ -92,7 +91,7 @@ def proposal(ids, settings):
     sql = f'''SELECT {unit}side_code, fluid_name, COUNT(DISTINCT heat_exchanger_id) AS exchanger_count,
         GROUP_CONCAT(DISTINCT CONCAT(unit_code, ':', equipment_tag) ORDER BY unit_code,equipment_tag SEPARATOR ', ') AS equipment_list
         FROM ({' UNION ALL '.join(parts)}) current_fluids {where}
-        GROUP BY {unit}side_code, fluid_name ORDER BY {unit}side_code, exchanger_count DESC, fluid_name LIMIT 101'''
+        GROUP BY {unit}side_code, fluid_name ORDER BY {unit}side_code, exchanger_count DESC, fluid_name LIMIT 501'''
     return dict(sql=sql, parameters=parameters)
 
 
@@ -113,9 +112,9 @@ def execute(ids, settings, signed_proposal, allowed):
         connection.execute('SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ')
         connection.execute('START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY')
         cursor = connection.execute(expected['sql'], tuple(expected['parameters']))
-        rows = [dict(row) for row in cursor.fetchmany(101)]
-        return dict(columns=[c[0] for c in cursor.description], rows=rows[:100], result_count=min(len(rows),100),
-                    limit_reached=len(rows)>100, query_kind='fluid_grouping', settings=settings,
+        rows = [dict(row) for row in cursor.fetchmany(501)]
+        return dict(columns=[c[0] for c in cursor.description], rows=rows[:500], result_count=min(len(rows),500),
+                    limit_reached=len(rows)>500, query_kind='fluid_grouping', settings=settings,
                     query_sha256=hashlib.sha256(expected['sql'].encode()).hexdigest(),
                     generated_at=datetime.now(timezone.utc).isoformat())
     finally:

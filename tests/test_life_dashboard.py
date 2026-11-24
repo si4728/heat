@@ -46,7 +46,7 @@ class LifeDashboardTests(unittest.TestCase):
         for years, expected in [(16, 'long'), (15, 'medium'), (6, 'medium'), (5, 'short'), (0, 'short'), (-2, 'short')]:
             with self.subTest(years=years):
                 self.assertEqual(life_band(dict(status='CALCULATED', total_tube_count=100, remaining_life_years=years)), expected)
-        for status, expected in [('LIMIT_NOT_REACHED','not_reached'), ('INSUFFICIENT_DATA','unknown')]:
+        for status, expected in [('LIMIT_NOT_REACHED','unknown'), ('INSUFFICIENT_DATA','unknown')]:
             self.assertEqual(life_band(dict(status=status, total_tube_count=100, remaining_life_years=None)), expected)
         self.assertEqual(life_band(dict(status='CALCULATED', total_tube_count=0, remaining_life_years=2)), 'unknown')
 

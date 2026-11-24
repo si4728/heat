@@ -276,7 +276,11 @@
     button.title = `Tube ${tube.tube_no} · 행 ${tube.row ?? '미등록'} / 열 ${tube.column ?? '미등록'} · ${legendItem.label} · ${lossKey(tube) === 'UNREGISTERED' ? '표시용 위치 · 운전 상태와 검사 여부 미확인' : tube.wall_loss_percent == null ? '감육률 미등록' : `감육률 ${Number(tube.wall_loss_percent).toFixed(1)}%`}`;
     button.setAttribute('aria-label', button.title);
     button.setAttribute('aria-pressed', 'false');
-    if (tube.tube_id) bindActivation(button, () => selectTube(Number(tube.tube_id), 'map'));
+    if (tube.tube_id) bindActivation(button, () => {
+      if (document.getElementById('plugging-select-mode')?.checked) {
+        document.dispatchEvent(new CustomEvent('plugging-select-tube',{detail:{tubeId:Number(tube.tube_id)}}));
+      } else selectTube(Number(tube.tube_id), 'map');
+    });
     mapCanvas.appendChild(button);
   });
 
@@ -501,6 +505,7 @@
     } : null);
     if (!tube) return;
     selectedTubeId = Number(tubeId);
+    document.dispatchEvent(new CustomEvent('plugging-select-single',{detail:{tubeId:selectedTubeId}}));
     document.getElementById('equipment-summary').hidden=false;
     document.getElementById('selected-tube-view').hidden=false;
     document.getElementById('show-equipment-summary').hidden=false;

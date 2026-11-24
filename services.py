@@ -1026,7 +1026,7 @@ def dashboard_remaining_life(unit='', band=''):
         masters = session.execute(select(HeatExchanger, Equipment, ProcessUnit)
             .join(Equipment, Equipment.equipment_id == HeatExchanger.equipment_id)
             .join(ProcessUnit, ProcessUnit.unit_id == Equipment.unit_id)
-            .where(ProcessUnit.unit_code.notin_(['VCM3', 'VCM4']))).all()
+            .where(ProcessUnit.unit_code.in_(('PE','VCM1','VCM2')))).all()
         ids = [h.heat_exchanger_id for h, e, u in masters]
         bundles = session.scalars(select(TubeBundle).where(TubeBundle.heat_exchanger_id.in_(ids))).all()
         criteria = {r.heat_exchanger_id: r for r in session.scalars(select(HeatExchangerManagementCriteria)
@@ -1044,6 +1044,10 @@ def dashboard_remaining_life(unit='', band=''):
                 'remaining_life_years': overview['remaining_life_years'],
                 'remaining_display': overview['remaining_display'], 'life_source': overview['source'],
                 'target_display': overview['target_display'],
+                'uncalculable_reason': overview['uncalculable_reason'],
+                'threshold_reached_count': overview['threshold_reached_count'],
+                'actual_plugged_count': overview['actual_plugged_count'],
+                'estimated_reached': overview['estimated_reached'],
                 'latest_inspection_date': life['equipment_summary'].get('latest_inspection_date'),
                 'projection_coverage_percent': life.get('projection_coverage_percent'),
                 'first_tube_threshold': first_tube_threshold(life.get('tube_projections', [])),
@@ -1221,8 +1225,9 @@ def exchanger_wall_loss_ranking(
                   JOIN heat_exchanger lifecycle_hx ON lifecycle_hx.heat_exchanger_id=i.heat_exchanger_id
                   JOIN equipment lifecycle_e ON lifecycle_e.equipment_id=lifecycle_hx.equipment_id
                  WHERE r.wall_loss_percent IS NOT NULL
-                   AND r.result_status='VALID'
-                   AND r.quality_status='VALID'
+                   AND (r.result_status IS NULL OR r.result_status='VALID')
+                   AND (r.quality_status IS NULL OR r.quality_status IN ('VALID','USER_APPROVED_211MM_BASIS'))
+                   AND i.superseded_by_inspection_id IS NULL
                    AND (lifecycle_e.install_date IS NULL OR DATE(COALESCE(i.inspection_date,i.report_date))>=DATE(lifecycle_e.install_date))
                    AND (t.installed_at IS NULL OR DATE(COALESCE(i.inspection_date,i.report_date))>=DATE(t.installed_at))
             ),
@@ -1237,8 +1242,9 @@ def exchanger_wall_loss_ranking(
                   JOIN heat_exchanger lifecycle_hx ON lifecycle_hx.heat_exchanger_id=i.heat_exchanger_id
                   JOIN equipment lifecycle_e ON lifecycle_e.equipment_id=lifecycle_hx.equipment_id
                  WHERE r.wall_loss_percent IS NOT NULL
-                   AND r.result_status='VALID'
-                   AND r.quality_status='VALID'
+                   AND (r.result_status IS NULL OR r.result_status='VALID')
+                   AND (r.quality_status IS NULL OR r.quality_status IN ('VALID','USER_APPROVED_211MM_BASIS'))
+                   AND i.superseded_by_inspection_id IS NULL
                    AND (lifecycle_e.install_date IS NULL OR DATE(COALESCE(i.inspection_date,i.report_date))>=DATE(lifecycle_e.install_date))
                    AND (t.installed_at IS NULL OR DATE(COALESCE(i.inspection_date,i.report_date))>=DATE(t.installed_at))
                  GROUP BY i.heat_exchanger_id
@@ -1247,6 +1253,7 @@ def exchanger_wall_loss_ranking(
                    p.plant_code, u.unit_code,
                    e.equipment_code, e.equipment_name,
                    cs.exchanger_code,
+                   (SELECT COUNT(*) FROM iris_inspection history_i WHERE history_i.heat_exchanger_id=hx.heat_exchanger_id) AS registered_inspection_count,
                    rr.tube_id, rr.tube_no, rr.wall_loss_percent,
                    rr.minimum_wall_thickness_mm,
                    rr.inspection_date, rr.iris_inspection_id, rr.report_number,
@@ -1320,7 +1327,7 @@ def precision_analysis_data(
     if not 0.1 <= corrosion_rate_multiplier <= 2.0:
         corrosion_rate_multiplier = 1.0
     ranking = exchanger_wall_loss_ranking(search=search, unit_code=unit_code)
-    analysis_rows = [row for row in ranking["rows"] if row.get("iris_inspection_id")]
+    analysis_rows = [row for row in ranking["rows"] if row.get("iris_inspection_id") or row.get('registered_inspection_count')]
     available_ids = {int(row["heat_exchanger_id"]) for row in analysis_rows}
     requested_row = next((row for row in ranking['rows'] if row['heat_exchanger_id'] == exchanger_id), None)
     selected_id = int(exchanger_id) if exchanger_id is not None else (
@@ -1681,10 +1688,12 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         .where(HeatExchangerTube.bundle_id.in_(bundle_ids))
         .order_by(HeatExchangerTube.tube_no)
     ).all() if bundle_ids else []
+    from .application.plugging_operations import tubes_as_of
+    tubes = tubes_as_of(session, exchanger_id, tubes, as_of_date)
     tube_ids = [tube.tube_id for tube in tubes]
     expected_count = None  # Only a current approved specification defines population.
     process = session.get(ProcessUnit, equipment.unit_id)
-    short_rate_enabled = bool(process and process.unit_code in ('VCM1', 'VCM2'))
+    short_rate_enabled = bool(process and process.unit_code in ('PE', 'VCM1', 'VCM2'))
     from .domain.measurement_eligibility import exclusion_reason
 
     latest_results: dict[int, tuple[IrisTubeResult, IrisInspection]] = {}
@@ -1998,7 +2007,13 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
     summary.update(plugging_counts(tubes, latest_results, projections,
                                   plugging_wall_loss_percent, as_of_date,
                                   int(master_spec.tube_count) if master_spec and master_spec.tube_count and master_spec.tube_count > 0 else None))
-    if process and process.unit_code in ('VCM1', 'VCM2'):
+    registered_inspections = session.scalars(select(IrisInspection).where(
+        IrisInspection.heat_exchanger_id == exchanger_id)).all()
+    summary['registered_inspection_count'] = len(registered_inspections)
+    if not equipment_summary['latest_inspection_date']:
+        dated = [_effective_inspection_date(i) for i in registered_inspections if _effective_inspection_date(i)]
+        equipment_summary['latest_inspection_date'] = max(dated).date().isoformat() if dated else None
+    if process and process.unit_code in ('PE', 'VCM1', 'VCM2'):
         from .application.sample_wall_loss import build_sample_estimate
         sample_bundle_ids = [bundle.bundle_id for bundle in bundles if bundle.retired_at is None]
         sample_inspections = session.scalars(select(IrisInspection).where(
@@ -2008,7 +2023,8 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
         )).all() if sample_bundle_ids else []
         summary['sample_wall_loss_estimate'] = build_sample_estimate(
             result_rows, tubes_by_id, equipment, master_spec,
-            threshold_percent=plugging_wall_loss_percent, inspections=sample_inspections, as_of=as_of_date)
+            threshold_percent=plugging_wall_loss_percent, inspections=sample_inspections, as_of=as_of_date,
+            limit_percent=summary['limit_percent'])
     projection_by_tube = {item["tube_id"]: item for item in projections}
     defect_rows = []
     analysis_tube_rows = []
@@ -2366,10 +2382,13 @@ def update_tube_status(tube_id: int, status: str, reason: str = "") -> dict[str,
     if new_status not in TUBE_OPERATION_STATUSES:
         raise ValueError("지원하지 않는 튜브 상태입니다.")
     with session_scope(DB_PATH) as session:
-        tube = session.get(HeatExchangerTube, tube_id)
+        tube = session.scalar(select(HeatExchangerTube).where(HeatExchangerTube.tube_id==tube_id).with_for_update())
         if tube is None:
             return None
         old_status = normalize_tube_status(tube.current_status)
+        if old_status != new_status:
+            from .application.plugging_operations import guard_legacy_status_change
+            guard_legacy_status_change(session,[tube_id])
         tube.current_status = new_status
         if old_status != new_status:
             session.add(TubeLifecycleEvent(
@@ -4392,9 +4411,12 @@ def batch_update_tube_status(exchanger_id: int, tube_ids: list[int], status: str
             select(HeatExchangerTube).join(TubeBundle)
             .where(TubeBundle.heat_exchanger_id == exchanger_id,
                    HeatExchangerTube.tube_id.in_(tube_ids))
+            .order_by(HeatExchangerTube.tube_id).with_for_update()
         ).all()
         if len(tubes) != len(set(tube_ids)):
             raise ValueError("선택한 튜브 중 해당 열교환기에 속하지 않는 항목이 있습니다.")
+        from .application.plugging_operations import guard_legacy_status_change
+        guard_legacy_status_change(session,[t.tube_id for t in tubes if normalize_tube_status(t.current_status)!=new_status])
         changed = 0
         for tube in tubes:
             old = normalize_tube_status(tube.current_status)

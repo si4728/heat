@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}열교환기 분석{% endblock %}
 {% block heading %}열교환기 분석{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='precision-analysis.css', v='20261112-analysis-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='sample-wall-loss.css', v='20261119-compact-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='precision-analysis-integrated.css', v='20261119-compact-1') }}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='precision-analysis.css', v='20261124-plugging-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='sample-wall-loss.css', v='20261119-compact-1') }}"><link rel="stylesheet" href="{{ url_for('static', filename='precision-analysis-integrated.css', v='20261119-compact-1') }}">{% endblock %}
 {% block actions %}
   {% if can_screen('MAINTENANCE') %}<a class="button" href="{{ url_for('maintenance') }}">정비 관리</a>{% endif %}
   {% if selected_exchanger_id %}<a class="button" href="{{ url_for('exchanger_detail', exchanger_id=selected_exchanger_id) }}">열교환기 상세</a>{% endif %}
@@ -64,6 +64,18 @@
             <a id="precision-3d-link" class="button precision-3d-link" href="{{ url_for('exchanger_tube_map', exchanger_id=selected_exchanger_id, view='3d', campaign_id=tube_map.selected_campaign.campaign_id if tube_map.selected_campaign else none) }}" target="_blank" rel="noopener" title="선택한 열교환기와 Tube를 새 탭의 3D Map에서 보기">3D 보기 ↗</a>
           </div>
           <div id="precision-tube-map" class="precision-tube-map" aria-label="2D Tube Sheet Map"></div>
+          {% if can_screen('EXCHANGERS','edit') and can_screen('MAINTENANCE','edit') %}
+          <section id="plugging-operations" data-url="{{ url_for('analysis_plugging',exchanger_id=selected_exchanger_id) }}" data-csrf="{{ csrf_token }}">
+            <h3>실제 Plugging 완료 등록</h3>
+            <label><input type="checkbox" id="plugging-select-mode"> Map에서 여러 튜브 선택</label>
+            <p id="plugging-selection" role="status">선택한 튜브 없음</p>
+            <label>완료 일자 <input type="date" id="plugging-date" required max="{{ now.strftime('%Y-%m-%d') }}"></label>
+            <label>등록·취소 사유 <input type="text" id="plugging-reason" maxlength="1000" required></label>
+            <div class="sql-actions"><button class="button" type="button" id="plugging-complete" disabled>선택 튜브 완료 등록</button><button class="button" type="button" id="plugging-clear">선택 해제</button></div>
+            <p id="plugging-status" role="status" aria-live="polite"></p>
+            <details><summary>완료·취소 이력 (일자·등록자)</summary><div id="plugging-history" class="analysis-table-scroll"></div></details>
+          </section>
+          {% endif %}
           <div id="precision-map-height-resizer" class="precision-map-height-resizer" role="separator" tabindex="0" aria-orientation="horizontal" aria-label="Map 세로 높이 조절" aria-controls="precision-tube-map" aria-valuemin="240" aria-valuemax="1600" aria-valuenow="580" title="위아래로 드래그하여 Map 높이 조절 · 방향키 사용 가능"><span aria-hidden="true"></span></div>
           <details class="analysis-section-help"><summary>ⓘ 설명 보기</summary><p class="analysis-quality-note">X축(위·아래): 열 번호 · Y축(왼쪽): 행 번호 · 오른쪽: 행별 표시 Tube 수. 격자선은 등록된 행·열별 표시 위치의 중심을 기준으로 연결합니다.</p></details>
           <section class="analysis-wall-loss-legend" aria-label="감육률 색상 범례">
@@ -138,4 +150,4 @@
   </section>
 </div>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='tube-thickness-trend.js', v='20261119-compact-1') }}"></script><script src="{{ url_for('static', filename='wall-loss-palette.js', v='20261119-compact-1') }}"></script><script defer src="{{ url_for('static', filename='precision-analysis.js', v='20261119-recheck-2') }}"></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='tube-thickness-trend.js', v='20261119-compact-1') }}"></script><script src="{{ url_for('static', filename='wall-loss-palette.js', v='20261119-compact-1') }}"></script><script defer src="{{ url_for('static', filename='precision-analysis.js', v='20261124-plugging-1') }}"></script><script defer src="{{ url_for('static', filename='analysis-plugging.js', v='20261124-1') }}"></script>{% endblock %}

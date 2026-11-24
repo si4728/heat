@@ -182,7 +182,7 @@ def register_routes(app):
             exchanger_id = request.args.get('exchanger_id', type=int)
             identifier(exchanger_id)
             if exchanger_id not in {r['heat_exchanger_id'] for r in analysis.catalog()}:
-                raise PermissionError('VCM1·VCM2 범위의 설비를 선택하세요.')
+                raise PermissionError('PE·VCM1·VCM2 범위의 설비를 선택하세요.')
             return jsonify(inspections=analysis.inspections(exchanger_id))
         except Exception as exc:
             return fail(exc)
@@ -244,17 +244,20 @@ def register_routes(app):
                         raise QueryRejected('조회 범위 선택 방식을 하나만 지정하세요.')
                     ids = [identifier(data['exchanger_id'])]
                 if units is not None:
-                    if ids is not None or not isinstance(units,list) or not units or any(u not in ('VCM1','VCM2') for u in units):
-                        raise QueryRejected('VCM1·VCM2 공정 또는 교환기를 선택하세요.')
+                    if ids is not None or not isinstance(units,list) or not units or any(u not in ('PE','VCM1','VCM2') for u in units):
+                        raise QueryRejected('PE·VCM1·VCM2 공정 또는 교환기를 선택하세요.')
                     selected = [row for row in catalog if row['unit_code'] in units]
                 elif ids is not None:
                     if not isinstance(ids,list) or not ids or any(type(i) is not int or i<=0 for i in ids):
                         raise QueryRejected('교환기를 선택하세요.')
                     if not set(ids)<={row['heat_exchanger_id'] for row in catalog}:
-                        raise PermissionError('VCM1·VCM2 범위의 설비를 선택하세요.')
+                        raise PermissionError('PE·VCM1·VCM2 범위의 설비를 선택하세요.')
                     selected = [row for row in catalog if row['heat_exchanger_id'] in ids]
                 else:
                     selected = catalog
+                from iris2.application.text_to_sql_scope import mentioned_units
+                named_units = mentioned_units(question)
+                selected = [row for row in selected if not named_units or row['unit_code'] in named_units]
                 ids = [row['heat_exchanger_id'] for row in selected]
                 record_scopes([dict(equipment=row, inspection=None) for row in selected])
                 period = frequency.options(question)
@@ -272,7 +275,7 @@ def register_routes(app):
                 # Validate the intent before resolving scopes or spending model time.
                 exchanger_count.proposal(question)
                 if not any(key in data for key in ('exchanger_id', 'exchanger_ids', 'unit_codes')):
-                    data['unit_codes'] = ['VCM1', 'VCM2']
+                    data['unit_codes'] = ['PE', 'VCM1', 'VCM2']
                 record['query_kind'] = 'wall_loss_exchanger_count'
             period, model_question = query_period.parse(normalize(question))
             multi = 'exchanger_ids' in data or 'unit_codes' in data
@@ -298,6 +301,13 @@ def register_routes(app):
                     identifier(data.get('exchanger_id')),
                     identifier(data.get('inspection_id'), optional=True))
                 scopes, excluded = [dict(equipment=equipment, inspection=inspection)], []
+            from iris2.application.text_to_sql_scope import mentioned_units
+            named_units = mentioned_units(question)
+            if named_units:
+                scopes = [s for s in scopes if s['equipment']['unit_code'] in named_units]
+                if not scopes:
+                    raise QueryRejected('질문의 공정과 선택 범위가 일치하지 않습니다.')
+                equipment, inspection = scopes[0]['equipment'], scopes[0]['inspection']
             record_scopes(scopes, excluded)
             if not grouped_count and not g.get('text_sql_model_worker'):
                 return enqueue_model(text_to_sql_generate, profile)
@@ -309,6 +319,8 @@ def register_routes(app):
             proposal = dict(sql=sql, parameters=parameters)
             usage_log.proposal_context(record, proposal)
             group_units = (data.get('unit_codes') or sorted({s['equipment']['unit_code'] for s in scopes})) if grouped_count else None
+            if group_units and named_units:
+                group_units = [unit for unit in group_units if unit in named_units]
             token = serializer().dumps(dict(
                 actor=profile['user_id'], question=question.strip(), proposal=proposal, period=period,
                 query_kind='wall_loss_exchanger_count' if grouped_count else 'tube_analysis', group_units=group_units,

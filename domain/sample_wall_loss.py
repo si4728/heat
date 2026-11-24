@@ -40,7 +40,7 @@ def project_loss_threshold(loss, *, installed, measured, threshold, estimated=Fa
 
 
 def estimate_sample_wall_loss(losses, *, total_tube_count, installation_date=None,
-                              measurement_date=None, threshold_percent=40.0):
+                              measurement_date=None, threshold_percent=40.0, completed_count=0, limit_percent=20):
     values = []
     for value in losses:
         if value is None or isinstance(value, bool):
@@ -65,7 +65,7 @@ def estimate_sample_wall_loss(losses, *, total_tube_count, installation_date=Non
         return result
     if n < MINIMUM_SAMPLE_SIZE:
         return result
-    if type(total_tube_count) is not int or total_tube_count < n:
+    if type(total_tube_count) is not int or total_tube_count - completed_count < n:
         result['status'] = 'INVALID_TOTAL_COUNT'
         return result
     if not math.isfinite(threshold_percent) or not 0 < threshold_percent <= 100:
@@ -80,8 +80,13 @@ def estimate_sample_wall_loss(losses, *, total_tube_count, installation_date=Non
         result['status'] = 'DEGENERATE_SAMPLE'
         return result
     mu = mean_x - beta * mean_y
-    max_reduced = -math.log(-math.log1p(-1 / total_tube_count))
-    upper_20_reduced = -math.log(-math.log(0.8))
+    population = total_tube_count - completed_count
+    max_reduced = -math.log(-math.log1p(-1 / population))
+    required = math.floor(total_tube_count * limit_percent / 100) + 1 - completed_count
+    # With actual operations, forecast only the remaining uncompleted population.
+    percentile = 1-limit_percent/100 if not completed_count else 1 - max(1,required) / population
+    percentile = max(1e-9,min(1-1e-9,percentile))
+    upper_20_reduced = -math.log(-math.log(percentile))
     raw_max = mu + beta * max_reduced
     raw_upper_20 = mu + beta * upper_20_reduced
     # The estimate cannot erase a larger observed maximum or exceed 100% loss.
@@ -97,6 +102,8 @@ def estimate_sample_wall_loss(losses, *, total_tube_count, installation_date=Non
         upper_20_wall_loss_percent=upper_20,
         maximum_capped=raw_max > 100, upper_20_capped=raw_upper_20 > 100,
         observed_max_floor_applied=raw_max < values[-1],
+        remaining_population=population, additional_tubes_to_exceed_limit=max(0,required),
+        upper_threshold_percentile=percentile,
         sample_points=[dict(rank=i, wall_loss_percent=x, reduced_variate=y)
                        for i, (x, y) in enumerate(zip(values, reduced), 1)])
     result['first_threshold'] = project_loss_threshold(estimated_max,

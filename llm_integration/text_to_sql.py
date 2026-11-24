@@ -235,7 +235,7 @@ SOURCE_SQL = """SELECT r.iris_tube_result_id, r.iris_inspection_id, r.tube_id,
     JOIN equipment e ON e.equipment_id=hx.equipment_id
     JOIN process_unit u ON u.unit_id=e.unit_id
     WHERE hx.heat_exchanger_id=? AND i.iris_inspection_id=?
-      AND i.superseded_by_inspection_id IS NULL AND u.unit_code IN ('VCM1','VCM2')"""
+      AND i.superseded_by_inspection_id IS NULL AND u.unit_code IN ('PE','VCM1','VCM2')"""
 
 
 def execute_proposal(proposal: dict, *, exchanger_id: int, authorized_exchanger_ids,
@@ -275,10 +275,10 @@ def execute_proposal(proposal: dict, *, exchanger_id: int, authorized_exchanger_
                 e.equipment_name, u.unit_code FROM heat_exchanger hx
                 JOIN equipment e ON e.equipment_id=hx.equipment_id
                 JOIN process_unit u ON u.unit_id=e.unit_id
-                WHERE hx.heat_exchanger_id=? AND u.unit_code IN ('VCM1','VCM2')""",
+                WHERE hx.heat_exchanger_id=? AND u.unit_code IN ('PE','VCM1','VCM2')""",
                 (exchanger_id,)).fetchone()
             if not equipment:
-                raise QueryRejected("VCM1·VCM2 범위의 설비를 찾을 수 없습니다.")
+                raise QueryRejected("PE·VCM1·VCM2 범위의 설비를 찾을 수 없습니다.")
             rounds = connection.execute("""SELECT iris_inspection_id, inspection_date, report_date,
                 report_number, source_document_id, COALESCE(inspection_date, report_date) AS effective_date
                 FROM iris_inspection WHERE heat_exchanger_id=?

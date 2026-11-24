@@ -20,7 +20,7 @@ def catalog() -> list[dict]:
             e.equipment_code, e.equipment_tag, e.equipment_name, u.unit_code
             FROM heat_exchanger hx JOIN equipment e ON e.equipment_id=hx.equipment_id
             JOIN process_unit u ON u.unit_id=e.unit_id
-            WHERE u.unit_code IN ('VCM1','VCM2')
+            WHERE u.unit_code IN ('PE','VCM1','VCM2')
             ORDER BY u.unit_code, e.equipment_tag, e.equipment_code""").fetchall()]
     finally:
         connection.rollback()
@@ -37,7 +37,7 @@ def inspections(exchanger_id: int) -> list[dict]:
             FROM iris_inspection i JOIN heat_exchanger hx ON hx.heat_exchanger_id=i.heat_exchanger_id
             JOIN equipment e ON e.equipment_id=hx.equipment_id
             JOIN process_unit u ON u.unit_id=e.unit_id
-            WHERE hx.heat_exchanger_id=? AND u.unit_code IN ('VCM1','VCM2')
+            WHERE hx.heat_exchanger_id=? AND u.unit_code IN ('PE','VCM1','VCM2')
             AND i.superseded_by_inspection_id IS NULL
             ORDER BY effective_date DESC, i.iris_inspection_id DESC""", (exchanger_id,)).fetchall()]
     finally:
@@ -49,7 +49,7 @@ def select_scope(exchanger_id: int, inspection_id: int | None) -> tuple[dict, di
     equipment = catalog()
     allowed = frozenset(row['heat_exchanger_id'] for row in equipment)
     if exchanger_id not in allowed:
-        raise PermissionError('VCM1·VCM2 범위의 설비를 선택하세요.')
+        raise PermissionError('PE·VCM1·VCM2 범위의 설비를 선택하세요.')
     rounds = inspections(exchanger_id)
     selected = next((r for r in rounds if r['iris_inspection_id'] == inspection_id), None) if inspection_id else (rounds[0] if rounds else None)
     if not selected:
@@ -69,8 +69,8 @@ def select_scopes(*, exchanger_ids=None, unit_codes=None, inspection_id=None):
         if exchanger_ids is not None or inspection_id is not None:
             raise QueryRejected('공정 선택과 설비·검사 회차 선택을 함께 사용할 수 없습니다.')
         if not isinstance(unit_codes, list) or not unit_codes or any(
-                unit not in ('VCM1', 'VCM2') for unit in unit_codes):
-            raise QueryRejected('VCM1 또는 VCM2 공정을 선택하세요.')
+                unit not in ('PE', 'VCM1', 'VCM2') for unit in unit_codes):
+            raise QueryRejected('PE, VCM1 또는 VCM2 공정을 선택하세요.')
         ids = [row['heat_exchanger_id'] for row in equipment if row['unit_code'] in unit_codes]
     else:
         if not isinstance(exchanger_ids, list) or not exchanger_ids or len(exchanger_ids) > 500 or any(
@@ -78,7 +78,7 @@ def select_scopes(*, exchanger_ids=None, unit_codes=None, inspection_id=None):
             raise QueryRejected('교환기를 한 대 이상 선택하세요.')
         ids = list(dict.fromkeys(exchanger_ids))
         if not set(ids) <= allowed:
-            raise PermissionError('VCM1·VCM2 범위의 설비를 선택하세요.')
+            raise PermissionError('PE·VCM1·VCM2 범위의 설비를 선택하세요.')
         if inspection_id is not None and (type(inspection_id) is not int or len(ids) != 1):
             raise QueryRejected('검사 회차는 교환기 한 대를 선택한 경우에만 지정할 수 있습니다.')
     scopes, excluded = [], []
@@ -114,8 +114,8 @@ def select_period_scopes(period, *, exchanger_ids=None, unit_codes=None, inspect
     if unit_codes is not None:
         if (exchanger_ids is not None or inspection_id is not None
                 or not isinstance(unit_codes, list) or not unit_codes
-                or any(unit not in ('VCM1', 'VCM2') for unit in unit_codes)):
-            raise QueryRejected('VCM1·VCM2 공정 또는 설비를 한 가지 방식으로 선택하세요.')
+                or any(unit not in ('PE', 'VCM1', 'VCM2') for unit in unit_codes)):
+            raise QueryRejected('PE·VCM1·VCM2 공정 또는 설비를 한 가지 방식으로 선택하세요.')
         selected = [row for row in equipment if row['unit_code'] in unit_codes]
     else:
         if exchanger_ids is None:
@@ -125,7 +125,7 @@ def select_period_scopes(period, *, exchanger_ids=None, unit_codes=None, inspect
                     or any(type(i) is not int or i <= 0 for i in exchanger_ids)):
                 raise QueryRejected('조회 설비 범위가 올바르지 않습니다.')
             if not set(exchanger_ids) <= allowed:
-                raise PermissionError('VCM1·VCM2 범위의 설비를 선택하세요.')
+                raise PermissionError('PE·VCM1·VCM2 범위의 설비를 선택하세요.')
             selected = [row for row in equipment if row['heat_exchanger_id'] in exchanger_ids]
     if inspection_id is not None and (type(inspection_id) is not int or inspection_id <= 0 or len(selected) != 1):
         raise QueryRejected('검사 회차는 단일 설비에서만 지정하세요.')

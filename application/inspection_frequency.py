@@ -57,7 +57,7 @@ def proposal(ids, period):
         JOIN equipment e ON e.equipment_id=hx.equipment_id
         JOIN process_unit u ON u.unit_id=e.unit_id
         WHERE hx.heat_exchanger_id IN (''' + ','.join('?' for _ in ids) + ''')
-        AND u.unit_code IN ('VCM1','VCM2')
+        AND u.unit_code IN ('PE','VCM1','VCM2')
         AND UPPER(TRIM(i.inspection_method))='IRIS'
         AND i.superseded_by_inspection_id IS NULL
         AND COALESCE(i.inspection_date,i.report_date)>=?
@@ -79,7 +79,7 @@ def proposal(ids, period):
             JOIN process_unit u ON u.unit_id=e.unit_id
             WHERE hx.heat_exchanger_id IN (""" + ','.join('?' for _ in ids) + """)
             AND i.heat_exchanger_id=hx.heat_exchanger_id
-            AND u.unit_code IN ('VCM1','VCM2')
+            AND u.unit_code IN ('PE','VCM1','VCM2')
             AND UPPER(TRIM(i.inspection_method))='IRIS'
             AND i.superseded_by_inspection_id IS NULL AND r.result_status='VALID'
             AND COALESCE(i.inspection_date,i.report_date)>=?

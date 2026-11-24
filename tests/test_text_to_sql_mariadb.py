@@ -58,10 +58,11 @@ class TextToSqlMariaDBTests(unittest.TestCase):
             self.assertEqual(response.status_code,200,response.json)
             rows = response.json['result']['rows']
             if 'STEAM' in question:
-                self.assertEqual(len(rows),1)
-                self.assertEqual(rows[0]['exchanger_count'],10)
-                self.assertEqual(rows[0]['unit_code'],'VCM2')
-                self.assertIn('US-EV-E-105',rows[0]['equipment_list'])
+                self.assertTrue(all(r['unit_code'] in ('PE','VCM1','VCM2') for r in rows))
+                vcm2=next(r for r in rows if r['unit_code']=='VCM2')
+                self.assertEqual(vcm2['exchanger_count'],10)
+                self.assertIn('US-EV-E-105',vcm2['equipment_list'])
+                self.assertTrue(any(r['unit_code']=='PE' for r in rows))
             else:
                 count = len(fluids.select_equipment({},question))
                 for side in ['SHELL','TUBE']:

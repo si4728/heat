@@ -26,7 +26,7 @@ def evidence(result, *, all_rows=None):
     def reached(r):return r.get('remaining_life_years') is not None and r['remaining_life_years']<=0
     def overdue(r):return _day(r.get('recommendation_date')) is not None and _day(r['recommendation_date'])<basis(r)
     def short(r):return r.get('remaining_life_years') is not None and 0<r['remaining_life_years']<=5
-    def unknown(r):return r.get('remaining_life_years') is None and r.get('analysis_status')!='LIMIT_NOT_REACHED'
+    def unknown(r):return r.get('remaining_life_years') is None and r.get('analysis_status')!='NO_INSPECTION'
     def rank(r):
         due=_day(r.get('recommendation_date'))
         near=due is not None and due<=basis(r)+timedelta(days=365)
@@ -36,6 +36,7 @@ def evidence(result, *, all_rows=None):
         short_life=sum(short(r) for r in rows),missing_life=sum(unknown(r) for r in rows),
         long_life=sum(r.get('remaining_life_years') is not None and r['remaining_life_years']>5 for r in rows),
         not_reached=sum(r.get('analysis_status')=='LIMIT_NOT_REACHED' for r in rows),
+        uninspected=sum(r.get('analysis_status')=='NO_INSPECTION' for r in rows),
         missing_recommendation=sum(_day(r.get('recommendation_date')) is None for r in rows),
         small_sample=sum(r.get('sample_count') is not None and r['sample_count']<10 for r in rows))
     complete=len(rows)==matched
@@ -43,7 +44,7 @@ def evidence(result, *, all_rows=None):
     def add(identifier,section,text,**extra):
         statements.append(dict(id=identifier,section=section,text=text,**extra))
     add('G_SCOPE','overview',f"조회 조건: {result.get('filter_description') or '선택한 설비 범위'}. 조건 일치 {matched}대 중 표에는 {len(result['rows'])}대를 표시합니다. 종합 의견의 집계 대상은 {'조건 일치 전체' if complete else '확인 가능한'} {len(rows)}대입니다.")
-    add('G_STATE','overview',f"분석상 도달 상태 {stats['reached']}대, 잔여수명 0년 초과 5년 이하 {stats['short_life']}대, 5년 초과 {stats['long_life']}대, 가용 데이터 한도 미도달 {stats['not_reached']}대, 잔여수명 미산정 {stats['missing_life']}대입니다.")
+    add('G_STATE','overview',f"분석상 도달 상태 {stats['reached']}대, 잔여수명 0년 초과 5년 이하 {stats['short_life']}대, 5년 초과 {stats['long_life']}대, IRIS 이력 미등록 {stats['uninspected']}대, 산정 불가 {stats['missing_life']}대(이 중 가용 데이터 한도 미도달 {stats['not_reached']}대)입니다.")
     add('G_DATES','overview',f"각 설비의 분석 기준일 대비 검사 권고일 경과 {stats['overdue']}대, 권고일 미산정 {stats['missing_recommendation']}대입니다.")
     keys=['heat_exchanger_id','exchanger_code','team_code','unit_code','matching_tube_count',
           'remaining_display','recommendation_date','maximum_loss','life_source','first_display','measured_estimated_loss']
@@ -55,6 +56,7 @@ def evidence(result, *, all_rows=None):
         if row.get('maximum_loss') is not None:value+=f", 최대 감육률 {row['maximum_loss']}%"
         if row.get('matching_tube_count') is not None:value+=f", 조건 해당 튜브 {row['matching_tube_count']}본"
         if row.get('life_source'):value+=f". 산정 근거: {row['life_source']}"
+        if row.get('uncalculable_reason'):value+=f". 미산정 사유: {row['uncalculable_reason']}"
         add(f'P{index:02d}','priorities',value+'.',equipment_id=row['heat_exchanger_id'],equipment_code=code)
         examples.append({k:row.get(k) for k in keys})
     add('L_BASIS','limitations','잔여수명과 검사 권고일은 분석 화면의 계산값입니다. 기준 도달 상태를 즉시 교체 지시로 해석하지 않으며, 정비 조치는 승인된 검사·정비 기준으로 판단해야 합니다.')

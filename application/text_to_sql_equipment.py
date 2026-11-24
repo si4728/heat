@@ -49,7 +49,7 @@ def proposal(ids):
         e.equipment_tag, e.equipment_name FROM heat_exchanger hx
         JOIN equipment e ON e.equipment_id=hx.equipment_id
         JOIN process_unit u ON u.unit_id=e.unit_id
-        WHERE u.unit_code IN ('VCM1','VCM2') AND hx.heat_exchanger_id IN ('''+','.join('?' for _ in ids)+''')
+        WHERE u.unit_code IN ('PE','VCM1','VCM2') AND hx.heat_exchanger_id IN ('''+','.join('?' for _ in ids)+''')
         ORDER BY u.unit_code,e.equipment_tag,hx.heat_exchanger_id LIMIT 500''', parameters=ids)
 
 
@@ -80,7 +80,7 @@ def execute(ids, settings, signed, allowed):
         team=getattr(detail.get('master',[None,None])[1],'production_team_code',None)
         short_code=getattr(detail.get('spec'),'exchanger_code',None)
         if not short_code:
-            match=re.search(r'(?:AE|E)-?\d+[A-Za-z]*$',master.get('equipment_tag',''))
+            match=re.search(r'(?:AE|ER|E)-?\d+[A-Za-z]*(?:-\d+)?$',master.get('equipment_tag',''))
             short_code=match[0] if match else master.get('equipment_tag')
         row=dict(master,latest_inspection_date=summary.get('latest_inspection_date'),
                  team_code=team,exchanger_code=short_code,
@@ -92,6 +92,7 @@ def execute(ids, settings, signed, allowed):
                  measured_max=overview.get('measured_max'),estimated_max=overview.get('estimated_max'),
                  sample_count=overview.get('sample_count'),sample_status=overview.get('sample_status'),
                  analysis_status=overview.get('status'),
+                 uncalculable_reason=overview.get('uncalculable_reason'),
                  calculation_date=life.get('as_of_date'))
         measured,estimated=row['measured_max'],row['estimated_max']
         row['measured_estimated_loss']=('—' if measured is None else f'{measured:.1f}')+' / '+('—' if estimated is None else f'{estimated:.1f}')
@@ -112,7 +113,7 @@ def execute(ids, settings, signed, allowed):
     limit=settings['limit']; total=len(rows)
     columns=['team_code','unit_code','exchanger_code','equipment_name','latest_inspection_date']
     if any(c[0]=='maximum_loss' for c in settings['conditions']):columns+=['matching_tube_count','maximum_loss']
-    columns+=['remaining_display','life_source','first_display','measured_estimated_loss','recommendation_date']
+    columns+=['remaining_display','life_source','first_display','measured_estimated_loss','recommendation_date','uncalculable_reason']
     names={'remaining_life_years':'예상 잔여수명','maximum_loss':'최대 감육률','recommendation_date':'차기 검사 권고일'}
     units={'remaining_life_years':'년','maximum_loss':'%','recommendation_date':''}
     filter_description=' · '.join(f'{names[field]} {value}{units[field]} {op}' for field,op,value in settings['conditions']) or '선택한 설비 범위의 현재 기본 분석값'

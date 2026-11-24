@@ -6,6 +6,9 @@
     <div class="{{ 'summary-urgent' if overview.urgent else '' }}"><span>예상 잔여수명</span><strong>{{ overview.remaining_display }}</strong><small>{{ overview.source }} · {{ overview.target_display }}</small></div>
     <div class="{{ 'summary-urgent' if overview.first_urgent else '' }}"><span>최초 Plugging 기준 도달</span><strong>{{ overview.first_display }}</strong><small>{{ overview.first_source }}{% if overview.first and overview.first.tube_no %} · Tube {{ overview.first.tube_no }}{% endif %}</small></div>
   </div>
+  {% if overview.uncalculable_reason %}<p class="analysis-quality-note" role="status">{{ overview.uncalculable_reason }}</p>{% endif %}
+  {% if overview.threshold_reached_count %}<p class="summary-urgent">실측 기준 도달 튜브 {{ overview.threshold_reached_count }}본 · 실제 Plugging 완료와 구분합니다.</p>{% endif %}
+  {% if overview.estimated_reached %}<p class="summary-urgent">검사일 기준 통계 추정상 설비 한도 도달</p>{% endif %}
   <dl class="equipment-summary-facts">
     <div><dt>최대 감육률 (측정 / 추정)</dt><dd>{{ '%.1f%%'|format(overview.measured_max) if overview.measured_max is not none else '－' }} / {{ '%.1f%%'|format(overview.estimated_max) if overview.estimated_max is not none else '－' }}</dd></div>
     <div><dt>차기 검사 권고일</dt><dd>{{ overview.recommendation_date or '산정 불가' }}</dd><small>실측 최초 도달 기준</small></div>
@@ -20,7 +23,7 @@
       <p>상위 20% 경계 감육률: {{ '%.1f%%'|format(estimate.upper_20_wall_loss_percent) if estimate.upper_20_wall_loss_percent is not none else '−' }} · 유효 표본 {{ estimate.sample_count }}본</p>
       {% if estimate.status == 'ESTIMATED' %}
         <p>감육률 = {{ '%.4f'|format(estimate.mu) }} + {{ '%.4f'|format(estimate.beta) }} × y · R² {{ '%.3f'|format(estimate.r_squared) }} · y = −ln(−ln(F)), F = (순위 − 0.3) / (표본 수 + 0.4).</p>
-        <p>최대값은 F = 1 − 1 / 전체 수량, 상위 20% 경계값은 F = 0.8로 계산합니다. 추정 감육률 상한은 100%이며 추정 최대값은 실측 최대값 이상으로 적용합니다.</p>
+        <p>최대값은 F = 1 − 1 / 미완료 모집단 수량으로 계산합니다. 한도 경계 확률 F = {{ '%.4f'|format(estimate.upper_threshold_percentile|default(0.8)) }}. 실제 완료 튜브는 표본과 잔여 모집단에서 제외하며, 완료 수량을 제외한 추가 한도 초과 수량으로 경계를 산정합니다. 완료 등록이 없고 한도가 20%이면 F = 0.8입니다.</p>
         <p>도달 예상일 = 최근 검사일 + (기준 감육률 − 추정 감육률) / (추정 감육률 / 설치 후 사용연수) · 설치 기준일 {{ estimate.installation_date or '미등록' }}.</p>
       {% endif %}
       <p>통계 추정은 튜브별 배율 시뮬레이션과 별도이며 실제 Plugging 완료 수량을 의미하지 않습니다.</p>

@@ -31,6 +31,7 @@
     remaining_display:'예상 잔여수명', recommendation_date:'차기 검사 권고일', life_source:'산정 근거', calculation_date:'계산 기준일',
     team_code:'생산팀', exchanger_code:'설비', matching_tube_count:'조건 해당 튜브 수',
     first_display:'최초 Plugging 기준 도달', measured_estimated_loss:'측정 / 추정 최대 감육률 (%)',
+    uncalculable_reason:'산정 불가 사유',
     year:'연도', inspection_year:'검사 연도', inspection_date:'검사일', report_date:'보고일',
     inspected_tubes:'검사 Tube 수', valid_loss_tubes:'유효 감육률 Tube 수',
     minimum_mm:'최소두께 (mm)', maximum_loss:'최대 감육률 (%)', average_loss:'평균 감육률 (%)', mean_loss:'평균 감육률 (%)',
@@ -158,10 +159,10 @@
   function questionChanged() {
     reset(); setBusy(false);
     if (helpQuestion()) el('generate-status').textContent = 'SQL 생성 버튼을 누르면 예시 질문과 사용 방법을 표시합니다.';
-    else if (fluidQuestion()) el('generate-status').textContent = '현재 사양의 유체명별 설비 수·목록 · 기본 Shell·Tube 측별 구분 · 범위 미선택 시 VCM1·VCM2 전체';
+    else if (fluidQuestion()) el('generate-status').textContent = '현재 사양의 유체명별 설비 수·목록 · 기본 Shell·Tube 측별 구분 · 범위 미선택 시 PE·VCM1·VCM2 전체';
     else if (reportQuestion()) el('generate-status').textContent = '검사 보고서 PDF 조회 · 설비 코드 또는 선택 범위 기준 · 연도 입력 가능 · 기간 생략 시 전체 검사 이력';
-    else if (frequencyQuestion()) el('generate-status').textContent = 'IRIS 검사 횟수 순위 · 기간 입력 가능 · 기간 생략 시 설비 최근 5년 / 튜브 전체 이력 · 범위 미선택 시 VCM1·VCM2 전체';
-    else if (groupedCountQuestion()) el('generate-status').textContent = '감육 조건별 공정별 열교환기 수 · 범위 미선택 시 VCM1·VCM2 전체 · 기간 생략 시 설비별 최근 유효 검사';
+    else if (frequencyQuestion()) el('generate-status').textContent = 'IRIS 검사 횟수 순위 · 기간 입력 가능 · 기간 생략 시 설비 최근 5년 / 튜브 전체 이력 · 범위 미선택 시 PE·VCM1·VCM2 전체';
+    else if (groupedCountQuestion()) el('generate-status').textContent = '감육 조건별 공정별 열교환기 수 · 범위 미선택 시 PE·VCM1·VCM2 전체 · 기간 생략 시 설비별 최근 유효 검사';
   }
   el('question').addEventListener('input', questionChanged);
   el('result-unit').addEventListener('change', questionChanged);
@@ -173,7 +174,7 @@
     reset(); setBusy(true, true);
     try {
       const payload = await modelRequest(root.dataset.generateUrl, {
-        ...((frequencyQuestion() || groupedCountQuestion()) && !(el('mode').value === 'unit' ? selectedUnits().length : selectedIds().length) ? {unit_codes:['VCM1','VCM2']} :
+        ...((frequencyQuestion() || groupedCountQuestion()) && !(el('mode').value === 'unit' ? selectedUnits().length : selectedIds().length) ? {unit_codes:['PE','VCM1','VCM2']} :
           el('mode').value === 'unit' ? {unit_codes:selectedUnits()} : {exchanger_ids:selectedIds(), inspection_id:el('inspection').value ? Number(el('inspection').value) : null}),
         question:el('question').value, result_unit:el('result-unit').value
       }, message => { el('generate-status').textContent = message; });
@@ -286,7 +287,7 @@
       }
       if (result.query_kind === 'fluid_grouping') {
         el('empty').textContent = '조건에 맞는 유체 사양이 없습니다.';
-        el('result-note').textContent = `${result.limit_reached ? '최대 100행입니다. 범위를 좁혀 주세요. · ' : ''}현재 사양 기준 · 공백·대소문자 정규화 · 미등록 별도 표시 · 같은 설비는 유체·측·공정 그룹 안에서 1대 · Shell과 Tube 양쪽에 해당하면 각각 집계`;
+        el('result-note').textContent = `${result.limit_reached ? '최대 500행입니다. 범위를 좁혀 주세요. · ' : ''}현재 사양 기준 · 공백·대소문자 정규화 · 미등록 별도 표시 · 같은 설비는 유체·측·공정 그룹 안에서 1대 · Shell과 Tube 양쪽에 해당하면 각각 집계`;
       }
       if (result.query_kind === 'equipment_analysis') {
         el('empty').textContent = '조건에 맞는 열교환기가 없습니다.';

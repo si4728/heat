@@ -4,10 +4,11 @@ import math
 from ..domain.inspection_lifecycle import current_installation_date, is_current_installation_inspection
 from ..domain.sample_wall_loss import MINIMUM_SAMPLE_SIZE, estimate_sample_wall_loss
 from ..domain.measurement_eligibility import exclusion_reason
+from ..domain.tube_status import normalize_tube_status
 
 
 def build_sample_estimate(result_rows, tubes_by_id, equipment, master_spec, *, threshold_percent,
-                          inspections=None, as_of=None):
+                          inspections=None, as_of=None, limit_percent=20):
     cohorts = {}
     if inspections is not None:
         for inspection in inspections:
@@ -43,10 +44,14 @@ def build_sample_estimate(result_rows, tubes_by_id, equipment, master_spec, *, t
         installed_dates.add(installed)
     ambiguous = sum((i.inspection_date or i.report_date) == measured for i, _ in cohorts.values()) > 1
     blocked = 'AMBIGUOUS_INSPECTION' if ambiguous else 'MIXED_INSTALLATION_DATES' if len(installed_dates) > 1 else None
+    completed = sum(normalize_tube_status(getattr(t,'current_status',None))=='PLUGGED' for t in tubes_by_id.values())
+    surviving = [r for r in valid if normalize_tube_status(getattr(tubes_by_id[r.tube_id],'current_status',None))!='PLUGGED']
     estimate = estimate_sample_wall_loss(
-        [] if blocked else [r.wall_loss_percent for r in valid], total_tube_count=total,
+        [] if blocked else [r.wall_loss_percent for r in surviving], total_tube_count=total,
         installation_date=next(iter(installed_dates), None), measurement_date=latest_date,
-        threshold_percent=threshold_percent)
+        threshold_percent=threshold_percent, completed_count=completed, limit_percent=limit_percent)
+    estimate['measured_max_wall_loss_percent'] = max((r.wall_loss_percent for r in valid), default=None)
+    estimate['completed_count'] = completed
     if blocked:
         measured_only = estimate_sample_wall_loss([r.wall_loss_percent for r in valid], total_tube_count=total)
         status = (measured_only['status'] if measured_only['sample_count'] < MINIMUM_SAMPLE_SIZE else blocked)

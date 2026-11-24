@@ -14,17 +14,18 @@ def matches(question):
 
 
 def response(question, data):
+    from .text_to_sql_scope import mentioned_units as question_units
     catalog = analysis.catalog()
     # A named equipment must never silently fall back to the selected equipment.
-    tags = re.findall(r'(?<![A-Za-z0-9])(?:AE|E)\s*-?\s*\d+[A-Za-z]*(?![A-Za-z0-9])', question, re.I)
+    tags = re.findall(r'(?<![A-Za-z0-9])(?:AE|ER|E)\s*-?\s*\d+[A-Za-z]*(?:-\d+)?(?![A-Za-z0-9])', question, re.I)
     canonical = lambda value: re.sub(r'[^A-Z0-9]', '', str(value).upper())
     named = set()
     for tag in tags:
         found = [r['heat_exchanger_id'] for r in catalog if canonical(tag) in
-                 [canonical(value) for value in re.findall(r'(?:AE|E)\s*-?\s*\d+[A-Za-z]*$', r.get('equipment_tag') or '', re.I)]
+                 [canonical(value) for value in re.findall(r'(?:AE|ER|E)\s*-?\s*\d+[A-Za-z]*(?:-\d+)?$', r.get('equipment_tag') or '', re.I)]
                  + [canonical(r.get('equipment_code'))]]
         if not found:
-            raise QueryRejected(f'{tag}: VCM1·VCM2 설비를 찾을 수 없습니다.')
+            raise QueryRejected(f'{tag}: PE·VCM1·VCM2 설비를 찾을 수 없습니다.')
         named.update(found)
     for row in catalog:
         code = str(row.get('equipment_code') or '')
@@ -38,19 +39,17 @@ def response(question, data):
         ids = [data['exchanger_id']]
     if ids is not None and (not isinstance(ids, list) or any(type(i) is not int or i <= 0 for i in ids)):
         raise QueryRejected('교환기 선택을 확인하세요.')
-    if units is not None and (ids is not None or not isinstance(units, list) or any(u not in ('VCM1','VCM2') for u in units)):
-        raise QueryRejected('VCM1·VCM2 공정 또는 교환기를 선택하세요.')
+    if units is not None and (ids is not None or not isinstance(units, list) or any(u not in ('PE','VCM1','VCM2') for u in units)):
+        raise QueryRejected('PE·VCM1·VCM2 공정 또는 교환기를 선택하세요.')
     allowed = {r['heat_exchanger_id'] for r in catalog}
     if ids and not set(ids) <= allowed:
-        raise PermissionError('VCM1·VCM2 범위의 설비를 선택하세요.')
-    mentioned_units = re.findall(r'VCM\s*([1-4])', question, re.I)
-    if any(u not in ('1','2') for u in mentioned_units):
-        raise QueryRejected('VCM1·VCM2 검사 보고서만 조회할 수 있습니다.')
+        raise PermissionError('PE·VCM1·VCM2 범위의 설비를 선택하세요.')
+    mentioned_units = question_units(question)
     selected = [r for r in catalog if
                 (not named or r['heat_exchanger_id'] in named) and
                 (not ids or r['heat_exchanger_id'] in ids) and
                 (not units or r['unit_code'] in units) and
-                (not mentioned_units or r['unit_code'] in {'VCM'+u for u in mentioned_units})]
+                (not mentioned_units or r['unit_code'] in mentioned_units)]
     if not (named or ids or units or mentioned_units):
         raise QueryRejected('보고서를 조회할 교환기 또는 공정을 선택하거나 질문에 설비 코드를 입력하세요.')
     if not selected:

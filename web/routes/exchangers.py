@@ -14,6 +14,31 @@ from iris2.application.organization_service import organization_catalog, save_or
 
 
 def register_routes(app) -> None:
+    def authorize_plugging(*, edit=False):
+        profile = g.get('current_user')
+        if not profile or not all(services.user_can(profile,key,edit=edit)
+                for key in ('EXCHANGERS','MAINTENANCE')):
+            abort(403)
+        return profile
+
+    @app.route('/analysis/<int:exchanger_id>/plugging', methods=['GET','POST'])
+    def analysis_plugging(exchanger_id):
+        from iris2.application import plugging_operations as plugging
+        profile = authorize_plugging(edit=request.method=='POST')
+        try:
+            if request.method=='POST':
+                result = plugging.apply(exchanger_id,request.get_json(silent=True),profile)
+                return jsonify(result)
+            response = jsonify(plugging.state(exchanger_id))
+            response.headers['Cache-Control']='no-store'
+            return response
+        except plugging.StateConflict as exc:
+            return jsonify(error=str(exc)),409
+        except PermissionError as exc:
+            return jsonify(error=str(exc)),403
+        except (ValueError,TypeError) as exc:
+            return jsonify(error=str(exc)),400
+
     @app.get("/master-data/organization-codes")
     def organization_codes():
         data = organization_catalog()

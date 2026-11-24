@@ -2,7 +2,7 @@
 from datetime import date
 
 BANDS = {'long': '15년 초과', 'medium': '5년 초과~15년 이하',
-         'short': '5년 이하', 'unknown': '산정 불가', 'not_reached': '한도 미도달'}
+         'short': '5년 이하', 'unknown': '산정 불가', 'uninspected': 'IRIS 미실시'}
 
 
 def first_tube_threshold(projections):
@@ -34,14 +34,16 @@ def first_tube_threshold(projections):
 
 def life_band(life):
     years = life.get('remaining_life_years')
-    if life.get('status') == 'LIMIT_NOT_REACHED' and life.get('total_tube_count'):
-        return 'not_reached'
+    if life.get('registered_inspection_count') == 0:
+        return 'uninspected'
     if life.get('status') != 'CALCULATED' or years is None or not life.get('total_tube_count'):
         return 'unknown'
     return 'long' if years > 15 else 'medium' if years > 5 else 'short'
 
 
 def group_life_rows(rows, unit='', band=''):
+    if band == 'not_reached':
+        band = 'unknown'  # Existing saved links remain usable.
     unit = unit if unit in {r['unit_code'] for r in rows} else ''
     band = band if band in BANDS else ''
     rows = [r for r in rows if r['unit_code'] not in ('VCM3', 'VCM4')]

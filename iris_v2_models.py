@@ -12,6 +12,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -705,6 +706,47 @@ class HeatExchangerTube(BaseV2):
     bundle = relationship("TubeBundle", back_populates="tubes")
     inspection_results = relationship("IrisTubeResult", back_populates="tube")
     lifecycle_events = relationship("TubeLifecycleEvent", back_populates="tube")
+
+
+class CustomerCorrectionEvent(BaseV2):
+    __tablename__ = 'customer_correction_event'
+    __table_args__ = (UniqueConstraint('correction_key','entity_type','entity_id','field_name',name='uq_customer_correction_field'),)
+    correction_event_id = Column(Integer, primary_key=True)
+    correction_key = Column(String(64), nullable=False)
+    entity_type = Column(String(64), nullable=False)
+    entity_id = Column(Integer, nullable=False)
+    field_name = Column(String(64), nullable=False)
+    old_value_json = Column(Text, nullable=False)
+    new_value_json = Column(Text, nullable=False)
+    source_file = Column(String(200), nullable=False)
+    source_sha256 = Column(String(64), nullable=False)
+    source_page = Column(Integer, nullable=False)
+    actor_label = Column(String(200), nullable=False)
+    registered_at = Column(DateTime, nullable=False, default=utcnow)
+
+
+class TubePluggingEvent(BaseV2):
+    """Append-only completions and explicit corrections of those completions."""
+    __tablename__ = 'tube_plugging_event'
+    __table_args__ = (
+        UniqueConstraint('actor_id', 'request_key', 'tube_id', name='uq_plugging_request_tube'),
+        UniqueConstraint('cancelled_event_id', name='uq_plugging_cancel_once'),
+        CheckConstraint("operation IN ('COMPLETE','CANCEL')", name='ck_plugging_operation'),
+        Index('ix_plugging_exchanger_event', 'heat_exchanger_id', 'plugging_event_id'),
+    )
+    plugging_event_id = Column(Integer, primary_key=True)
+    heat_exchanger_id = Column(Integer, ForeignKey('heat_exchanger.heat_exchanger_id'), nullable=False)
+    tube_id = Column(Integer, ForeignKey('heat_exchanger_tube.tube_id'), nullable=False)
+    operation = Column(String(12), nullable=False)
+    effective_date = Column(Date, nullable=False)
+    registered_at = Column(DateTime, nullable=False, default=utcnow)
+    actor_id = Column(Integer, nullable=False)
+    actor_name = Column(String(200), nullable=False)
+    request_key = Column(String(64), nullable=False)
+    reason = Column(Text, nullable=False)
+    cancelled_event_id = Column(Integer, ForeignKey('tube_plugging_event.plugging_event_id'))
+    previous_status = Column(String(30), nullable=False)
+    previous_plugging_date = Column(DateTime)
 
 
 class TubePositionEvent(BaseV2):
