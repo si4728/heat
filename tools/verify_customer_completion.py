@@ -1,5 +1,6 @@
 """Run browser UAT only against an ephemeral, disposable MariaDB copy."""
 import json
+import argparse
 import os
 from pathlib import Path
 import subprocess
@@ -19,7 +20,11 @@ from iris2.migration.plugging_operations import apply_migration
 
 
 def main():
-    out=Path('reports/customer-completion-20261124/browser');out.mkdir(parents=True,exist_ok=True)
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output',type=Path,default=Path('reports/customer-completion-20261124/browser'))
+    parser.add_argument('--audit-conditions',action='store_true')
+    args=parser.parse_args()
+    out=args.output;out.mkdir(parents=True,exist_ok=True)
     with customer_clone() as (engine,schema):
         apply_migration(engine);correct(engine,PDF_REPORT_DIR,apply=True)
         with patch('iris2.web.routes.text_to_sql.commentary.generate',return_value=dict(
@@ -31,7 +36,7 @@ def main():
             session={'user_id':uid,'last_activity_at':time.time(),'csrf_token':'isolated-browser-test'}
             cookie=app.session_interface.get_signing_serializer(app).dumps(session)
             from datetime import datetime,timedelta,timezone
-            settings=dict(base=f'http://127.0.0.1:{server.server_port}',cookie=cookie,out=str(out.resolve()),
+            settings=dict(base=f'http://127.0.0.1:{server.server_port}',cookie=cookie,out=str(out.resolve()),audit=args.audit_conditions,
                 today=datetime.now(timezone(timedelta(hours=9))).date().isoformat())
             node=Path(os.environ.get('LOCALAPPDATA',''))/'Programs/Microsoft VS Code/Code.exe'
             executable=str(node) if node.is_file() else 'node'

@@ -4,7 +4,7 @@ import {Browser} from '../.agents/skills/design-taste-frontend/scripts/lib/cdp.m
 const cfg=JSON.parse(readFileSync(0,'utf8'));
 const browser=await Browser.launch();
 async function waitFor(page,fn,timeout=30000,arg){const end=Date.now()+timeout;while(true){try{if(await page.eval(fn,arg))return;}catch{}if(Date.now()>end)throw new Error('Browser UAT timeout');await new Promise(r=>setTimeout(r,120));}}
-const checks=[];
+const checks=[],findings=[];
 try{
  const page=await browser.newPage({width:1440,height:1000});
  await page.send('Network.enable');
@@ -50,6 +50,25 @@ try{
   assert.equal(await page.eval(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:cfg.out+'/analysis-'+width+'.png',format:'png',fullPage:true});
  }
- writeFileSync(cfg.out+'/checks.json',JSON.stringify({passed:true,checks,summaryModel:'TEST_STUB; all HTTP, authorization, business reads/writes and page JS are real on a disposable DB'},null,2));
+ if(cfg.audit){
+  await page.setViewport({width:1440,height:1000});
+  await page.goto(cfg.base+'/');
+  const peGroup=await page.eval(()=>{const row=[...document.querySelectorAll('.life-band-table tbody tr')].find(r=>r.cells[0].textContent.includes('PE'));const link=row.cells[3].querySelector('a');return {count:Number(link.textContent.replace(/\D/g,'')),href:link.getAttribute('href')};});
+  await page.goto(cfg.base+peGroup.href);
+  const teamSelection=await page.eval(()=>({rows:document.querySelectorAll('#remaining-life-list tbody tr').length,teams:[...new Set([...document.querySelectorAll('#remaining-life-list tbody tr')].map(r=>r.cells[0].textContent))]}));
+  findings.push({name:'PE short-life group drilldown',expectedTeamCount:peGroup.count,href:peGroup.href,...teamSelection});
+  await page.screenshot({path:cfg.out+'/incorrect-team-filter.png',format:'png',fullPage:true});
+  for(const [name,question] of [['uninspected','IRIS 미실시 열교환기를 보여줘'],['uncalculable','산정 불가 열교환기를 보여줘']]){
+   await page.goto(cfg.base+'/inspections/text-to-sql');
+   await page.eval(value=>{const q=document.getElementById('sql-question');q.value=value;q.dispatchEvent(new Event('input',{bubbles:true}));document.getElementById('sql-question-form').requestSubmit();},question);
+   await waitFor(page,()=>!document.getElementById('sql-execute').disabled);
+   await page.eval(()=>document.getElementById('sql-execute').click());
+   await waitFor(page,()=>document.querySelectorAll('#sql-result-table tbody tr').length>0);
+   const observation=await page.eval(()=>({note:document.getElementById('sql-result-note').textContent,rows:document.querySelectorAll('#sql-result-table tbody tr').length,table:document.getElementById('sql-result-table').textContent}));
+   findings.push({question,...observation});
+   await page.screenshot({path:cfg.out+'/incorrect-filter-'+name+'.png',format:'png',fullPage:true});
+  }
+ }
+ writeFileSync(cfg.out+'/checks.json',JSON.stringify({passed:true,checks,findings,summaryModel:'TEST_STUB; all HTTP, authorization, business reads/writes and page JS are real on a disposable DB'},null,2));
  console.log('PASS: PE Text-to-SQL, dashboard bands/reasons, actual Map completion/cancellation/history; 3 viewport widths.');
 }finally{await browser.close();}
