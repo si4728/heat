@@ -72,4 +72,4 @@
 .\.venv\Scripts\python.exe tools/verify_advanced_questions_20261126.py
 ```
 
-GitHub 소스 반영은 PC별 DB 권한을 자동으로 배포하지 않는다. 다른 PC에도 해당 SELECT 권한이 필요한지 별도로 확인해야 한다. 작업 브랜치 게시와 main 병합·웹 서비스 재가동은 구분하며 이번 작업에서 main 병합과 서비스 시작은 수행하지 않는다.
+GitHub 소스 반영은 PC별 DB 권한을 자동으로 배포하지 않는다. 다른 PC에도 해당 SELECT 권한이 필요한지 별도로 확인해야 한다. 추가 질문 구현 당시에는 작업 브랜치로 게시했으며, 이후 [순차 보완 작업](REQUIREMENTS_FOLLOWUPS_20261126.md)에서 main으로 통합했다. 운영 웹 서비스는 중지 상태를 유지한다.
