@@ -25,7 +25,7 @@
       <a aria-current="{{ 'true' if row.heat_exchanger_id == selected_exchanger_id else 'false' }}" class="analysis-equipment-item {{ 'active' if row.heat_exchanger_id == selected_exchanger_id else '' }}"
          href="{{ url_for('precision_analysis', exchanger_id=row.heat_exchanger_id, unit=unit_code, search=search, rate_multiplier=corrosion_rate_multiplier) }}">
         <span><strong>{{ row.exchanger_code or '열교환기 코드 미등록' }}</strong><small>{{ row.unit_code }} · {{ row.equipment_name or '-' }}</small></span>
-        <em class="risk-{{ row.wall_loss_status|lower }}">{{ '%.0f%%'|format(row.wall_loss_percent or 0) }}</em>
+        <em class="risk-{{ row.wall_loss_status|lower }}">{{ '%.2f%%'|format(row.wall_loss_percent) if row.wall_loss_percent is not none else '−' }}</em>
       </a>
       {% else %}<div class="analysis-empty">분석 가능한 검사 데이터가 없습니다.</div>{% endfor %}
     </div>

@@ -1,4 +1,5 @@
 """Verify remaining review fixes in a browser against a disposable MariaDB copy."""
+import argparse
 import json
 import os
 from pathlib import Path
@@ -21,6 +22,9 @@ class QuietHandler(WSGIRequestHandler):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--section', choices=('all', 'dashboard', 'analysis'), default='all')
+    args = parser.parse_args()
     out = Path('reports/recheck-followups-20261126/browser')
     out.mkdir(parents=True, exist_ok=True)
     with customer_clone() as (engine, schema):
@@ -32,7 +36,7 @@ def main():
         server = make_server('127.0.0.1', 0, app, threaded=True, request_handler=QuietHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
-        settings = dict(base=f'http://127.0.0.1:{server.server_port}', cookie=cookie, out=str(out.resolve()))
+        settings = dict(base=f'http://127.0.0.1:{server.server_port}', cookie=cookie, out=str(out.resolve()), section=args.section)
         node = Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs/Microsoft VS Code/Code.exe'
         try:
             result = subprocess.run([str(node) if node.is_file() else 'node', 'tools/verify_recheck_followups.mjs'],

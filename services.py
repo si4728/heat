@@ -1191,128 +1191,8 @@ def list_exchangers(search: str = "", plant_code: str = "", unit_code: str = "",
 def exchanger_wall_loss_ranking(
     search: str = "", plant_code: str = "", unit_code: str = "",
 ) -> dict[str, Any]:
-    """Rank exchangers by their highest valid Tube wall-loss result."""
-    search = str(search or "").strip()
-    plant_code = str(plant_code or "").strip()
-    unit_code = str(unit_code or "").strip()
-    with session_scope(DB_PATH) as session:
-        rows = [dict(row) for row in session.execute(text("""
-            WITH current_spec AS (
-                SELECT heat_exchanger_id, exchanger_code
-                  FROM heat_exchanger_spec_revision
-                 WHERE is_current=1
-            ),
-            ranked_result AS (
-                SELECT i.heat_exchanger_id,
-                       i.iris_inspection_id,
-                       i.report_number,
-                       COALESCE(i.inspection_date, i.report_date) AS inspection_date,
-                       r.iris_tube_result_id,
-                       r.tube_id,
-                       t.tube_no,
-                       r.wall_loss_percent,
-                       r.minimum_wall_thickness_mm,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY i.heat_exchanger_id
-                           ORDER BY r.wall_loss_percent DESC,
-                                    COALESCE(i.inspection_date, i.report_date) DESC,
-                                    r.iris_tube_result_id DESC
-                       ) AS ranking_no
-                  FROM iris_tube_result r
-                  JOIN iris_inspection i
-                    ON i.iris_inspection_id=r.iris_inspection_id
-                  JOIN heat_exchanger_tube t ON t.tube_id=r.tube_id
-                  JOIN heat_exchanger lifecycle_hx ON lifecycle_hx.heat_exchanger_id=i.heat_exchanger_id
-                  JOIN equipment lifecycle_e ON lifecycle_e.equipment_id=lifecycle_hx.equipment_id
-                 WHERE r.wall_loss_percent IS NOT NULL
-                   AND (r.result_status IS NULL OR r.result_status='VALID')
-                   AND (r.quality_status IS NULL OR r.quality_status IN ('VALID','USER_APPROVED_211MM_BASIS'))
-                   AND i.superseded_by_inspection_id IS NULL
-                   AND (lifecycle_e.install_date IS NULL OR DATE(COALESCE(i.inspection_date,i.report_date))>=DATE(lifecycle_e.install_date))
-                   AND (t.installed_at IS NULL OR DATE(COALESCE(i.inspection_date,i.report_date))>=DATE(t.installed_at))
-            ),
-            measurement_count AS (
-                SELECT i.heat_exchanger_id,
-                       COUNT(1) AS result_count,
-                       COUNT(DISTINCT r.tube_id) AS measured_tube_count
-                  FROM iris_tube_result r
-                  JOIN iris_inspection i
-                    ON i.iris_inspection_id=r.iris_inspection_id
-                  JOIN heat_exchanger_tube t ON t.tube_id=r.tube_id
-                  JOIN heat_exchanger lifecycle_hx ON lifecycle_hx.heat_exchanger_id=i.heat_exchanger_id
-                  JOIN equipment lifecycle_e ON lifecycle_e.equipment_id=lifecycle_hx.equipment_id
-                 WHERE r.wall_loss_percent IS NOT NULL
-                   AND (r.result_status IS NULL OR r.result_status='VALID')
-                   AND (r.quality_status IS NULL OR r.quality_status IN ('VALID','USER_APPROVED_211MM_BASIS'))
-                   AND i.superseded_by_inspection_id IS NULL
-                   AND (lifecycle_e.install_date IS NULL OR DATE(COALESCE(i.inspection_date,i.report_date))>=DATE(lifecycle_e.install_date))
-                   AND (t.installed_at IS NULL OR DATE(COALESCE(i.inspection_date,i.report_date))>=DATE(t.installed_at))
-                 GROUP BY i.heat_exchanger_id
-            )
-            SELECT hx.heat_exchanger_id,
-                   p.plant_code, u.unit_code,
-                   e.equipment_code, e.equipment_name,
-                   cs.exchanger_code,
-                   (SELECT COUNT(*) FROM iris_inspection history_i WHERE history_i.heat_exchanger_id=hx.heat_exchanger_id) AS registered_inspection_count,
-                   rr.tube_id, rr.tube_no, rr.wall_loss_percent,
-                   rr.minimum_wall_thickness_mm,
-                   rr.inspection_date, rr.iris_inspection_id, rr.report_number,
-                   COALESCE(mc.result_count, 0) AS result_count,
-                   COALESCE(mc.measured_tube_count, 0) AS measured_tube_count,
-                   COALESCE(criteria.warning_wall_loss_percent, 20.0) AS warning_threshold,
-                   COALESCE(criteria.critical_wall_loss_percent, 40.0) AS critical_threshold,
-                   CASE
-                     WHEN rr.wall_loss_percent IS NULL THEN 'NO_DATA'
-                     WHEN rr.wall_loss_percent >= COALESCE(criteria.critical_wall_loss_percent, 40.0)
-                       THEN 'CRITICAL'
-                     WHEN rr.wall_loss_percent >= COALESCE(criteria.warning_wall_loss_percent, 20.0)
-                       THEN 'WARNING'
-                     ELSE 'NORMAL'
-                   END AS wall_loss_status
-              FROM heat_exchanger hx
-              JOIN equipment e ON e.equipment_id=hx.equipment_id
-              JOIN process_unit u ON u.unit_id=e.unit_id
-              JOIN plant p ON p.plant_id=u.plant_id
-              LEFT JOIN current_spec cs ON cs.heat_exchanger_id=hx.heat_exchanger_id
-              LEFT JOIN ranked_result rr
-                ON rr.heat_exchanger_id=hx.heat_exchanger_id
-               AND rr.ranking_no=1
-              LEFT JOIN measurement_count mc
-                ON mc.heat_exchanger_id=hx.heat_exchanger_id
-              LEFT JOIN heat_exchanger_management_criteria criteria
-                ON criteria.heat_exchanger_id=hx.heat_exchanger_id
-             WHERE (:search='' OR e.equipment_code LIKE :search_like
-                    OR e.equipment_name LIKE :search_like
-                    OR COALESCE(cs.exchanger_code, '') LIKE :search_like
-                    OR COALESCE(rr.tube_no, '') LIKE :search_like)
-               AND (:plant_code='' OR p.plant_code=:plant_code)
-               AND (:unit_code='' OR u.unit_code=:unit_code)
-             ORDER BY CASE WHEN rr.wall_loss_percent IS NULL THEN 1 ELSE 0 END,
-                      rr.wall_loss_percent DESC,
-                      p.plant_code, u.unit_code, e.equipment_code
-        """), {
-            "search": search,
-            "search_like": f"%{search}%",
-            "plant_code": plant_code,
-            "unit_code": unit_code,
-        }).mappings().all()]
-        status_counts = {
-            key: sum(row["wall_loss_status"] == key for row in rows)
-            for key in ("CRITICAL", "WARNING", "NORMAL", "NO_DATA")
-        }
-        return {
-            "rows": rows,
-            "status_counts": status_counts,
-            "search": search,
-            "plant_code": plant_code,
-            "unit_code": unit_code,
-            "plants": list(session.scalars(
-                select(Plant.plant_code).order_by(Plant.plant_code)
-            ).all()),
-            "units": list(session.scalars(
-                select(ProcessUnit.unit_code).distinct().order_by(ProcessUnit.unit_code)
-            ).all()),
-        }
+    from .application.wall_loss_ranking import ranking
+    return ranking(search, plant_code, unit_code)
 
 
 def precision_analysis_data(
@@ -1718,23 +1598,9 @@ def _remaining_life_projection(session, exchanger_id: int, equipment: Equipment,
                 IrisTubeResult.iris_tube_result_id.desc(),
             )
         ).all()
-        for result, inspection in result_rows:
-            if short_rate_enabled and exclusion_reason(inspection, result, as_of=as_of_date):
-                continue
-            if not is_current_installation_inspection(
-                _effective_inspection_date(inspection), equipment.install_date,
-                tubes_by_id[result.tube_id].installed_at,
-            ):
-                historical_result_count += 1
-                continue
-            existing = latest_results.get(result.tube_id)
-            if existing is None:
-                latest_results[result.tube_id] = (result, inspection)
-            elif _effective_inspection_date(inspection) == _effective_inspection_date(existing[1]):
-                old_loss = existing[0].wall_loss_percent
-                new_loss = result.wall_loss_percent
-                if new_loss is not None and (old_loss is None or new_loss > old_loss):
-                    latest_results[result.tube_id] = (result, inspection)
+        from .domain.current_measurements import select_current_measurements
+        latest_results, _eligible_results, historical_result_count = select_current_measurements(
+            result_rows, tubes_by_id, equipment, as_of=as_of_date, enforce_quality=short_rate_enabled)
 
     # Select rates from valid measurements of the current installation only.
     rate_profiles: dict[int, dict[str, Any]] = {}
