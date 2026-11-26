@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import secrets
 from datetime import datetime
 from pathlib import Path
 
@@ -35,7 +36,8 @@ def register_routes(app) -> None:
         expected = getattr(app_module, "API_WRITE_TOKEN", API_WRITE_TOKEN)
         if not expected:
             abort(503, description="Write API is disabled until api_write_token is configured.")
-        if request.headers.get("X-IRIS-API-Token") != expected:
+        supplied = request.headers.get('X-IRIS-API-Token', '')
+        if not secrets.compare_digest(supplied.encode('utf-8'), expected.encode('utf-8')):
             abort(401)
 
     @app.get("/api/v1/exchangers")

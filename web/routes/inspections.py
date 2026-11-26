@@ -7,6 +7,7 @@ from flask import abort, flash, g, jsonify, redirect, render_template, request, 
 from werkzeug.utils import secure_filename
 
 from iris2 import services
+from iris2.web.safe_urls import local_redirect_path
 from iris2.application.inspection_history import inspection_history_data
 from iris2.application.inspection_recommendations import recommended_plans_data, available_tubes, save_recommended_plan
 from iris2.excel_export import build_heat_exchanger_export
@@ -290,7 +291,7 @@ def register_routes(app) -> None:
             flash("튜브 좌표와 잠금 상태를 저장했습니다.", "success")
         except (ValueError, TypeError) as exc:
             flash(f"위치 변경 실패: {exc}", "error")
-        return redirect(request.referrer or url_for("tube_detail", tube_id=tube_id))
+        return redirect(local_redirect_path(request.referrer, url_for('tube_detail', tube_id=tube_id), origin=request.host_url))
 
     @app.get("/exchangers/<int:exchanger_id>/report")
     def exchanger_report(exchanger_id: int):

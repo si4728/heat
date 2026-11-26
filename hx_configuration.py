@@ -3,6 +3,7 @@ from __future__ import annotations
 import configparser
 import os
 import secrets
+import ipaddress
 from pathlib import Path
 
 
@@ -137,6 +138,14 @@ SESSION_COOKIE_SAMESITE = _required("application", "session_cookie_samesite")
 SESSION_COOKIE_SECURE = CONFIG.getboolean(
     "application", "session_cookie_secure", fallback=False
 )
+SECURITY_REQUIRE_HTTPS = CONFIG.getboolean('security', 'require_https', fallback=False)
+SECURITY_TRUSTED_HOSTS = [value.strip() for value in CONFIG.get('security', 'trusted_hosts', fallback='').split(',') if value.strip()] or None
+SECURITY_TRUSTED_PROXY = CONFIG.get('security', 'trusted_proxy', fallback='').strip() or None
+if SECURITY_TRUSTED_PROXY:
+    try:
+        ipaddress.ip_address(SECURITY_TRUSTED_PROXY)
+    except ValueError:
+        raise RuntimeError('trusted_proxy must be one explicit proxy IP address') from None
 
 if MAX_CONTENT_LENGTH <= 0:
     raise RuntimeError(f"[application] max_content_length must be positive in {CONFIG_PATH}")

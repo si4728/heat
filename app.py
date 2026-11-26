@@ -27,6 +27,8 @@ if __package__ in (None, ""):
         SESSION_COOKIE_HTTPONLY,
         SESSION_COOKIE_SAMESITE,
         SESSION_COOKIE_SECURE,
+        SECURITY_REQUIRE_HTTPS,
+        SECURITY_TRUSTED_HOSTS,
         SESSION_IDLE_TIMEOUT_SECONDS,
         SESSION_REFRESH_EACH_REQUEST,
         ensure_directories,
@@ -50,6 +52,8 @@ else:
         SESSION_COOKIE_HTTPONLY,
         SESSION_COOKIE_SAMESITE,
         SESSION_COOKIE_SECURE,
+        SECURITY_REQUIRE_HTTPS,
+        SECURITY_TRUSTED_HOSTS,
         SESSION_IDLE_TIMEOUT_SECONDS,
         SESSION_REFRESH_EACH_REQUEST,
         ensure_directories,
@@ -73,6 +77,8 @@ def create_app(test_config: dict | None = None) -> Flask:
         SESSION_COOKIE_HTTPONLY=SESSION_COOKIE_HTTPONLY,
         SESSION_COOKIE_SAMESITE=SESSION_COOKIE_SAMESITE,
         SESSION_COOKIE_SECURE=SESSION_COOKIE_SECURE,
+        REQUIRE_HTTPS=SECURITY_REQUIRE_HTTPS,
+        TRUSTED_HOSTS=SECURITY_TRUSTED_HOSTS,
         CSRF_ENABLED=True,
         QR_UI_ENABLED=True,  # Visible only to administrators with exchanger access.
     )
@@ -83,6 +89,11 @@ def create_app(test_config: dict | None = None) -> Flask:
             app.config["AUTH_DISABLED"] = True
         if app.config.get("TESTING") and "CSRF_ENABLED" not in test_config:
             app.config["CSRF_ENABLED"] = False
+
+    if not app.testing and (app.config.get('AUTH_DISABLED') or app.debug):
+        raise RuntimeError('Production requires authentication and debug mode disabled.')
+    if app.config.get('REQUIRE_HTTPS') and not app.config.get('SESSION_COOKIE_SECURE'):
+        raise RuntimeError('HTTPS policy requires Secure session cookies.')
 
     ensure_directories()
     services.initialize()

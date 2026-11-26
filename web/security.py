@@ -13,6 +13,7 @@ from iris2.hx_configuration import DB_PATH, ENDPOINT_PERMISSIONS
 from iris2.application.organization_service import organization_catalog
 from iris2.application.login_guard import LoginGuard
 from iris2.web.access_audit import auth_event, register_access_audit
+from iris2.web.safe_urls import local_redirect_path
 
 
 def register_security(app) -> None:
@@ -23,6 +24,17 @@ def register_security(app) -> None:
     login_guard = LoginGuard(attempts=app.config['LOGIN_MAX_ATTEMPTS'],
         source_attempts=app.config['LOGIN_MAX_SOURCE_ATTEMPTS'], window=app.config['LOGIN_WINDOW_SECONDS'])
     app.extensions['login_guard'] = login_guard
+    @app.after_request
+    def security_headers(response):
+        response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+        response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+        response.headers.setdefault('Referrer-Policy', 'same-origin')
+        response.headers.setdefault('Content-Security-Policy', "frame-ancestors 'self'; base-uri 'self'; form-action 'self'")
+        if request.is_secure:
+            response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000')
+        if request.endpoint not in {'static', 'api_health', 'hanwha_solution_logo', 'hanwha_solution_logo_legacy'}:
+            response.headers['Cache-Control'] = 'no-store'
+        return response
     @app.template_filter("comma")
     def comma_number(value):
         return f"{int(value or 0):,}"
@@ -80,6 +92,8 @@ def register_security(app) -> None:
     @app.before_request
     def enforce_authentication_and_permissions():
         g.current_user = None
+        if app.config.get('REQUIRE_HTTPS') and not request.is_secure and request.endpoint != 'api_health':
+            abort(400, description='HTTPS is required.')
         if request.endpoint in {'login', 'setup_admin'}:
             request.max_content_length = app.config['AUTH_MAX_CONTENT_LENGTH']
         if (
@@ -223,9 +237,7 @@ def register_security(app) -> None:
                 start_authenticated_session(user)
                 session['audit_username'] = user['username']
                 auth_event('LOGIN_SUCCESS','SUCCESS','AUTHENTICATED',user)
-                next_path = request.form.get("next", "")
-                if not next_path.startswith("/") or next_path.startswith("//"):
-                    next_path = url_for("dashboard")
+                next_path = local_redirect_path(request.form.get('next', ''), url_for('dashboard'))
                 return redirect(next_path)
             g.audit_username = request.form.get('username','')
             g.audit_user_id = None

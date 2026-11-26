@@ -10,6 +10,16 @@ from urllib.request import Request, build_opener, ProxyHandler
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT.parent))
 from iris2.app import create_app
+from iris2.hx_configuration import SECURITY_TRUSTED_PROXY
+
+
+def proxy_options(address):
+    if address:
+        import ipaddress
+        ipaddress.ip_address(address)
+        return dict(trusted_proxy=address, trusted_proxy_count=1,
+            trusted_proxy_headers={'x-forwarded-for', 'x-forwarded-proto'}, clear_untrusted_proxy_headers=True)
+    return dict(clear_untrusted_proxy_headers=True)
 
 
 def create_listener(host, port):
@@ -70,7 +80,9 @@ def main():
     try:
         start_backup_scheduler(ROOT, DB_PATH)
         print(f"IRIS2 MariaDB: http://{args.host}:{args.port}", flush=True)
-        serve(app, sockets=[listener], threads=8)
+        serve(app, sockets=[listener], threads=8, expose_tracebacks=False,
+            max_request_header_size=16384, max_request_body_size=app.config['MAX_CONTENT_LENGTH'],
+            **proxy_options(SECURITY_TRUSTED_PROXY))
     finally:
         listener.close()
     return 0
