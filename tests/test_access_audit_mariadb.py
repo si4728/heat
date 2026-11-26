@@ -13,6 +13,7 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from werkzeug.security import generate_password_hash
+from iris2 import services
 from iris2 import database
 from iris2.app import create_app
 from iris2.application.access_audit import AccessAuditEvent, audit_rows, append_events
@@ -81,7 +82,7 @@ class AccessAuditMariaDBTests(unittest.TestCase):
         client=self.app.test_client()
         if uid:
             with client.session_transaction() as s:
-                s.update(user_id=uid,last_activity_at=time.time(),csrf_token='audit-test-csrf')
+                s.update(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'],last_activity_at=time.time(),csrf_token='audit-test-csrf')
         return client
 
     def test_actual_login_and_every_access_persist_without_secrets(self):

@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT.parent))
+from iris2 import services
 from iris2.app import create_app
 from iris2.database import get_engine
 from sqlalchemy import text
@@ -57,7 +58,7 @@ def main():
     client = app.test_client()
     anonymous = app.test_client()
     with client.session_transaction() as session:
-        session.update(user_id=admin, last_activity_at=time.time(), csrf_token="screen-check")
+        session.update(user_id=admin,auth_stamp=services.user_access_profile(admin)['auth_stamp'], last_activity_at=time.time(), csrf_token="screen-check")
     results, assets, security, skipped = [], set(), [], []
 
     def check(url, expected=200, category="screen"):

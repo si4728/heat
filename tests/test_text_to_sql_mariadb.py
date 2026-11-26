@@ -120,7 +120,7 @@ class TextToSqlMariaDBTests(unittest.TestCase):
     def client(self):
         client=self.app.test_client()
         with client.session_transaction() as session:
-            session.update(user_id=self.uid,last_activity_at=time.time(),csrf_token='integration-csrf')
+            session.update(user_id=self.uid,auth_stamp=services.user_access_profile(self.uid)['auth_stamp'],last_activity_at=time.time(),csrf_token='integration-csrf')
         return client
 
     def test_viewer_permission_renders_menu_and_executes_real_read(self):

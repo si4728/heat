@@ -14,13 +14,13 @@ import sys,time
 from pathlib import Path
 sys.path.insert(0,str(Path.cwd().parent))
 from iris2.app import create_app
-from iris2 import dbapi
+from iris2 import dbapi, services
 from iris2.hx_configuration import DB_PATH
 c=dbapi.connect(DB_PATH,readonly=True)
 uid=c.execute('SELECT MIN(user_id) FROM app_user WHERE is_admin=1 AND is_active=1').fetchone()[0];c.close()
 app=create_app({'TESTING':True,'AUTH_DISABLED':False,'CSRF_ENABLED':True})
 client=app.test_client()
-with client.session_transaction() as s:s.update(user_id=uid,last_activity_at=time.time(),csrf_token='fixture')
+with client.session_transaction() as s:s.update(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'],last_activity_at=time.time(),csrf_token='fixture')
 r=client.get('/inspections/text-to-sql');assert r.status_code==200
 print(r.get_data(as_text=True).replace('"/static/', '"'+(Path.cwd()/'static').as_uri()+'/'))
 `],{encoding:'utf8',env:{...process.env,PYTHONIOENCODING:'utf-8'}});

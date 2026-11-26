@@ -52,7 +52,7 @@ def main():
         uid = connection.execute('SELECT MIN(user_id) FROM app_user WHERE is_admin=1 AND is_active=1').fetchone()[0]
         client = app.test_client()
         with client.session_transaction() as session:
-            session.update(user_id=uid,last_activity_at=time.time(),csrf_token='dashboard-local-preview')
+            session.update(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'],last_activity_at=time.time(),csrf_token='dashboard-local-preview')
         assert app.test_client().get('/').status_code == 302
         response = client.get('/')
         assert response.status_code == 200

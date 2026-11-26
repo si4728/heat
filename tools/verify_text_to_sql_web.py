@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT.parent))
 from sqlalchemy import text
+from iris2 import services
 from iris2.app import create_app
 from iris2.database import get_engine
 
@@ -25,7 +26,7 @@ def main():
         raise RuntimeError('Active administrator required')
     client=app.test_client()
     with client.session_transaction() as session:
-        session.update(user_id=uid,last_activity_at=time.time(),csrf_token='text-sql-web-verification')
+        session.update(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'],last_activity_at=time.time(),csrf_token='text-sql-web-verification')
     report={'checks':[]}
     def record(name,condition):
         report['checks'].append({'name':name,'passed':bool(condition)})

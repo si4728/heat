@@ -19,7 +19,7 @@ def main():
         app=create_app({'TESTING':True,'AUTH_DISABLED':False,'CSRF_ENABLED':True})
         client=app.test_client()
         with client.session_transaction() as session:
-            session.update(user_id=uid,last_activity_at=time.time(),csrf_token='menu-local-preview')
+            session.update(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'],last_activity_at=time.time(),csrf_token='menu-local-preview')
         output=ROOT/'reports/menu-cleanup-20261112'
         output.mkdir(parents=True,exist_ok=True)
         for name,url in [('dashboard','/'),('exchangers','/exchangers?search=E-111'),('analysis','/analysis?unit=VCM1')]:

@@ -5,13 +5,14 @@ from pathlib import Path
 from unittest.mock import patch
 from flask import Flask
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
+from iris2 import services
 from iris2.web.security import register_security
 from iris2.web.routes.exchangers import register_routes
 
 
 class PluggingWebTests(unittest.TestCase):
     def setUp(self):
-        self.profile=dict(user_id=7,username='editor',is_active=True,is_admin=False,
+        self.profile=dict(user_id=7,username='editor',is_active=True,is_admin=False,auth_stamp='test-auth-stamp',
             permissions={key:dict(can_view=True,can_edit=True) for key in ('EXCHANGERS','MAINTENANCE')})
         self.app=Flask(__name__)
         self.app.config.update(TESTING=True,SECRET_KEY='test',AUTH_DISABLED=False,CSRF_ENABLED=True,SESSION_IDLE_TIMEOUT_SECONDS=1800)
@@ -20,7 +21,7 @@ class PluggingWebTests(unittest.TestCase):
         for name,value in [('user_count',1),('user_access_profile',self.profile)]:
             p=patch('iris2.services.'+name,return_value=value);p.start();self.addCleanup(p.stop)
         self.client=self.app.test_client()
-        with self.client.session_transaction() as s:s.update(user_id=7,last_activity_at=time.time(),csrf_token='csrf')
+        with self.client.session_transaction() as s:s.update(user_id=7,auth_stamp=services.user_access_profile(7)['auth_stamp'],last_activity_at=time.time(),csrf_token='csrf')
 
     def test_write_requires_both_edit_permissions_and_csrf(self):
         for denied in ('EXCHANGERS','MAINTENANCE'):

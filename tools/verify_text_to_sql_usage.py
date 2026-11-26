@@ -8,6 +8,7 @@ from urllib.request import Request, build_opener, ProxyHandler
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT.parent))
+from iris2 import services
 from iris2 import dbapi
 from iris2.app import create_app
 from iris2.application.text_to_sql_usage_log import KST
@@ -31,7 +32,7 @@ def main():
     app = create_app({'TESTING': True, 'AUTH_DISABLED': False, 'CSRF_ENABLED': True})
     client = app.test_client()
     with client.session_transaction() as session:
-        session.update(user_id=uid, last_activity_at=time.time(), csrf_token='usage-log-live-check')
+        session.update(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'], last_activity_at=time.time(), csrf_token='usage-log-live-check')
     cookie = client.get_cookie(app.config['SESSION_COOKIE_NAME'])
     opener = build_opener(ProxyHandler({}))
 

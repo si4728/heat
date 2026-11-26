@@ -2,6 +2,7 @@
 import json,sys,time,traceback
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
+from iris2 import services
 from iris2.app import create_app
 from iris2.database import get_engine
 from sqlalchemy import text
@@ -15,7 +16,7 @@ with get_engine().connect() as conn:
 results=[]
 client=app.test_client()
 with client.session_transaction() as session:
-    session['user_id']=admin;session['last_activity_at']=time.time()
+    session['user_id']=admin;session['auth_stamp']=services.user_access_profile(admin)['auth_stamp'];session['last_activity_at']=time.time()
 for rule in app.url_map.iter_rules():
     if 'GET' not in rule.methods or rule.endpoint in {'static','setup_admin','inspection_pdf_view','pdf_report_view','work_order_detail','pdf_ocr_source','export_heat_exchangers_tubes'}:continue
     url=rule.rule.replace('<int:exchanger_id>',str(exchanger)).replace('<int:inspection_id>',str(inspection)).replace('<int:tube_id>',str(tube))
@@ -24,9 +25,9 @@ for rule in app.url_map.iter_rules():
         with get_engine().connect() as conn:
             allowed=conn.scalar(text("SELECT user_id FROM app_user WHERE username='silicon@gmail.com' AND is_active=1"))
         if allowed:
-            with client.session_transaction() as session:session['user_id']=allowed
+            with client.session_transaction() as session:session['user_id']=allowed;session['auth_stamp']=services.user_access_profile(allowed)['auth_stamp']
     else:
-        with client.session_transaction() as session:session['user_id']=admin
+        with client.session_transaction() as session:session['user_id']=admin;session['auth_stamp']=services.user_access_profile(admin)['auth_stamp']
     started=time.monotonic()
     try:
         response=client.get(url)

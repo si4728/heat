@@ -13,6 +13,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tests'))
 from sqlalchemy import text
 from werkzeug.serving import make_server
 from customer_clone import customer_clone
+from iris2 import services
 from iris2.app import create_app
 from iris2.hx_configuration import PDF_REPORT_DIR
 from iris2.application.customer_corrections_20261124 import correct
@@ -33,7 +34,7 @@ def main():
             with engine.connect() as c:uid=c.scalar(text('SELECT MIN(user_id) FROM app_user WHERE is_active=1 AND is_admin=1'))
             server=make_server('127.0.0.1',0,app,threaded=True)
             thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
-            session={'user_id':uid,'last_activity_at':time.time(),'csrf_token':'isolated-browser-test'}
+            session={'user_id':uid,'auth_stamp': services.user_access_profile(uid)['auth_stamp'],'last_activity_at':time.time(),'csrf_token':'isolated-browser-test'}
             cookie=app.session_interface.get_signing_serializer(app).dumps(session)
             from datetime import datetime,timedelta,timezone
             settings=dict(base=f'http://127.0.0.1:{server.server_port}',cookie=cookie,out=str(out.resolve()),audit=args.audit_conditions,

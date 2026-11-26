@@ -6,6 +6,7 @@ import sys
 import time
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from sqlalchemy import text
+from iris2 import services
 from iris2.app import create_app
 from iris2.database import get_engine
 from iris2.tools.audit_customer_requirements_20261126 import QUESTIONS
@@ -18,7 +19,7 @@ def verify(engine,out):
         uid=c.scalar(text('SELECT MIN(user_id) FROM app_user WHERE is_active=1 AND is_admin=1'))
     app=create_app(dict(TESTING=True,AUTH_DISABLED=False,CSRF_ENABLED=True))
     client=app.test_client()
-    with client.session_transaction() as session:session.update(user_id=uid,last_activity_at=time.time(),csrf_token='advanced-question-check')
+    with client.session_transaction() as session:session.update(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'],last_activity_at=time.time(),csrf_token='advanced-question-check')
     checks=[]
     for index,question in enumerate(QUESTIONS,1):
         started=time.monotonic()

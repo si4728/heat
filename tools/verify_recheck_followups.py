@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tests'))
 from sqlalchemy import text
 from werkzeug.serving import make_server, WSGIRequestHandler
 from customer_clone import customer_clone
+from iris2 import services
 from iris2.app import create_app
 
 
@@ -33,7 +34,7 @@ def main():
         with engine.connect() as c:
             uid = c.scalar(text('SELECT MIN(user_id) FROM app_user WHERE is_admin=1 AND is_active=1'))
             thickness_id = c.scalar(text("SELECT heat_exchanger_id FROM heat_exchanger_spec_revision WHERE is_current=1 AND exchanger_code='E-122A'"))
-        session = dict(user_id=uid, last_activity_at=time.time(), csrf_token='followups-browser-check')
+        session = dict(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'], last_activity_at=time.time(), csrf_token='followups-browser-check')
         cookie = app.session_interface.get_signing_serializer(app).dumps(session)
         server = make_server('127.0.0.1', 0, app, threaded=True, request_handler=QuietHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)

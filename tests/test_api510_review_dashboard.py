@@ -22,7 +22,7 @@ class Api510ReviewDashboardTests(unittest.TestCase):
     def client(self):
         client = self.app.test_client()
         with client.session_transaction() as session:
-            session.update(user_id=1, last_activity_at=time.time(), csrf_token='audit-test')
+            session.update(user_id=1,auth_stamp=services.user_access_profile(1)['auth_stamp'], last_activity_at=time.time(), csrf_token='audit-test')
         return client
 
     def test_queue_matches_independent_mariadb_scope_and_status_query(self):
@@ -44,7 +44,7 @@ class Api510ReviewDashboardTests(unittest.TestCase):
         self.assertTrue(all(r['unit_code'] in ('VCM1','VCM2') for r in queue['rows']))
 
     def render(self, admin, queue):
-        profile = dict(user_id=1, username='review-test', is_admin=admin, is_active=True,
+        profile = dict(user_id=1, username='review-test', is_admin=admin, is_active=True,auth_stamp='test-auth-stamp',
                        permissions={'DASHBOARD':dict(can_view=True, can_edit=False)})
         with patch('iris2.services.user_count', return_value=1), patch(
             'iris2.services.user_access_profile', return_value=profile), patch(

@@ -6,6 +6,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT.parent))
+from iris2 import services
 from iris2 import dbapi
 from iris2.hx_configuration import DB_PATH
 from iris2.app import create_app
@@ -23,7 +24,7 @@ def main():
         uid = connection.execute('SELECT MIN(user_id) FROM app_user WHERE is_admin=1 AND is_active=1').fetchone()[0]
         client = app.test_client()
         with client.session_transaction() as session:
-            session.update(user_id=uid, last_activity_at=time.time(), csrf_token='analysis-local-preview')
+            session.update(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'], last_activity_at=time.time(), csrf_token='analysis-local-preview')
         url = f'/analysis?exchanger_id={identifier}&unit=VCM1'
         assert app.test_client().get(url).status_code == 302
         response = client.get(url)

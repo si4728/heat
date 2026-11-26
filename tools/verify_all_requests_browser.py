@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tests'))
 from sqlalchemy import text
 from werkzeug.serving import make_server, WSGIRequestHandler
 from customer_clone import customer_clone
+from iris2 import services
 from iris2.app import create_app
 from iris2.application import text_to_sql_commentary as commentary
 from iris2.tools.audit_customer_requirements_20261126 import QUESTIONS
@@ -50,7 +51,7 @@ def main():
             pe_thresholds = [dict(r) for r in c.execute(text("SELECT s.heat_exchanger_id,s.exchanger_code FROM heat_exchanger_spec_revision s JOIN heat_exchanger h ON h.heat_exchanger_id=s.heat_exchanger_id JOIN equipment e ON e.equipment_id=h.equipment_id JOIN process_unit u ON u.unit_id=e.unit_id WHERE s.is_current=1 AND u.unit_code='PE' AND s.exchanger_code IN ('E-131D','E-331B','E-331C','E-341A','E-341C','E-241B-1')")).mappings()]
             correction_targets = [dict(r) for r in c.execute(text("SELECT s.heat_exchanger_id,s.exchanger_code FROM heat_exchanger_spec_revision s JOIN heat_exchanger h ON h.heat_exchanger_id=s.heat_exchanger_id JOIN equipment e ON e.equipment_id=h.equipment_id JOIN process_unit u ON u.unit_id=e.unit_id WHERE s.is_current=1 AND u.unit_code IN ('VCM1','VCM2') AND s.exchanger_code IN ('E-13','E-122A','E-341','E-222','E-811','E-331A')")).mappings()]
         cookie = app.session_interface.get_signing_serializer(app).dumps(dict(
-            user_id=uid, last_activity_at=time.time(), csrf_token='full-audit-browser'))
+            user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'], last_activity_at=time.time(), csrf_token='full-audit-browser'))
         server = make_server('127.0.0.1', 0, app, threaded=True, request_handler=QuietHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()

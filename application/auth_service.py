@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import hashlib
+import hmac
 from threading import Lock
 from datetime import datetime
 from typing import Any
@@ -8,7 +10,7 @@ from typing import Any
 from sqlalchemy import func, select
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from ..hx_configuration import DB_PATH
+from ..hx_configuration import APP_SECRET_KEY, DB_PATH
 from ..iris_v2_database import session_scope
 from ..iris_v2_models import AppUser, UserScreenPermission
 
@@ -29,6 +31,11 @@ SCREEN_DEFINITIONS = (
 SCREEN_KEYS = {key for key, _label, _description in SCREEN_DEFINITIONS}
 PDF_OPEN_MODES = {"CURRENT", "NEW"}
 _INITIAL_ADMIN_LOCK = Lock()
+
+
+def _auth_stamp(password_hash):
+    """Bind signed sessions to the current password hash without exposing it."""
+    return hmac.new(APP_SECRET_KEY.encode('utf-8'), password_hash.encode('utf-8'), hashlib.sha256).hexdigest()
 
 
 def _pdf_open_mode(value: Any, default: str = "NEW") -> str:
@@ -110,7 +117,7 @@ def authenticate_user(username: str, password: str) -> dict[str, Any] | None:
         user.last_login_at = datetime.now()
         return {"user_id": user.user_id, "username": user.username,
                 "display_name": user.display_name, "is_admin": bool(user.is_admin),
-                "is_active": bool(user.is_active)}
+                "is_active": bool(user.is_active), "auth_stamp": _auth_stamp(user.password_hash)}
 
 
 def user_access_profile(user_id: int) -> dict[str, Any] | None:
@@ -128,6 +135,7 @@ def user_access_profile(user_id: int) -> dict[str, Any] | None:
         return {"user_id": user.user_id, "username": user.username,
                 "display_name": user.display_name, "is_admin": bool(user.is_admin),
                 "is_active": bool(user.is_active),
+                "auth_stamp": _auth_stamp(user.password_hash),
                 "pdf_open_mode": user.pdf_open_mode or "NEW",
                 "permissions": permissions}
 

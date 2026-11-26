@@ -38,6 +38,7 @@ class VisibleText(HTMLParser):
 
 def render_screens():
     sys.path.insert(0, str(ROOT.parent))
+    from iris2 import services
     from iris2.app import create_app
     from iris2.database import get_engine
     from sqlalchemy import text
@@ -62,7 +63,7 @@ def render_screens():
             results.append(dict(endpoint=rule.endpoint, status='NOT_RUN', reason='No sample identifier'))
             continue
         with client.session_transaction() as session:
-            session.update(user_id=admin, last_activity_at=time.time())
+            session.update(user_id=admin,auth_stamp=services.user_access_profile(admin)['auth_stamp'], last_activity_at=time.time())
         try:
             response = client.get(url)
             parser = VisibleText()

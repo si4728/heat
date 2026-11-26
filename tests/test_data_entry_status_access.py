@@ -20,7 +20,7 @@ class DataEntryStatusAccessTests(unittest.TestCase):
     def client(self):
         c=self.app.test_client()
         with c.session_transaction() as s:
-            s.update(user_id=self.uid,last_activity_at=time.time())
+            s.update(user_id=self.uid,auth_stamp=services.user_access_profile(self.uid)['auth_stamp'],last_activity_at=time.time())
         return c
 
     def test_admin_screen_and_dashboard_separation(self):

@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT.parent))
+from iris2 import services
 from iris2.app import create_app
 from iris2.database import get_engine
 from sqlalchemy import text
@@ -19,7 +20,7 @@ with get_engine().connect() as connection:
     admin = connection.scalar(text('SELECT MIN(user_id) FROM app_user WHERE is_active=1 AND is_admin=1'))
 client = app.test_client()
 with client.session_transaction() as session:
-    session.update(user_id=admin, last_activity_at=time.time())
+    session.update(user_id=admin,auth_stamp=services.user_access_profile(admin)['auth_stamp'], last_activity_at=time.time())
 
 def inline(match):
     kind, path = match.group(1), match.group(2)

@@ -90,7 +90,7 @@ def main():
     finally:connection.rollback();connection.close()
     client=app.test_client()
     with client.session_transaction() as session:
-        session.update(user_id=uid,last_activity_at=time.time(),csrf_token='inspection-workspace-preview')
+        session.update(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'],last_activity_at=time.time(),csrf_token='inspection-workspace-preview')
     checks=[]
     for name,url in [('yearly','/inspections/yearly'),('process','/inspections/process'),
                      ('plans','/inspection-plans'),('manage','/inspection-plans?manage=1')]:

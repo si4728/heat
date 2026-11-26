@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from flask import abort, g, session
+from iris2 import services
 from iris2.app import create_app
 from iris2.application.access_audit import clean_text, csv_cell, parse_filters
 
@@ -37,12 +38,12 @@ class AccessAuditTests(unittest.TestCase):
     @staticmethod
     def profile(uid):
         if uid not in (1,2):return None
-        return dict(user_id=uid,username=f'user{uid}@example.com',is_admin=uid==1,is_active=True,
+        return dict(user_id=uid,username=f'user{uid}@example.com',is_admin=uid==1,is_active=True,auth_stamp='test-auth-stamp',
                     permissions={'DASHBOARD':{'can_view':True,'can_edit':False},'INSPECTIONS':{'can_view':True}})
 
     def logged_in(self,uid=1,*,last_activity=None):
         with self.client.session_transaction() as s:
-            s.update(user_id=uid,last_activity_at=last_activity or time.time(),csrf_token='CSRF-SECRET',
+            s.update(user_id=uid,auth_stamp=(services.user_access_profile(uid) or {}).get('auth_stamp','invalid-test-stamp'),last_activity_at=last_activity or time.time(),csrf_token='CSRF-SECRET',
                      audit_session_id='a'*32,audit_username=f'user{uid}@example.com')
 
     def login(self,success=True):

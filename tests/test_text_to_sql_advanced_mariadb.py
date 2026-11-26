@@ -64,7 +64,7 @@ class AdvancedMariaDBTests(unittest.TestCase):
 
     def client(self):
         client=self.app.test_client()
-        with client.session_transaction() as s:s.update(user_id=self.uid,last_activity_at=time.time(),csrf_token='advanced-db-test')
+        with client.session_transaction() as s:s.update(user_id=self.uid,auth_stamp=services.user_access_profile(self.uid)['auth_stamp'],last_activity_at=time.time(),csrf_token='advanced-db-test')
         return client
 
     def query(self,question):

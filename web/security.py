@@ -59,10 +59,13 @@ def register_security(app) -> None:
     csrf_exempt_endpoints = {"api_health", "api_exchanger_create", "api_exchanger_update"}
     register_access_audit(app, endpoint_permissions)
 
-    def start_authenticated_session(user_id: int) -> None:
+    def start_authenticated_session(user: dict) -> None:
         session.clear()
         session.permanent = True
-        session["user_id"] = user_id
+        session["user_id"] = user['user_id']
+        # Initial setup returns the created identity, while login returns a stamp.
+        profile = user if user.get('auth_stamp') else services.user_access_profile(user['user_id'])
+        session['auth_stamp'] = profile['auth_stamp']
         session["last_activity_at"] = time.time()
         session['audit_session_id'] = secrets.token_hex(16)
 
@@ -115,6 +118,14 @@ def register_security(app) -> None:
             session.clear()
             next_path = request.full_path.rstrip("?")
             return redirect(url_for("login", next=next_path))
+        expected_stamp = profile.get('auth_stamp')
+        supplied_stamp = session.get('auth_stamp')
+        if (not isinstance(expected_stamp, str) or not isinstance(supplied_stamp, str)
+                or not expected_stamp or not secrets.compare_digest(expected_stamp.encode('utf-8'), supplied_stamp.encode('utf-8'))):
+            g.audit_reason = 'SESSION_INVALID'
+            auth_event('SESSION_INVALID', 'SUCCESS', 'SESSION_INVALID')
+            session.clear()
+            return redirect(url_for('login', next=request.full_path.rstrip('?')))
         g.current_user = profile
         if not session.get('audit_session_id'):
             session['audit_session_id'] = secrets.token_hex(16)
@@ -175,7 +186,7 @@ def register_security(app) -> None:
         if request.method == "POST":
             try:
                 user = services.create_initial_admin(request.form.to_dict())
-                start_authenticated_session(user["user_id"])
+                start_authenticated_session(user)
                 session['audit_username'] = user['username']
                 auth_event('INITIAL_ADMIN','SUCCESS','INITIAL_ADMIN',user)
                 flash("초기 관리자 계정이 생성되었습니다.", "success")
@@ -193,7 +204,7 @@ def register_security(app) -> None:
                 request.form.get("username", ""), request.form.get("password", "")
             )
             if user:
-                start_authenticated_session(user["user_id"])
+                start_authenticated_session(user)
                 session['audit_username'] = user['username']
                 auth_event('LOGIN_SUCCESS','SUCCESS','AUTHENTICATED',user)
                 next_path = request.form.get("next", "")

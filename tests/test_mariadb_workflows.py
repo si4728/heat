@@ -44,7 +44,7 @@ class MariaDBWorkflowTests(unittest.TestCase):
     def client(self):
         client=self.app.test_client()
         with client.session_transaction() as session:
-            session['user_id']=self.admin;session['last_activity_at']=time.time();session['csrf_token']='test-csrf'
+            session['user_id']=self.admin;session['auth_stamp']=services.user_access_profile(self.admin)['auth_stamp'];session['last_activity_at']=time.time();session['csrf_token']='test-csrf'
         return client
     def test_unauthed_and_csrf_and_api_write_protection(self):
         self.assertEqual(self.app.test_client().get('/exchangers').status_code,302)

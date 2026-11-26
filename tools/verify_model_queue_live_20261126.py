@@ -9,6 +9,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tests'))
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 from customer_clone import customer_clone
+from iris2 import services
 from iris2.app import create_app
 from iris2.application import text_to_sql_service as service
 from iris2.iris_v2_models import AppUser, UserScreenPermission
@@ -29,7 +30,7 @@ def main():
         app=create_app(dict(TESTING=True,AUTH_DISABLED=False,CSRF_ENABLED=True))
         def client(uid):
             c=app.test_client()
-            with c.session_transaction() as s:s.update(user_id=uid,last_activity_at=time.time(),csrf_token='live-queue-audit')
+            with c.session_transaction() as s:s.update(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'],last_activity_at=time.time(),csrf_token='live-queue-audit')
             return c
         first,second=client(owner),client(reader_id)
         def post(c,action,**data):

@@ -5,6 +5,7 @@ from threading import Barrier
 from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from sqlalchemy import text
+from iris2 import services
 from iris2.app import create_app
 from iris2.database import get_engine
 from iris2.db_config import load_database_config
@@ -17,7 +18,7 @@ barrier=Barrier(5)
 paths=['/','/exchangers','/inspections','/remaining-life/tubes','/exports/heat-exchangers-tubes.xlsx','/api/health']
 
 def user(index):
-    cookie=serializer.dumps({'user_id':admin,'last_activity_at':time.time(),'load_session':index})
+    cookie=serializer.dumps({'user_id':admin,'auth_stamp': services.user_access_profile(admin)['auth_stamp'],'last_activity_at':time.time(),'load_session':index})
     records=[]
     barrier.wait(timeout=10)
     for path in paths:

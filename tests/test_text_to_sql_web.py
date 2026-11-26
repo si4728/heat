@@ -11,6 +11,7 @@ from unittest.mock import patch
 from flask import Flask
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from iris2 import services
 from iris2.web.security import register_security
 from iris2.web.routes import text_to_sql as routes
 from iris2.application import text_to_sql_service as service
@@ -26,7 +27,7 @@ class TextToSqlWebTests(unittest.TestCase):
         register_security(self.app)
         self.app.register_error_handler(403, lambda exc: ('Forbidden', 403))
         routes.register_routes(self.app)
-        self.profile = dict(user_id=1, username='reader', is_admin=False, is_active=True,
+        self.profile = dict(user_id=1, username='reader', is_admin=False, is_active=True, auth_stamp='test-auth-stamp',
             permissions={key:dict(can_view=True,can_edit=False) for key in ('TEXT_TO_SQL','INSPECTIONS')})
         self.equipment = dict(heat_exchanger_id=151, unit_code='VCM2',equipment_tag='E-106')
         self.inspection = dict(iris_inspection_id=389,effective_date='2025-11-05',report_number='IRIS')
@@ -47,7 +48,7 @@ class TextToSqlWebTests(unittest.TestCase):
     def make_client(self,uid=1):
         client=self.app.test_client()
         with client.session_transaction() as s:
-            s.update(user_id=uid,last_activity_at=time.time(),csrf_token='csrf')
+            s.update(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'],last_activity_at=time.time(),csrf_token='csrf')
         return client
 
     def post(self,action,data,client=None):

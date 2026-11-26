@@ -13,6 +13,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tests'))
 from sqlalchemy import text
 from werkzeug.serving import make_server,WSGIRequestHandler
 from customer_clone import customer_clone
+from iris2 import services
 from iris2.app import create_app
 from iris2.application import text_to_sql_commentary as commentary
 from iris2.tools.audit_customer_requirements_20261126 import QUESTIONS
@@ -34,7 +35,7 @@ def main():
     with customer_clone(temporary_readers=True) as (engine,schema),patch.object(commentary,'generate',side_effect=generate):
         app=create_app(dict(TESTING=True,AUTH_DISABLED=False,CSRF_ENABLED=True))
         with engine.connect() as c:uid=c.scalar(text('SELECT MIN(user_id) FROM app_user WHERE is_admin=1 AND is_active=1'))
-        session=dict(user_id=uid,last_activity_at=time.time(),csrf_token='advanced-browser-check')
+        session=dict(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'],last_activity_at=time.time(),csrf_token='advanced-browser-check')
         cookie=app.session_interface.get_signing_serializer(app).dumps(session)
         server=make_server('127.0.0.1',0,app,threaded=True,request_handler=QuietHandler)
         thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()

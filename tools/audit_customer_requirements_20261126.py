@@ -53,7 +53,7 @@ def main():
         uid=c.scalar(text('SELECT MIN(user_id) FROM app_user WHERE is_active=1 AND is_admin=1'))
     app=create_app(dict(TESTING=True,AUTH_DISABLED=False,CSRF_ENABLED=True))
     client=app.test_client()
-    with client.session_transaction() as s:s.update(user_id=uid,last_activity_at=time.time(),csrf_token='requirement-review-only')
+    with client.session_transaction() as s:s.update(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'],last_activity_at=time.time(),csrf_token='requirement-review-only')
     def post(action,data):
         return client.post('/inspections/text-to-sql/'+action,json=data,headers={'X-CSRF-Token':'requirement-review-only'})
     samples=[]

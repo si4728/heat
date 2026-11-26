@@ -12,12 +12,13 @@ import sys,time
 from pathlib import Path
 sys.path.insert(0,str(Path.cwd().parent))
 from iris2.app import create_app
+from iris2 import services
 from iris2.database import get_engine
 from sqlalchemy import text
 app=create_app({'TESTING':True,'AUTH_DISABLED':False,'CSRF_ENABLED':True})
 with get_engine().connect() as c: uid=c.scalar(text('SELECT MIN(user_id) FROM app_user WHERE is_admin=1 AND is_active=1'))
 client=app.test_client()
-with client.session_transaction() as s:s.update(user_id=uid,last_activity_at=time.time())
+with client.session_transaction() as s:s.update(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'],last_activity_at=time.time())
 for invalid in ['abc','0','-1']:
  assert client.get('/analysis?exchanger_id='+invalid).status_code==400
 for name,url in [('summary','/analysis?exchanger_id=157'),('partial','/analysis?exchanger_id=100'),('long','/analysis?exchanger_id=202'),('empty','/analysis?exchanger_id=106'),('detail','/exchangers/202'),('dashboard','/')]:

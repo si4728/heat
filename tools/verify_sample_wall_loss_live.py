@@ -62,7 +62,7 @@ def main():
                 raise ValueError('Active administrator needed for authenticated read-only checks')
             client = app.test_client()
             with client.session_transaction() as session:
-                session.update(user_id=uid, last_activity_at=time.time(), csrf_token='sample-estimate-local-preview')
+                session.update(user_id=uid,auth_stamp=services.user_access_profile(uid)['auth_stamp'], last_activity_at=time.time(), csrf_token='sample-estimate-local-preview')
             checks = []
             for name, url in [('precision', f'/analysis?exchanger_id={identifier}'),
                               ('detail', f'/exchangers/{identifier}')]:

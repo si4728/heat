@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from flask import Flask
+from iris2 import services
 from iris2.application.inspection_history import history_matrix, inspection_history_data
 from iris2.application.inspection_recommendations import recommended_plans_data, save_recommended_plan
 from iris2.domain.inspection_recommendation import recommendation, horizon_end
@@ -91,7 +92,7 @@ class InspectionWorkspaceWebTests(unittest.TestCase):
         register_security(self.app)
         self.app.register_error_handler(403,lambda exc:('Forbidden',403))
         register_routes(self.app)
-        self.profile=dict(user_id=1,username='reader',is_active=True,is_admin=False,
+        self.profile=dict(user_id=1,username='reader',is_active=True,is_admin=False,auth_stamp='test-auth-stamp',
             permissions={'INSPECTIONS':dict(can_view=True,can_edit=False)})
         self.patch('iris2.services.user_count',return_value=1)
         self.patch('iris2.services.user_access_profile',side_effect=lambda uid:self.profile if uid else None)
@@ -102,7 +103,7 @@ class InspectionWorkspaceWebTests(unittest.TestCase):
         self.save=self.patch('iris2.web.routes.inspections.save_recommended_plan',return_value=9)
         self.client=self.app.test_client()
         with self.client.session_transaction() as session:
-            session.update(user_id=1,last_activity_at=time.time(),csrf_token='csrf')
+            session.update(user_id=1,auth_stamp=services.user_access_profile(1)['auth_stamp'],last_activity_at=time.time(),csrf_token='csrf')
 
     def patch(self,*args,**kwargs):
         p=patch(*args,**kwargs);self.addCleanup(p.stop);return p.start()
