@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import secrets
+import ipaddress
 import time
 from datetime import datetime
+from urllib.parse import urlsplit
 
 from flask import abort, flash, g, redirect, render_template, request, session, url_for
 
@@ -164,6 +166,12 @@ def register_security(app) -> None:
     def setup_admin():
         if services.user_count() > 0:
             return redirect(url_for("login"))
+        try:
+            local_client = ipaddress.ip_address(request.remote_addr or '').is_loopback
+        except ValueError:
+            local_client = False
+        if not local_client or urlsplit(request.host_url).hostname not in {'localhost', '127.0.0.1', '::1'}:
+            abort(403)
         if request.method == "POST":
             try:
                 user = services.create_initial_admin(request.form.to_dict())

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from threading import Lock
 from datetime import datetime
 from typing import Any
 
@@ -27,6 +28,7 @@ SCREEN_DEFINITIONS = (
 )
 SCREEN_KEYS = {key for key, _label, _description in SCREEN_DEFINITIONS}
 PDF_OPEN_MODES = {"CURRENT", "NEW"}
+_INITIAL_ADMIN_LOCK = Lock()
 
 
 def _pdf_open_mode(value: Any, default: str = "NEW") -> str:
@@ -37,9 +39,10 @@ def _pdf_open_mode(value: Any, default: str = "NEW") -> str:
 
 
 def user_count() -> int:
+    """Count all provisioned accounts; deactivation must never reopen bootstrap."""
     with session_scope(DB_PATH) as session:
         return session.scalar(
-            select(func.count()).select_from(AppUser).where(AppUser.is_active.is_(True))
+            select(func.count()).select_from(AppUser)
         ) or 0
 
 
@@ -80,9 +83,9 @@ def create_initial_admin(data: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("비밀번호 확인이 일치하지 않습니다.")
     if not display_name:
         raise ValueError("관리자 이름은 필수입니다.")
-    with session_scope(DB_PATH) as session:
+    with _INITIAL_ADMIN_LOCK, session_scope(DB_PATH) as session:
         if session.scalar(
-            select(func.count()).select_from(AppUser).where(AppUser.is_active.is_(True))
+            select(func.count()).select_from(AppUser)
         ):
             raise ValueError("초기 관리자가 이미 생성되어 있습니다.")
         user = AppUser(
