@@ -22,6 +22,7 @@ EVENTS = {'ACCESS': '화면·API 접근', 'LOGIN_SUCCESS': '로그인 성공',
 RESULTS = {'ALLOWED': '허용', 'DENIED': '거부', 'ERROR': '오류',
            'REDIRECT': '이동', 'SUCCESS': '성공', 'FAILURE': '실패'}
 REASONS = {'AUTH_REQUIRED': '로그인 필요', 'INVALID_CREDENTIALS': '인증 실패',
+           'LOGIN_RATE_LIMITED': '로그인 시도 제한',
            'CSRF_REJECTED': '요청 검증 실패', 'PERMISSION_DENIED': '권한 없음',
            'SESSION_EXPIRED': '미사용 시간 초과', 'SESSION_INVALID': '계정·세션 무효',
            'AUTHENTICATED': '인증 완료', 'USER_LOGOUT': '사용자 로그아웃',

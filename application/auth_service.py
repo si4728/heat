@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import hashlib
 import hmac
+import secrets
 from threading import Lock
 from datetime import datetime
 from typing import Any
@@ -31,6 +32,7 @@ SCREEN_DEFINITIONS = (
 SCREEN_KEYS = {key for key, _label, _description in SCREEN_DEFINITIONS}
 PDF_OPEN_MODES = {"CURRENT", "NEW"}
 _INITIAL_ADMIN_LOCK = Lock()
+_DUMMY_PASSWORD_HASH = generate_password_hash(secrets.token_urlsafe(32))
 
 
 def _auth_stamp(password_hash):
@@ -110,9 +112,12 @@ def create_initial_admin(data: dict[str, Any]) -> dict[str, Any]:
 
 def authenticate_user(username: str, password: str) -> dict[str, Any] | None:
     normalized = str(username or "").strip().lower()
+    if not normalized or len(normalized) > 50 or not isinstance(password, str) or len(password) > 1024:
+        return None
     with session_scope(DB_PATH) as session:
         user = session.scalar(select(AppUser).where(AppUser.username == normalized))
-        if not user or not user.is_active or not check_password_hash(user.password_hash, password or ""):
+        valid = check_password_hash(user.password_hash if user and user.is_active else _DUMMY_PASSWORD_HASH, password or '')
+        if not user or not user.is_active or not valid:
             return None
         user.last_login_at = datetime.now()
         return {"user_id": user.user_id, "username": user.username,

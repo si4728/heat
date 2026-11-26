@@ -11,10 +11,18 @@ from flask import abort, flash, g, redirect, render_template, request, session, 
 from iris2 import services
 from iris2.hx_configuration import DB_PATH, ENDPOINT_PERMISSIONS
 from iris2.application.organization_service import organization_catalog
+from iris2.application.login_guard import LoginGuard
 from iris2.web.access_audit import auth_event, register_access_audit
 
 
 def register_security(app) -> None:
+    app.config.setdefault('LOGIN_MAX_ATTEMPTS', 5)
+    app.config.setdefault('LOGIN_MAX_SOURCE_ATTEMPTS', 30)
+    app.config.setdefault('LOGIN_WINDOW_SECONDS', 300)
+    app.config.setdefault('AUTH_MAX_CONTENT_LENGTH', 16384)
+    login_guard = LoginGuard(attempts=app.config['LOGIN_MAX_ATTEMPTS'],
+        source_attempts=app.config['LOGIN_MAX_SOURCE_ATTEMPTS'], window=app.config['LOGIN_WINDOW_SECONDS'])
+    app.extensions['login_guard'] = login_guard
     @app.template_filter("comma")
     def comma_number(value):
         return f"{int(value or 0):,}"
@@ -72,6 +80,8 @@ def register_security(app) -> None:
     @app.before_request
     def enforce_authentication_and_permissions():
         g.current_user = None
+        if request.endpoint in {'login', 'setup_admin'}:
+            request.max_content_length = app.config['AUTH_MAX_CONTENT_LENGTH']
         if (
             app.config.get("CSRF_ENABLED")
             and request.method not in {"GET", "HEAD", "OPTIONS", "TRACE"}
@@ -200,9 +210,15 @@ def register_security(app) -> None:
         if services.user_count() == 0:
             return redirect(url_for("setup_admin"))
         if request.method == "POST":
-            user = services.authenticate_user(
-                request.form.get("username", ""), request.form.get("password", "")
-            )
+            ticket, retry_after = login_guard.begin(request.remote_addr or 'unknown', request.form.get('username', ''))
+            if ticket is None:
+                g.audit_username = request.form.get('username', '')
+                g.audit_user_id = None
+                auth_event('LOGIN_FAILURE', 'FAILURE', 'LOGIN_RATE_LIMITED')
+                flash('로그인 시도가 많습니다. 잠시 후 다시 시도해 주세요.', 'warning')
+                return render_template('login.html', next_path=request.form.get('next', '')), 429, {'Retry-After': str(retry_after)}
+            user = services.authenticate_user(request.form.get('username', ''), request.form.get('password', ''))
+            login_guard.finish(ticket, success=bool(user))
             if user:
                 start_authenticated_session(user)
                 session['audit_username'] = user['username']
