@@ -19,9 +19,21 @@ class FluidGroupingTests(unittest.TestCase):
         settings = fluids.options('Shell 유체명이 steam인 열교환기 목록')
         self.assertEqual(settings['fluid'], 'STEAM')
         proposal = fluids.proposal([1,2],settings)
-        self.assertNotIn('STEAM', proposal['sql'])
+        self.assertIn('WHERE fluid_name=?', proposal['sql'])
         self.assertEqual(proposal['parameters'], [1,2,'STEAM'])
         self.assertIn('COUNT(DISTINCT heat_exchanger_id)', proposal['sql'])
+
+    def test_authorized_steam_alias_is_used_in_filters_without_merging_other_fluids(self):
+        for name in ('STEAM', 'S:STEAM', ' s:steam '):
+            with self.subTest(name=name):
+                self.assertEqual(fluids.normalized_fluid(name), 'STEAM')
+                self.assertEqual(fluids.options(f'유체명이 {name}인 열교환기 목록')['fluid'], 'STEAM')
+        for name in ('HP STEAM', 'H.P. STEAM', 'LOW STEAM', 'MEDIUM STEAM', 'STEAM CONDENSATE', 'S:WATER', 'T:STEAM'):
+            with self.subTest(name=name):
+                self.assertEqual(fluids.normalized_fluid(name), name)
+                settings = fluids.options(f'유체명이 {name}인 열교환기 목록')
+                self.assertEqual(settings['fluid'], name)
+                self.assertEqual(fluids.proposal([1], settings)['parameters'][-1], name)
 
     def test_unsupported_analyses_are_not_silently_ignored(self):
         for question in ['2025년 유체별 목록', '유체별 감육률', '최근 유체별 교환기', '유체별 운전압력']:

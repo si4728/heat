@@ -118,7 +118,9 @@ def main():
                   and bool(fluid_results[1]['rows']), results=fluid_results)
             variants = [{key: r[key] for key in ('unit_code', 'side_code', 'fluid_name', 'exchanger_count')}
                         for r in fluid_results[1]['rows'] if 'STEAM' in r['fluid_name']]
-            check('fluid_exact_match_limitation_documented', any(r['fluid_name'] == 'S:STEAM' for r in variants), steam_variants=variants)
+            check('steam_alias_grouping', not any(r['fluid_name'] == 'S:STEAM' for r in variants)
+                  and any(r['unit_code'] == 'VCM1' and r['side_code'] == 'SHELL' and r['fluid_name'] == 'STEAM' for r in variants),
+                  steam_variants=variants)
         with engine.connect() as c:
             def scalar(sql):
                 return c.scalar(text(sql))

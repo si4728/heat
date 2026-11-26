@@ -1,5 +1,7 @@
 # 전체 요청 1:1 기능·코드·화면 점검
 
+> 이후 사용자 요청으로 F01의 S:STEAM→STEAM 분류를 적용했다. 현재 Shell STEAM 37대·Tube STEAM 2대이며, 두 별칭 질문과 공정별 집계가 일치한다. [적용·검증 기록](STEAM_CLASSIFICATION_20261126.md)을 참고한다. 아래는 해당 분류 적용 전 기능 소스 `8ec41ce`의 점검 기록이며 F02·F03은 남아 있다.
+
 2026-11-26 · 기능 소스 `8ec41ce` · PE·VCM1·VCM2 · 운영 위치 `C:\access\heat\iris2`
 
 ## 판정 요약

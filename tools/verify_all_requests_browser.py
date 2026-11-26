@@ -27,7 +27,7 @@ class QuietHandler(WSGIRequestHandler):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--stages', nargs='+', choices=('advanced', 'followups', 'pdf-fluid-queue', 'plugging', 'single-plugging', 'analysis-history', 'correction-screens'))
+    parser.add_argument('--stages', nargs='+', choices=('advanced', 'followups', 'pdf-fluid-queue', 'plugging', 'single-plugging', 'analysis-history', 'correction-screens', 'steam'))
     args = parser.parse_args()
     output = Path('reports/all-requests-audit-20261126/browser')
     output.mkdir(parents=True, exist_ok=True)
@@ -37,7 +37,8 @@ def main():
               ('plugging', 'tools/verify_customer_completion_browser.mjs'),
               ('single-plugging', 'tools/verify_single_plugging_audit.mjs'),
               ('analysis-history', 'tools/verify_prior_analysis_requests.mjs'),
-              ('correction-screens', 'tools/verify_correction_screens_audit.mjs')]
+              ('correction-screens', 'tools/verify_correction_screens_audit.mjs'),
+              ('steam', 'tools/verify_steam_classification_browser.mjs')]
     if args.stages:
         stages = [(label, script) for label, script in stages if label in args.stages]
     with customer_clone() as (engine, schema), patch.object(commentary, 'generate', return_value=dict(

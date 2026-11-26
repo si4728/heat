@@ -9,6 +9,11 @@ from iris2.hx_configuration import DB_PATH
 from iris2.llm_integration.text_to_sql import QueryRejected
 
 
+def normalized_fluid(value):
+    name = str(value or '').strip().upper()
+    return 'STEAM' if name == 'S:STEAM' else name or None
+
+
 def matches(question):
     return bool(re.search(r'유체|fluid', question, re.I))
 
@@ -22,9 +27,9 @@ def options(question):
             sides.append(side)
     if not sides:
         sides = ['SHELL', 'TUBE']
-    match = re.search(r'유체(?:명)?\s*(?:이|은|가|=|:)\s*[\'"]?([A-Za-z][A-Za-z0-9 .+/_()-]*?)(?:[\'"]|\s*인|\s+(?:교환기|열교환기|설비)|$)', question, re.I)
+    match = re.search(r'유체(?:명)?\s*(?:이|은|가|=|:)\s*[\'"]?([A-Za-z][A-Za-z0-9 .+/_():-]*?)(?:[\'"]|\s*인|\s+(?:교환기|열교환기|설비)|$)', question, re.I)
     return dict(sides=sides, by_unit=bool(re.search(r'공정\s*별|라인\s*별|VCM1.*VCM2|구분', question, re.I)),
-                fluid=match[1].strip().upper() if match else None)
+                fluid=normalized_fluid(match[1]) if match else None)
 
 
 def select_equipment(data, question):
@@ -76,8 +81,9 @@ def proposal(ids, settings):
         fluid = {'SHELL':"COALESCE(NULLIF(TRIM(s.shell_fluid),''), NULLIF(TRIM(ss.fluid),''))",
                  'TUBE':"COALESCE(NULLIF(TRIM(s.tube_fluid),''), NULLIF(TRIM(ss.fluid),''))",
                  'HEAD':"NULLIF(TRIM(ss.fluid),'')"}[side]
+        fluid = f"CASE WHEN UPPER({fluid})='S:STEAM' THEN 'STEAM' ELSE UPPER({fluid}) END"
         parts.append(f'''SELECT hx.heat_exchanger_id, u.unit_code, e.equipment_tag,
-            '{side}' AS side_code, COALESCE(UPPER({fluid}), '미등록') AS fluid_name
+            '{side}' AS side_code, COALESCE({fluid}, '미등록') AS fluid_name
             FROM heat_exchanger hx JOIN equipment e ON e.equipment_id=hx.equipment_id
             JOIN process_unit u ON u.unit_id=e.unit_id
             LEFT JOIN heat_exchanger_spec_revision s ON s.heat_exchanger_id=hx.heat_exchanger_id AND s.is_current=1
