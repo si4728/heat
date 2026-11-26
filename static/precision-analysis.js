@@ -535,9 +535,11 @@
     const selectedTable = document.createElement('table');
     selectedTable.className = 'selected-tube-table';
     const body = document.createElement('tbody');
+    const measuredThickness = defect ? defect.minimum_wall_thickness_mm : tube.minimum_wall_thickness_mm;
     const fields = [
       ['계산 기준 측정일',defect?.measurement_date || tube.inspection_date || '-'],
-      ['계산 기준 두께 (mm)',fmt(defect?.minimum_wall_thickness_mm ?? tube.minimum_wall_thickness_mm,3)],
+      ['실측 최소두께 (mm)',measuredThickness == null ? '미등록' : fmt(measuredThickness,3)],
+      ['공칭두께 (참고, mm)',nominal > 0 ? fmt(nominal,3) : '미등록'],
       ['감육률 (%)',fmt(defect?.wall_loss_percent ?? tube.wall_loss_percent,2)],
       ['단기 감육속도(mm/년)',defect?.short_term_corrosion_rate_mm_per_year > 0 ? fmt(defect.short_term_corrosion_rate_mm_per_year,4) : '−','short-term-rate'],
       ['장기 감육속도(mm/년)','-','long-term-rate'],
@@ -557,6 +559,11 @@
     selectedTable.appendChild(body);
     const analysis=document.getElementById('corrosion-analysis');
     analysis.replaceChildren(selectedTable);analysis.dataset.tubeId=String(tubeId);
+    const thicknessNote=document.createElement('p');thicknessNote.className='analysis-quality-note';
+    thicknessNote.id='selected-thickness-basis';
+    thicknessNote.textContent=(measuredThickness == null ? '현재 계산 기준 검사의 실측 최소두께가 미등록입니다. ' : '')+
+      '공칭두께는 참고값입니다. NDD 또는 감육률 0%만으로 실측 두께를 확정하지 않으며, 보고서 두께 공란을 공칭두께나 이전 검사값으로 대체하지 않습니다.';
+    analysis.appendChild(thicknessNote);
     const shortNote=document.createElement('p');shortNote.className='analysis-quality-note';
     shortNote.textContent=defect?.short_term_previous_date ?
       `단기 계산: (${fmt(defect.short_term_previous_thickness_mm,3)} − ${fmt(defect.short_term_current_thickness_mm,3)}) mm ÷ ${fmt(defect.short_term_elapsed_years,3)}년 · ${defect.short_term_previous_date} ~ ${defect.short_term_current_date}${defect.short_term_status==='NON_POSITIVE'?' · 0 이하 값은 측정 편차 확인 대상입니다.':''}` : '단기 감육속도는 최근 두 유효 측정 두께가 있어야 계산합니다.';

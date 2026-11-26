@@ -23,20 +23,23 @@ class QuietHandler(WSGIRequestHandler):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--section', choices=('all', 'dashboard', 'analysis'), default='all')
+    parser.add_argument('--section', choices=('all', 'dashboard', 'analysis', 'thickness'), default='all')
     args = parser.parse_args()
     out = Path('reports/recheck-followups-20261126/browser')
     out.mkdir(parents=True, exist_ok=True)
+    (out / 'failure.txt').unlink(missing_ok=True)
     with customer_clone() as (engine, schema):
         app = create_app(dict(TESTING=True, AUTH_DISABLED=False, CSRF_ENABLED=True))
         with engine.connect() as c:
             uid = c.scalar(text('SELECT MIN(user_id) FROM app_user WHERE is_admin=1 AND is_active=1'))
+            thickness_id = c.scalar(text("SELECT heat_exchanger_id FROM heat_exchanger_spec_revision WHERE is_current=1 AND exchanger_code='E-122A'"))
         session = dict(user_id=uid, last_activity_at=time.time(), csrf_token='followups-browser-check')
         cookie = app.session_interface.get_signing_serializer(app).dumps(session)
         server = make_server('127.0.0.1', 0, app, threaded=True, request_handler=QuietHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
-        settings = dict(base=f'http://127.0.0.1:{server.server_port}', cookie=cookie, out=str(out.resolve()), section=args.section)
+        settings = dict(base=f'http://127.0.0.1:{server.server_port}', cookie=cookie, out=str(out.resolve()), section=args.section,
+                        thickness_id=thickness_id)
         node = Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs/Microsoft VS Code/Code.exe'
         try:
             result = subprocess.run([str(node) if node.is_file() else 'node', 'tools/verify_recheck_followups.mjs'],
@@ -46,7 +49,7 @@ def main():
             (out / 'stderr.txt').write_text(result.stderr, encoding='utf-8')
             if result.returncode:
                 raise RuntimeError('Followup browser checks failed; inspect the local report')
-            print(result.stdout, flush=True)
+            print(f'PASS: {args.section} browser checks. UTF-8 details saved in local report.', flush=True)
         finally:
             server.shutdown()
             server.server_close()
