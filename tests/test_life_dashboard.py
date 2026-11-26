@@ -94,3 +94,25 @@ class LifeDashboardTests(unittest.TestCase):
                                    ('PE',2025,1,1,5,False,'PE')])
         self.assertEqual({r['team']:r['exchanger_count'] for r in annual},
                          {'VCM 생산팀':2, 'PE 생산팀':1})
+
+    def test_team_links_select_the_same_population_as_the_count(self):
+        rows = [dict(unit_code='VCM1', team_code='VCM', band='short'),
+                dict(unit_code='VCM2', team_code='VCM', band='short'),
+                dict(unit_code='PE', team_code='PE', band='short'),
+                dict(unit_code='PE', team_code='PE', band='unknown'),
+                dict(unit_code='VCM3', team_code='VCM', band='short')]
+        report = group_life_rows(rows)
+        for group in report['groups']:
+            self.assertEqual(len(group_life_rows(rows, team=group['team'])['rows']), group['total'])
+            for band, count in group['counts'].items():
+                selected = group_life_rows(rows, band=band, team=group['team'])
+                self.assertEqual(len(selected['rows']), count)
+                self.assertTrue(all(r['team_code'] == group['team'] for r in selected['rows']))
+        self.assertEqual(len(group_life_rows(rows, 'VCM2', 'short', 'VCM')['rows']), 1)
+        self.assertEqual(group_life_rows(rows, 'VCM2', 'short', 'PE')['rows'], [])
+        self.assertEqual(len(group_life_rows(rows, team='invalid')['rows']), 4)
+        self.assertEqual(len(group_life_rows(rows, band='short')['rows']), 3)
+
+    def test_team_filter_preserves_legacy_missing_team_fallback(self):
+        rows = [dict(unit_code='VCM1', band='short'), dict(unit_code='PE', band='short')]
+        self.assertEqual(group_life_rows(rows, team='VCM')['rows'], rows[:1])

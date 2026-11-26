@@ -914,7 +914,7 @@ def data_entry_status_data() -> dict[str, Any]:
         return summary
 
 
-def dashboard_data(life_unit: str = '', life_band_filter: str = '') -> dict[str, Any]:
+def dashboard_data(life_unit: str = '', life_band_filter: str = '', life_team: str = '') -> dict[str, Any]:
     with session_scope(DB_PATH) as session:
         registered_exchangers = select(HeatExchanger.heat_exchanger_id).join(Equipment,
             Equipment.equipment_id == HeatExchanger.equipment_id).join(ProcessUnit,
@@ -1015,10 +1015,10 @@ def dashboard_data(life_unit: str = '', life_band_filter: str = '') -> dict[str,
         return {"counts": counts, "units": units, "yearly_rows": yearly_rows,
                 "team_yearly_rows": team_years,
                 "recent": recent, "batches": batches, "upcoming_plans": upcoming_plans,
-                "life_dashboard": dashboard_remaining_life(life_unit, life_band_filter)}
+                "life_dashboard": dashboard_remaining_life(life_unit, life_band_filter, life_team)}
 
 
-def dashboard_remaining_life(unit='', band=''):
+def dashboard_remaining_life(unit='', band='', team=''):
     from .application.life_dashboard import life_band, group_life_rows, first_tube_threshold, forecast_display
     rows = []
     as_of = remaining_life_as_of_date()
@@ -1054,7 +1054,7 @@ def dashboard_remaining_life(unit='', band=''):
                 'status': overview['status'], 'measured_status': life['status']})
     for row in rows:
         row['first_tube_display'] = forecast_display(row['first_tube_threshold'], as_of)
-    result = group_life_rows(rows, unit, band)
+    result = group_life_rows(rows, unit, band, team)
     result['as_of_date'] = as_of.isoformat()
     return result
 

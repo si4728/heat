@@ -18,7 +18,8 @@ def register_routes(app) -> None:
         profile = g.get('current_user') or {}
         reviews = pending_api510_reviews() if profile.get('is_admin') else None
         return render_template("dashboard.html", api510_reviews=reviews,
-            **services.dashboard_data(request.args.get('life_unit', ''), request.args.get('life_band', '')))
+            **services.dashboard_data(request.args.get('life_unit', ''), request.args.get('life_band', ''),
+                                      request.args.get('life_team', '')))
 
     @app.get("/master-data/data-entry-status")
     def data_entry_status():

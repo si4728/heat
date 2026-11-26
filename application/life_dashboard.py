@@ -41,13 +41,14 @@ def life_band(life):
     return 'long' if years > 15 else 'medium' if years > 5 else 'short'
 
 
-def group_life_rows(rows, unit='', band=''):
+def group_life_rows(rows, unit='', band='', team=''):
     if band == 'not_reached':
         band = 'unknown'  # Existing saved links remain usable.
     unit = unit if unit in {r['unit_code'] for r in rows} else ''
     band = band if band in BANDS else ''
     rows = [r for r in rows if r['unit_code'] not in ('VCM3', 'VCM4')]
     teams = sorted({r.get('team_code') or ('VCM' if r['unit_code'].startswith('VCM') else 'PE') for r in rows})
+    selected_team = team if team in teams else ''
     groups = []
     for team in teams:
         members = [r for r in rows if (r.get('team_code') or ('VCM' if r['unit_code'].startswith('VCM') else 'PE')) == team]
@@ -55,8 +56,9 @@ def group_life_rows(rows, unit='', band=''):
             counts={key: sum(r['band'] == key for r in members) for key in BANDS}, total=len(members)))
     totals = {key: sum(g['counts'][key] for g in groups) for key in BANDS}
     return {'groups': groups, 'totals': totals, 'total': len(rows), 'bands': BANDS,
-            'selected_unit': unit, 'selected_band': band,
-            'rows': [r for r in rows if (not unit or r['unit_code'] == unit) and (not band or r['band'] == band)]}
+            'selected_unit': unit, 'selected_band': band, 'selected_team': selected_team,
+            'rows': [r for r in rows if (not unit or r['unit_code'] == unit) and (not band or r['band'] == band)
+                     and (not selected_team or (r.get('team_code') or ('VCM' if r['unit_code'].startswith('VCM') else 'PE')) == selected_team)]}
 
 
 def forecast_display(first, as_of):
