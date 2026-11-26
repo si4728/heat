@@ -103,7 +103,8 @@ def register_security(app) -> None:
         ):
             expected = session.get("csrf_token")
             supplied = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token")
-            if not expected or not supplied or not secrets.compare_digest(expected, supplied):
+            if (not isinstance(expected, str) or not isinstance(supplied, str) or not expected or not supplied
+                    or not secrets.compare_digest(expected.encode('utf-8'), supplied.encode('utf-8'))):
                 g.audit_reason = 'CSRF_REJECTED'
                 if request.endpoint == 'login' and request.method == 'POST':
                     g.audit_username = request.form.get('username','')

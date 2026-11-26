@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sys
 import secrets
+from threading import Lock
+from time import monotonic
 from datetime import datetime
 from pathlib import Path
 
@@ -14,22 +16,25 @@ from iris2.hx_configuration import API_WRITE_TOKEN, APP_DIR, DB_PATH, UPLOAD_DIR
 
 
 def register_routes(app) -> None:
+    readiness_lock = Lock()
+    readiness = {'checked_at': None, 'ready': False}
+
     @app.get("/api/health")
     def api_health():
-        try:
-            health = services.database_health()
-        except Exception:
-            return jsonify(status="unavailable",backend="mariadb"),503
-        public_health = {
-            "application": "iris2",
-            "status": "ok" if health["integrity_check"] == "ok" else "error",
-            "schema_version": health["schema_version"],
-            "backend": "mariadb",
-            "mariadb_version": health["mariadb_version"],
-            "integrity_check": health["integrity_check"],
-            "foreign_key_issue_count": health["foreign_key_issue_count"],
-        }
-        return jsonify(public_health), 200 if health["integrity_check"] == "ok" else 503
+        # Anonymous callers must not trigger full FK scans or receive DB fingerprints.
+        # Serialize/cache successful and failed probes, including concurrent requests.
+        with readiness_lock:
+            checked = readiness['checked_at']
+            if checked is None or monotonic() - checked >= 2:
+                try:
+                    readiness['ready'] = bool(services.database_readiness())
+                except Exception:
+                    readiness['ready'] = False
+                readiness['checked_at'] = monotonic()
+            ready = readiness['ready']
+        response = jsonify(application='iris2', backend='mariadb', status='ok' if ready else 'unavailable')
+        response.headers['Cache-Control'] = 'no-store'
+        return response, 200 if ready else 503
 
     def require_api_write_token():
         app_module = sys.modules.get("iris2.app")

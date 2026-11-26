@@ -51,6 +51,18 @@ def main():
             old.set_cookie('iris2_session', cookie)
             response = old.get('/settings/users')
             report['password_reset_keeps_old_session'] = dict(status=response.status_code, reproduced=response.status_code == 200)
+            with client.session_transaction() as s:
+                s['csrf_token'] = token
+            client.post('/login', data=dict(username='isolated.security@example.test', password=new_password, csrf_token=token))
+            client.get('/settings/users')
+            logout_cookie = client.get_cookie('iris2_session').value
+            with client.session_transaction() as s:
+                logout_token = s['csrf_token']
+            client.post('/logout', data=dict(csrf_token=logout_token))
+            replay = app.test_client()
+            replay.set_cookie('iris2_session', logout_cookie)
+            response = replay.get('/settings/users')
+            report['logout_keeps_copied_session'] = dict(status=response.status_code, reproduced=response.status_code == 200)
         rejected = []
         for sql in ('SELECT password_hash FROM app_user', 'SELECT tube_id FROM analysis_tubes; DROP TABLE app_user',
                     'SELECT SLEEP(1) FROM analysis_tubes', "SELECT LOAD_FILE(?) FROM analysis_tubes",

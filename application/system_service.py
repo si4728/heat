@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from ..backup_manager import (
     backup_management_data as _backup_management_data,
@@ -15,9 +15,10 @@ from ..backup_manager import (
 )
 from ..database_monitor import database_lock_summary
 from ..hx_configuration import APP_DIR, CUMULATIVE_REPORT, DB_PATH, REPORT_DIR
-from ..iris_v2_database import create_v2_engine, session_scope, verify_v2_db
+from ..iris_v2_database import SCHEMA_VERSION, create_v2_engine, session_scope, verify_v2_db
 from ..iris_v2_importer import import_file
 from ..iris_v2_models import Plant, ProcessUnit
+from .. import database
 
 
 def _normalize_master_code(value: Any, label: str) -> str:
@@ -52,6 +53,13 @@ def load_json(path: Path, dry_run: bool = False, plant_code: str | None = None,
 
 def database_health() -> dict[str, Any]:
     return verify_v2_db(DB_PATH)
+
+
+def database_readiness() -> bool:
+    """Cheap public readiness probe; full integrity diagnostics stay authenticated."""
+    with database.get_engine().connect() as connection:
+        return connection.scalar(text('SELECT 1 FROM schema_version WHERE version=:version LIMIT 1'),
+            {'version': SCHEMA_VERSION}) == 1
 
 
 def database_monitor_data() -> dict[str, Any]:

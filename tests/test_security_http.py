@@ -72,6 +72,12 @@ class HttpSecurityTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 401)
             save.assert_not_called()
 
+    def test_non_ascii_csrf_is_rejected_without_a_server_error(self):
+        with self.client.session_transaction() as s:
+            s['csrf_token'] = 'expected-token'
+        response = self.client.post('/login', data=dict(username='user@example.test', password='valid', csrf_token='\u00e9'))
+        self.assertEqual(response.status_code, 400)
+
 
 class WaitressProxySecurityTests(unittest.TestCase):
     def test_real_listener_only_accepts_forwarded_identity_from_configured_peer(self):

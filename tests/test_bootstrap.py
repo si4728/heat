@@ -40,7 +40,7 @@ class IsolationTests(unittest.TestCase):
                 self.assertEqual(url.database, "iris2")
 
     def test_health_failure_redacts_secrets(self):
-        with patch("iris2.services.database_health", side_effect=RuntimeError("super-secret-password")):
+        with patch("iris2.services.database_readiness", side_effect=RuntimeError("super-secret-password")):
             response = create_app().test_client().get("/api/health")
             self.assertEqual(response.status_code, 503)
             self.assertNotIn("super-secret-password", response.get_data(as_text=True))
