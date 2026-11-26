@@ -1,6 +1,7 @@
 """Disposable MariaDB copy for customer-change writes; never writes source tables."""
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 import re
+import secrets
 import uuid
 from unittest.mock import patch
 from sqlalchemy import inspect
@@ -9,13 +10,13 @@ from iris2.migration.migrate_all import engine_for
 
 
 @contextmanager
-def customer_clone():
+def customer_clone(*,temporary_readers=True):
     config=load_database_config();admin=load_database_config(admin=True)
     if config['port']!=3307 or config['host'] not in ('localhost','127.0.0.1'):
         raise ValueError('Only local iris2 MariaDB is permitted')
     source=config['name'];schema='iris2_test_customer_'+uuid.uuid4().hex[:12]
     if not re.fullmatch(r'iris2[a-zA-Z0-9_]*',source):raise ValueError('Invalid source schema')
-    controller=engine_for(admin,'mysql');engine=None;grants=[]
+    controller=engine_for(admin,'mysql');engine=None;grants=[];test_user=None
     try:
         with controller.begin() as c:c.exec_driver_sql(f'CREATE DATABASE `{schema}` CHARACTER SET utf8mb4')
         engine=engine_for(admin,schema)
@@ -42,18 +43,36 @@ def customer_clone():
                     rows=[tuple(r) for r in source_conn.exec_driver_sql(f'SELECT {names} FROM `{source}`.`{table}`')]
                     if rows:target.exec_driver_sql(f'INSERT INTO `{table}` ({names}) VALUES ({",".join(["%s"]*len(columns))})',rows)
             source_conn.rollback()
-        for path in ('config/database-readonly.conf','config/database-text-to-sql.conf'):
-            reader=load_database_config(path=path)
+        if temporary_readers:
+            test_user='iris2_test_adv_'+uuid.uuid4().hex[:12]
+            password=secrets.token_urlsafe(32)
             with controller.begin() as c:
                 for host in ('localhost','127.0.0.1'):
-                    if c.exec_driver_sql('SELECT COUNT(*) FROM mysql.user WHERE User=%s AND Host=%s',(reader['user'],host)).scalar():
-                        c.exec_driver_sql(f'GRANT SELECT ON `{schema}`.* TO %s@%s',(reader['user'],host))
-                        grants.append((reader['user'],host))
+                    c.exec_driver_sql('CREATE USER %s@%s IDENTIFIED BY %s',(test_user,host,password))
+                    c.exec_driver_sql(f'GRANT SELECT ON `{schema}`.* TO %s@%s',(test_user,host))
+        else:
+            for path in ('config/database-readonly.conf','config/database-text-to-sql.conf'):
+                reader=load_database_config(path=path)
+                with controller.begin() as c:
+                    for host in ('localhost','127.0.0.1'):
+                        if c.exec_driver_sql('SELECT COUNT(*) FROM mysql.user WHERE User=%s AND Host=%s',(reader['user'],host)).scalar():
+                            c.exec_driver_sql(f'GRANT SELECT ON `{schema}`.* TO %s@%s',(reader['user'],host))
+                            grants.append((reader['user'],host))
         from iris2 import dbapi
         original=dbapi.schema_for
         def select_schema(selector):
             return schema if 'heat_exchanger_db3.db' in str(selector) else original(selector)
-        with patch('iris2.database.get_engine',return_value=engine),patch('iris2.iris_v2_database.get_engine',return_value=engine),patch('iris2.dbapi.schema_for',side_effect=select_schema):
+        with ExitStack() as stack:
+            stack.enter_context(patch('iris2.database.get_engine',return_value=engine))
+            stack.enter_context(patch('iris2.iris_v2_database.get_engine',return_value=engine))
+            stack.enter_context(patch('iris2.dbapi.schema_for',side_effect=select_schema))
+            if temporary_readers:
+                def read_config(*args,**kwargs):
+                    original=load_database_config(*args,**kwargs)
+                    if kwargs.get('path'):
+                        return dict(original,name=schema,user=test_user,password=password)
+                    return original
+                stack.enter_context(patch('iris2.dbapi.load_database_config',side_effect=read_config))
             yield engine,schema
     finally:
         if engine is not None:engine.dispose()
@@ -61,5 +80,9 @@ def customer_clone():
         with controller.begin() as c:
             for user,host in set(grants):
                 c.exec_driver_sql(f'REVOKE SELECT ON `{schema}`.* FROM %s@%s',(user,host))
+            if test_user:
+                if not re.fullmatch(r'iris2_test_adv_[0-9a-f]{12}',test_user):raise RuntimeError('Unsafe test account cleanup')
+                for host in ('localhost','127.0.0.1'):
+                    c.exec_driver_sql('DROP USER IF EXISTS %s@%s',(test_user,host))
             c.exec_driver_sql(f'DROP DATABASE IF EXISTS `{schema}`')
         controller.dispose()

@@ -32,6 +32,16 @@
     team_code:'생산팀', exchanger_code:'설비', matching_tube_count:'조건 해당 튜브 수',
     first_display:'최초 Plugging 기준 도달', measured_estimated_loss:'측정 / 추정 최대 감육률 (%)',
     uncalculable_reason:'산정 불가 사유',
+    previous_inspection_date:'직전 유효 검사일',previous_maximum_loss:'직전 최대 감육률 (%)',
+    latest_maximum_loss:'최근 최대 감육률 (%)',wall_loss_increase_percent_points:'감육률 증가 (%p)',
+    previous_sample_count:'직전 검사 표본',latest_sample_count:'최근 검사 표본',
+    maximum_corrosion_rate_mm_per_year:'최대 적용 감육속도 (mm/년)',sample_count:'유효 검사 표본',
+    total_tube_count:'전체 튜브 수량',sample_review_reason:'검사 범위 검토 근거',tube_material:'현재 Tube 재질',
+    iris_applicability:'IRIS 적용 구분',inspection_cutoff_date:'조회 기간 시작일',missing_inspection_reason:'검사 이력 확인 근거',
+    earliest_remaining_life_years:'가장 빠른 도달 잔여기간 (년)',earliest_limit_year:'가장 빠른 도달 연도',
+    earliest_exchanger:'해당 설비',report_number:'검사 보고서',inspection_scope:'검사 구간',
+    inspected_tube_count:'유효 검사 튜브 수',reported_plugging_before:'보고서 검사 전 Plugging (본)',
+    reported_plugging_after:'보고서 검사 후 Plugging (본)',cumulative_actual_plugging_count:'실제 누적 완료 (본)',history_basis:'이력 해석 기준',
     year:'연도', inspection_year:'검사 연도', inspection_date:'검사일', report_date:'보고일',
     inspected_tubes:'검사 Tube 수', valid_loss_tubes:'유효 감육률 Tube 수',
     minimum_mm:'최소두께 (mm)', maximum_loss:'최대 감육률 (%)', average_loss:'평균 감육률 (%)', mean_loss:'평균 감육률 (%)',
@@ -70,7 +80,8 @@
   const helpQuestion = () => /^(?:도움말(?:\s*(?:알려\s*줘(?:요)?|보여\s*줘(?:요)?|알려\s*주세요|보여\s*주세요))?|사용법|예시\s*질문|샘플(?:\s*질문)?|help)[.!?。？！]*$/i.test(el('question').value.trim());
   const reportQuestion = () => /pdf|보고서|report/i.test(el('question').value) && !/요약|감육|두께|순위|횟수|통계|비교/.test(el('question').value);
   const fluidQuestion = () => /유체|fluid/i.test(el('question').value);
-  const equipmentQuestion = () => el('result-unit').value === 'equipment';
+  const advancedQuestion = () => /회차\s*별|추이|증가|감육\s*속도|표본|재질|Plugging|IRIS\s*(?:적용\s*대상|미실시)|산정\s*불가/i.test(el('question').value);
+  const equipmentQuestion = () => el('result-unit').value === 'equipment' || advancedQuestion();
   const frequencyQuestion = () => /열교환기|교환기|설비|튜브|전열관|tube/i.test(el('question').value) && /검사/.test(el('question').value) && /(?:제일|가장)\s*많|많이|횟수|빈도|건수/.test(el('question').value);
   const groupedCountQuestion = () => /감육/.test(el('question').value) && /교환기/.test(el('question').value) && /수량|개수|몇\s*대|대수|수\b|수[는를가]/.test(el('question').value) && /공정\s*별|라인\s*별|VCM1.*VCM2|구분/i.test(el('question').value);
   function setBusy(value, generating = false) {
@@ -162,6 +173,7 @@
     else if (fluidQuestion()) el('generate-status').textContent = '현재 사양의 유체명별 설비 수·목록 · 기본 Shell·Tube 측별 구분 · 범위 미선택 시 PE·VCM1·VCM2 전체';
     else if (reportQuestion()) el('generate-status').textContent = '검사 보고서 PDF 조회 · 설비 코드 또는 선택 범위 기준 · 연도 입력 가능 · 기간 생략 시 전체 검사 이력';
     else if (frequencyQuestion()) el('generate-status').textContent = 'IRIS 검사 횟수 순위 · 기간 입력 가능 · 기간 생략 시 설비 최근 5년 / 튜브 전체 이력 · 범위 미선택 시 PE·VCM1·VCM2 전체';
+    else if (advancedQuestion()) el('generate-status').textContent = '검사 비교·감육속도·표본·재질·적용 대상·생산팀 집계·회차별 추이 · 질문에 맞는 결과 단위로 조회합니다.';
     else if (groupedCountQuestion()) el('generate-status').textContent = '감육 조건별 공정별 열교환기 수 · 범위 미선택 시 PE·VCM1·VCM2 전체 · 기간 생략 시 설비별 최근 유효 검사';
   }
   el('question').addEventListener('input', questionChanged);
@@ -196,7 +208,7 @@
       }
       if(payload.query_kind === 'help') {
         el('help-guidance').textContent = payload.guidance;
-        payload.examples.forEach(question => {
+        payload.examples.concat(payload.advanced_examples || []).forEach(question => {
           const item=document.createElement('li'), button=document.createElement('button');
           button.type='button'; button.textContent=question;
           button.addEventListener('click',()=>{el('question').value=question;questionChanged();el('question').focus();});
@@ -212,7 +224,8 @@
       el('copy').disabled = false;
       el('generate-status').textContent = 'SQL 검증 완료. 내용을 확인한 뒤 실행하세요.';
       if (payload.query_kind === 'equipment_analysis') {
-        el('result-scope').textContent = `${payload.equipment_list.length}대 범위 · 열교환기별 1행 · 수명·권고일은 현재 분석 화면의 기본 계산값 · 조건과 상위 개수는 분석값을 결합한 뒤 적용`;
+        const unitLabel={team:'생산팀별 1행',inspection:'검사 회차별 1행'}[payload.settings.result_unit] || '열교환기별 1행';
+        el('result-scope').textContent = `${payload.equipment_list.length}대 범위 · ${unitLabel} · ${payload.settings.description || '수명·권고일은 현재 분석 화면의 기본 계산값 · 조건과 상위 개수는 분석값을 결합한 뒤 적용'}`;
         el('scope-list').textContent = payload.equipment_list.map(r => `${r.unit_code} · ${r.equipment_tag}`).join('\n');
         el('scope-details').hidden = false;
         return;
@@ -262,7 +275,7 @@
           if (value === null || value === undefined) { td.textContent = '—'; td.classList.add('sql-null'); }
           else if (typeof value === 'number') {
             const countOrId = /(?:_tubes|_count|_id)$/.test(column) || column === 'source_page';
-            const decimals = !countOrId && /(?:loss|thickness|minimum_mm|location_mm)/.test(column) ? 2 : 0;
+            const decimals = /corrosion_rate/.test(column) ? 4 : !countOrId && /(?:loss|thickness|minimum_mm|location_mm)/.test(column) ? 2 : 0;
             td.textContent = new Intl.NumberFormat('ko-KR', {minimumFractionDigits:decimals, maximumFractionDigits:decimals || 6}).format(value);
           } else td.textContent = column === 'latest_inspection_date' ? String(value).slice(0,10) : String(value);
           if (numeric.has(column)) td.classList.add('sql-number');
@@ -291,7 +304,10 @@
       }
       if (result.query_kind === 'equipment_analysis') {
         el('empty').textContent = '조건에 맞는 열교환기가 없습니다.';
-        el('result-note').textContent = `조건 일치 ${result.matched_count}대 · 표시 ${result.result_count}대 · 현재 분석 화면의 기본 계산 기준 · 감육률은 유효 분석 튜브의 최대값 · 검사 권고일은 실측 최초 도달 기준 · 미산정은 0년이 아닙니다.`;
+        const unitLabel={team:'개 생산팀',inspection:'회 검사'}[result.result_unit] || '대';
+        el('result-note').textContent = result.query_mode
+          ? `조건 일치 ${result.matched_count}${unitLabel} · 표시 ${result.result_count}행 · ${result.basis_note}${Object.keys(result.diagnostics || {}).length ? ' · 판정 제외: '+Object.entries(result.diagnostics).map(([reason,count])=>`${reason} ${count}대`).join(', ') : ''}`
+          : `조건 일치 ${result.matched_count}대 · 표시 ${result.result_count}대 · 현재 분석 화면의 기본 계산 기준 · 감육률은 유효 분석 튜브의 최대값 · 검사 권고일은 실측 최초 도달 기준 · 미산정은 0년이 아닙니다.`;
         summaryToken = result.summary_token;
         showCommentary(summaryToken, ++resultVersion);
       }

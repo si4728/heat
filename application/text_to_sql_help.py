@@ -14,6 +14,15 @@ EXAMPLES = (
     'Shell 유체명별로 교환기 수량과 설비 목록을 보여줘.',
     '공정별 Tube 유체명별 교환기 수량과 목록을 보여줘.',
 )
+ADVANCED_EXAMPLES = (
+    '최근 두 번의 검사 사이 최대 감육률이 5%p 이상 증가한 열교환기는?',
+    '감육속도가 0.1 mm/년 이상인 튜브가 있는 열교환기를 알려줘',
+    'Plugging 20% 도달까지 10년 이내인 열교환기를 생산팀별로 세어줘',
+    '검사 표본이 10본 미만이라 재검사 범위를 늘려야 하는 열교환기는?',
+    'IRIS 적용 대상인데 최근 5년간 검사 이력이 없는 열교환기는?',
+    'Tube 재질이 Cu-Ni인 열교환기 중 최대 감육률 상위 10대',
+    'E-106의 검사 회차별 최대 감육률과 Plugging 수량 추이를 보여줘',
+)
 
 
 def matches(question):
@@ -21,5 +30,5 @@ def matches(question):
 
 
 def response():
-    return dict(query_kind='help', examples=list(EXAMPLES),
+    return dict(query_kind='help', examples=list(EXAMPLES),advanced_examples=list(ADVANCED_EXAMPLES),
                 guidance='예시를 선택하면 질문창에 입력됩니다. 검사 요약·튜브 목록은 먼저 교환기 또는 공정을 선택하세요. 기간을 생략하면 최근 유효 검사 기준이며, 검사 횟수 순위는 설비 최근 5년·튜브 전체 이력 기준입니다. 유체별 집계는 현재 사양을 사용하며 검사 회차와 관계없습니다. 기간은 질문 앞에 입력할 수 있습니다. 조회 결과의 차트 유형은 아래 차트 영역에서 변경합니다.')

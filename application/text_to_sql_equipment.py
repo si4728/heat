@@ -12,6 +12,9 @@ from iris2.llm_integration.text_to_sql import QueryRejected
 def options(question):
     if not re.search(r'열교환기|교환기|설비|검사|잔여|감육|권고|분석',question):
         raise QueryRejected('열교환기 목록·잔여수명·차기 검사 권고일을 질문하세요.')
+    from .text_to_sql_equipment_intents import parse
+    advanced=parse(question)
+    if advanced is not None:return advanced
     date_filter=re.search(r'차기\s*검사\s*권고일(?:이|은|가)?\s*(\d{4})\s*년\s*(이내|이전|이후)',question)
     remaining_question=question[:date_filter.start()]+question[date_filter.end():] if date_filter else question
     if re.search(r'평균|최소|재질|온도|압력|기간|비교|예측해|계산해|\d{4}\s*년|최근\s*(?:\d|두|한)|감육\s*속도|표본|추이|회차별|증가|Plugging|적용\s*대상', remaining_question,re.I):
@@ -69,11 +72,24 @@ def execute(ids, settings, signed, allowed):
         masters=[dict(r) for r in connection.execute(expected['sql'],tuple(ids)).fetchall()]
     finally:
         connection.rollback();connection.close()
-    rows=[]
+    if {r['heat_exchanger_id'] for r in masters}!=set(ids):
+        raise PermissionError('조회 중 설비 범위가 변경되었습니다. 다시 생성하세요.')
+    raw_history=None
+    if settings.get('mode') in ('increase','overdue_iris','history'):
+        from .text_to_sql_equipment_history import read
+        raw_history=read(ids)
+    rows=[];details={}
     for master in masters:
-        detail=services.exchanger_detail(master['heat_exchanger_id'])
+        kwargs=({'simulation_allowable_plugging_percent':settings['limit_percent']}
+                if settings.get('mode')=='team_limit' else {})
+        detail=services.exchanger_detail(master['heat_exchanger_id'],**kwargs)
         if not detail:
             raise QueryRejected('조회 중 설비 정보가 변경되었습니다. 다시 조회하세요.')
+        if settings.get('mode')=='team_limit':
+            if detail.get('remaining_life_simulation') is None:
+                raise QueryRejected('요청한 Plugging 한도 시뮬레이션을 조회하지 못했습니다.')
+            detail=dict(detail,remaining_life=detail['remaining_life_simulation'])
+        details[master['heat_exchanger_id']]=detail
         life=detail['remaining_life']; overview=life['equipment_overview']
         summary=life['equipment_summary']
         losses=[r['wall_loss_percent'] for r in life.get('analysis_tube_rows',[]) if r.get('wall_loss_percent') is not None]
@@ -108,6 +124,25 @@ def execute(ids, settings, signed, allowed):
             keep=keep and actual is not None and {'이하':lambda x:x<=value,'미만':lambda x:x<value,
                                                  '이상':lambda x:x>=value,'초과':lambda x:x>value}[op](actual)
         if keep:rows.append(row)
+    if settings.get('mode'):
+        from . import text_to_sql_advanced as advanced
+        result,all_rows=advanced.assemble(rows,details,settings,data=raw_history)
+        result.update(query_kind='equipment_analysis',
+            query_sha256=hashlib.sha256((expected['sql']+str(settings)).encode()).hexdigest(),
+            generated_at=datetime.now(timezone.utc).isoformat())
+        from .text_to_sql_commentary import evidence
+        if result['result_unit']!='equipment':
+            facts=advanced.aggregate_evidence(result,all_rows)
+        else:
+            selected=all_rows[:settings['limit']] if settings.get('explicit_limit') else all_rows
+            scope=dict(result,matched_count=len(selected)) if settings.get('explicit_limit') else result
+            facts=evidence(scope,all_rows=selected)
+            facts['statements'].append(dict(id='L_QUERY_BASIS',section='limitations',text=result['basis_note']))
+            if result.get('diagnostics'):
+                facts['statements'].append(dict(id='L_QUERY_EXCLUDED',section='limitations',text='판정 제외: '+
+                    ' · '.join(f'{key} {value}대' for key,value in result['diagnostics'].items())))
+        result['_commentary_facts']=facts
+        return result
     if settings['sort']=='loss':
         rows.sort(key=lambda r:(r['maximum_loss'] is None,-(r['maximum_loss'] or 0),r['heat_exchanger_id']))
     limit=settings['limit']; total=len(rows)

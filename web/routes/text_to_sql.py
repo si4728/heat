@@ -20,6 +20,7 @@ from iris2.application import text_to_sql_reports
 from iris2.application import text_to_sql_fluids as fluids
 from iris2.application import text_to_sql_equipment as equipment_query
 from iris2.application import text_to_sql_commentary as commentary
+from iris2.application.text_to_sql_equipment_history import HistoryNotReady
 from iris2.llm_integration.question_language import normalize
 from iris2.application import text_to_sql_usage_log as usage_log
 from iris2.application.model_queue import ModelQueue, QueueFull
@@ -144,6 +145,8 @@ def register_routes(app):
     def fail(exc):
         if request.endpoint in ('text_to_sql_generate', 'text_to_sql_execute', 'text_to_sql_summarize'):
             usage_record()['error_type'] = type(exc).__name__
+        if isinstance(exc,HistoryNotReady):
+            return jsonify(error=str(exc)),503
         if isinstance(exc, PermissionError):
             return jsonify(error=str(exc)), 403
         if isinstance(exc, QueryRejected):
@@ -199,11 +202,14 @@ def register_routes(app):
             if text_to_sql_help.matches(question):
                 record['query_kind'] = 'help'
                 return jsonify(text_to_sql_help.response())
-            if (data.get('result_unit') == 'equipment' and not text_to_sql_reports.matches(question)
+            from iris2.application.text_to_sql_equipment_intents import parse as advanced_intent
+            advanced_settings=(advanced_intent(question) if not any((text_to_sql_reports.matches(question),
+                fluids.matches(question),frequency.matches(question))) else None)
+            if ((data.get('result_unit') == 'equipment' or advanced_settings is not None) and not text_to_sql_reports.matches(question)
                     and not fluids.matches(question) and not frequency.matches(question)):
                 if not all(services.user_can(profile,key) for key in ('REMAINING_LIFE','EXCHANGERS')):
                     raise PermissionError('열교환기·잔여수명 조회 권한이 필요합니다.')
-                settings=equipment_query.options(question)
+                settings=advanced_settings or equipment_query.options(question)
                 selected=fluids.select_equipment(data,question)
                 ids=[r['heat_exchanger_id'] for r in selected]
                 proposal=equipment_query.proposal(ids)

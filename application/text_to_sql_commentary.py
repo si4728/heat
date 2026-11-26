@@ -57,6 +57,13 @@ def evidence(result, *, all_rows=None):
         if row.get('matching_tube_count') is not None:value+=f", 조건 해당 튜브 {row['matching_tube_count']}본"
         if row.get('life_source'):value+=f". 산정 근거: {row['life_source']}"
         if row.get('uncalculable_reason'):value+=f". 미산정 사유: {row['uncalculable_reason']}"
+        if row.get('wall_loss_increase_percent_points') is not None:
+            value+=f". 최대 감육률 변화 {row['previous_maximum_loss']}% → {row['latest_maximum_loss']}%, {row['wall_loss_increase_percent_points']}%p"
+        if row.get('maximum_corrosion_rate_mm_per_year') is not None:
+            value+=f". 최대 적용 감육속도 {row['maximum_corrosion_rate_mm_per_year']}mm/년"
+        if row.get('sample_review_reason'):value+=f". {row['sample_review_reason']}"
+        if row.get('tube_material'):value+=f". 현재 Tube 재질 {row['tube_material']}"
+        if row.get('missing_inspection_reason'):value+=f". {row['missing_inspection_reason']}"
         add(f'P{index:02d}','priorities',value+'.',equipment_id=row['heat_exchanger_id'],equipment_code=code)
         examples.append({k:row.get(k) for k in keys})
     add('L_BASIS','limitations','잔여수명과 검사 권고일은 분석 화면의 계산값입니다. 기준 도달 상태를 즉시 교체 지시로 해석하지 않으며, 정비 조치는 승인된 검사·정비 기준으로 판단해야 합니다.')
@@ -120,4 +127,4 @@ def generate(facts):
     text='\n\n'.join(section['title']+'\n'+'\n'.join(item['text'] for item in section['items']) for section in sections)
     return dict(status='generated',text=text,sections=sections,model=name,
                 method='AI 근거 선정·구성 / 수치 문장은 서버 확인값',
-                scope=f"조건 일치 {facts['matched_count']}대 중 {facts['analyzed_count']}대 집계 · 우선 후보 근거 {len(facts['examples'])}대",example_count=len(facts['examples']))
+                scope=facts.get('scope_label') or f"조건 일치 {facts['matched_count']}대 중 {facts['analyzed_count']}대 집계 · 우선 후보 근거 {len(facts['examples'])}대",example_count=len(facts['examples']))

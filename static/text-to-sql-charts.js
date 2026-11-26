@@ -16,8 +16,11 @@
     const metrics = columns.filter(key => !metadata.test(key) && rows.some(row => number(row[key]) !== null));
     const categories = columns.filter(key => !metrics.includes(key) && rows.some(row => row[key] != null));
     const preferred = ['tube_no', 'source_tube_id', 'year', 'inspection_year', 'inspection_date', 'latest_inspection_date', 'equipment_tag', 'unit_code', 'equipment_name'];
-    return {metrics, categories, metric:metrics.includes('inspection_count') ? 'inspection_count' : metrics[0],
-      category:preferred.find(key => categories.includes(key)) || categories[0] || ''};
+    const preferredMetric={history:'maximum_loss',increase:'wall_loss_increase_percent_points',
+      rate:'maximum_corrosion_rate_mm_per_year',team_limit:'exchanger_count',sample:'sample_count',material:'maximum_loss'}[result.query_mode];
+    const preferredCategory=result.query_mode ? (result.result_unit==='team'?'team_code':result.result_unit==='inspection'?'inspection_date':'exchanger_code') : null;
+    return {metrics, categories, metric:metrics.includes(preferredMetric) ? preferredMetric : metrics.includes('inspection_count') ? 'inspection_count' : metrics[0],
+      category:categories.includes(preferredCategory) ? preferredCategory : preferred.find(key => categories.includes(key)) || categories[0] || ''};
   }
   function points(result, metric, category) {
     const rows = result.rows || [];

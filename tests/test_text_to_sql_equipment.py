@@ -43,7 +43,7 @@ class EquipmentOptionsTests(unittest.TestCase):
         for text in ['평균 감육률 교환기','2025년 검사 결과','차기 검사일 이전 설비','hello']:
             with self.subTest(text=text),self.assertRaises(QueryRejected):query.options(text)
 
-    def test_image_examples_not_yet_supported_are_rejected(self):
+    def test_image_examples_have_explicit_query_modes(self):
         questions=['최근 두 번의 검사 사이 최대 감육률이 5%p 이상 증가한 열교환기는?',
             '감육속도가 0.1 mm/년 이상인 튜브가 있는 열교환기를 알려줘',
             'Plugging 20% 도달까지 10년 이하인 열교환기를 생산팀별로 세어줘',
@@ -51,8 +51,8 @@ class EquipmentOptionsTests(unittest.TestCase):
             'IRIS 적용 대상인데 최근 5년간 검사 이력이 없는 열교환기는?',
             'Tube 재질이 Cu-Ni인 열교환기 중 최대 감육률 상위 10대',
             'E-106의 검사 회차별 최대 감육률과 Plugging 수량 추이를 보여줘']
-        for question in questions:
-            with self.subTest(question=question),self.assertRaises(QueryRejected):query.options(question)
+        for question,mode in zip(questions,['increase','rate','team_limit','sample','overdue_iris','material','history']):
+            with self.subTest(question=question):self.assertEqual(query.options(question)['mode'],mode)
 
     def test_tampered_sql_or_revoked_scope_never_connect(self):
         settings=query.options('열교환기 목록')

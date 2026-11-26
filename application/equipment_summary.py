@@ -26,7 +26,7 @@ def build_equipment_summary(life, as_of):
     use_estimate = estimate.get('status') == 'ESTIMATED' and predicted.get('status') in ('FORECAST','ESTIMATED_REACHED')
     status, years = life.get('status'), life.get('remaining_life_years')
     actual_exceeded = (life.get('allowable_plugging_count') is not None
-        and life.get('actual_plugged_count', 0) > life['allowable_plugging_count'])
+        and life.get('actual_plugged_count', 0)+life.get('threshold_reached_count',0) > life['allowable_plugging_count'])
     if actual_exceeded:
         use_estimate = False
         status, years = 'CALCULATED', 0
@@ -38,7 +38,9 @@ def build_equipment_summary(life, as_of):
     if status == 'CALCULATED' and years is not None:
         capped = forecast_display(predicted,as_of) == '30년 이상' if use_estimate and target else years > 30
         value = '30년 이상' if capped else f'{max(0, years):.1f}년'
-        band = life_band(dict(status=status,remaining_life_years=years,total_tube_count=life.get('total_tube_count')))
+        band = life_band(dict(status=status,remaining_life_years=years,total_tube_count=life.get('total_tube_count'),
+                             registered_inspection_count=life.get('registered_inspection_count')))
+        if band=='uninspected':value='IRIS 미실시'
     else:
         band = 'uninspected' if life.get('registered_inspection_count') == 0 else 'unknown'
         value = 'IRIS 미실시' if band == 'uninspected' else '산정 불가'

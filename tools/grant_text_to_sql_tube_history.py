@@ -13,7 +13,8 @@ from iris2.db_config import load_database_config
 
 def apply(*, tables=('heat_exchanger_tube', 'tube_bundle')):
     if not tables or any(table not in ('heat_exchanger_tube', 'tube_bundle',
-            'heat_exchanger_spec_revision', 'heat_exchanger_side_spec') for table in tables):
+            'heat_exchanger_spec_revision', 'heat_exchanger_side_spec',
+            'iris_inspection_summary_history','tube_plugging_event') for table in tables):
         raise ValueError('Unsupported read-only grant table')
     target = load_database_config()
     reader = load_database_config(path=APP_DIR / 'config/database-text-to-sql.conf')
