@@ -2,6 +2,8 @@ const assert = require('node:assert/strict');
 const links = require('../static/text-to-sql-links.js');
 const urls = {tubeUrl:'/iris2/tubes/0', exchangerUrl:'/iris2/exchangers/0', inspectionUrl:'/iris2/inspections/0'};
 assert.equal(links.resolve('exchanger_code', {heat_exchanger_id:151}, {query_kind:'equipment_analysis'}, {...urls,analysisUrl:'/iris2/analysis?exchanger_id=0'}).href,'/iris2/analysis?exchanger_id=151');
+assert.equal(links.resolve('equipment_tag', {heat_exchanger_id:151}, {query_kind:'fluid_grouping',settings:{listing:true}}, {...urls,analysisUrl:'/iris2/analysis?exchanger_id=0'}).href,'/iris2/analysis?exchanger_id=151');
+assert.equal(links.resolve('equipment_tag', {heat_exchanger_id:151}, {query_kind:'fluid_grouping'}, urls).href,'/iris2/exchangers/151');
 assert.equal(links.resolve('source_tube_id', {tube_id:123, source_tube_id:'A-7'}, {}, urls).href, '/iris2/tubes/123');
 assert.equal(links.resolve('tube_id', {tube_id:123}, {}, urls).href, '/iris2/tubes/123');
 assert.equal(links.resolve('source_tube_id', {source_tube_id:7}, {}, urls), null);

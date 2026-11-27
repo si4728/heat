@@ -20,13 +20,13 @@
       // Only a single-equipment result may supply a result-level fallback.
       id = identifier(row.heat_exchanger_id == null ? result.heat_exchanger_id : row.heat_exchanger_id);
       template = urls.exchangerUrl; title = '교환기 상세 조회';
-      if (result.query_kind === 'equipment_analysis') {
+      if (result.query_kind === 'equipment_analysis' || result.query_kind === 'fluid_grouping' && result.settings?.listing) {
         template = urls.analysisUrl; title = '열교환기 분석';
       }
     } else if (column === 'iris_inspection_id' || column === 'report_number') {
       id = identifier(row.iris_inspection_id); template = urls.inspectionUrl; title = '검사 상세 조회';
     }
-    if (id && template && result.query_kind === 'equipment_analysis' && template.startsWith('/') && !template.startsWith('//') && /[?&]exchanger_id=0(?:&|$)/.test(template)) {
+    if (id && template && template === urls.analysisUrl && template.startsWith('/') && !template.startsWith('//') && /[?&]exchanger_id=0(?:&|$)/.test(template)) {
       return {href:template.replace(/([?&]exchanger_id=)0(?=&|$)/, '$1' + id), title};
     }
     if (!id || !template || !template.startsWith('/') || template.startsWith('//') || !template.includes('/0')) return null;

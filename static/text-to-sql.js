@@ -21,7 +21,7 @@
   fitNavigation(); smallScreen.addEventListener('change', fitNavigation);
   if (navToggle) navToggle.addEventListener('click', () => { autoCollapsed = false; });
   const el = id => document.getElementById(`sql-${id}`);
-  let token = null, busy = false, inspectionRequest = 0;
+  let token = null, busy = false, inspectionRequest = 0, exportKey = null;
   let summaryToken = null, resultVersion = 0;
   const labels = {
     tube_no:'튜브번호', bundle_code:'번들', heat_exchanger_id:'열교환기 ID', unit_code:'공정', equipment_tag:'설비 Tag',
@@ -56,6 +56,8 @@
     if (message) el('error').focus();
   }
   function reset() {
+    exportKey = null; el('export').disabled = true;
+    el('interpretation').hidden = true; el('interpretation').textContent = '';
     resultVersion++; summaryToken = null;
     el('commentary-panel').hidden = true; el('commentary-text').textContent = ''; el('commentary-model').textContent = '';
     el('help-title').textContent = 'Text-to-SQL 예시 질문';
@@ -220,6 +222,11 @@
         return;
       }
       token = payload.token; el('code').value = payload.proposal.sql;
+      const settings = payload.settings;
+      el('interpretation').textContent = '해석한 조건: ' + (payload.interpretation || (settings?.sides ?
+        `현재 사양 · ${settings.sides.join(' / ')} · 유체 ${settings.fluid || '전체'} · ${settings.listing ? '설비별 1행' : '유체별 집계'}` :
+        '선택한 설비·검사·기간 범위에 생성 SQL 조건 적용'));
+      el('interpretation').hidden = false;
       el('parameters').textContent = JSON.stringify(payload.proposal.parameters);
       el('copy').disabled = false;
       el('generate-status').textContent = 'SQL 검증 완료. 내용을 확인한 뒤 실행하세요.';
@@ -231,7 +238,7 @@
         return;
       }
       if (payload.query_kind === 'fluid_grouping') {
-        el('result-scope').textContent = `${payload.equipment_list.length}대 · 현재 사양 · ${payload.settings.sides.join(' · ')} · ${payload.settings.by_unit ? '공정별 구분' : '선택 공정 합산'} · 검사 이력 유무와 관계없이 집계`;
+        el('result-scope').textContent = `${payload.equipment_list.length}대 · 현재 사양 · ${payload.settings.sides.join(' · ')} · ${payload.settings.listing ? '설비별 1행 · 설비를 선택하면 분석으로 이동' : payload.settings.by_unit ? '공정별 구분' : '선택 공정 합산'} · 유체 ${payload.settings.fluid || '전체'} · 검사 이력 유무와 관계없이 조회`;
         el('scope-list').textContent = payload.equipment_list.map(s => `${s.unit_code} · ${s.equipment_tag || s.equipment_code}`).join('\n');
         el('scope-details').hidden = false;
         return;
@@ -255,11 +262,12 @@
   });
   el('execute').addEventListener('click', async () => {
     if (busy || !token) return;
-    error(''); setBusy(true);
+    error(''); setBusy(true); exportKey = null; el('export').disabled = true;
     charts?.clear('결과를 조회하고 있습니다.');
     el('result-table').hidden = true; el('empty').hidden = false; el('empty').textContent = '결과를 조회하고 있습니다.'; el('result-count').textContent = '조회 중';
     try {
       const {result} = await request(root.dataset.executeUrl, {token});
+      exportKey = result.export_key; el('export').disabled = !exportKey;
       const table = el('result-table'), head = table.querySelector('thead'), body = table.querySelector('tbody');
       head.replaceChildren(); body.replaceChildren();
       const resultColumns = result.columns || Object.keys(result.rows[0] || {});
@@ -301,6 +309,7 @@
       if (result.query_kind === 'fluid_grouping') {
         el('empty').textContent = '조건에 맞는 유체 사양이 없습니다.';
         el('result-note').textContent = `${result.limit_reached ? '최대 500행입니다. 범위를 좁혀 주세요. · ' : ''}현재 사양 기준 · 공백·대소문자 정규화 · S:STEAM은 STEAM으로 분류 · 미등록 별도 표시 · 같은 설비는 유체·측·공정 그룹 안에서 1대 · Shell과 Tube 양쪽에 해당하면 각각 집계`;
+        if (result.settings?.listing) el('result-note').textContent = '설비별 1행 · 같은 설비의 해당 측·유체는 한 행에 표시 · 설비 링크에서 분석 확인 · 현재 사양 기준 · 최대 500행';
       }
       if (result.query_kind === 'equipment_analysis') {
         el('empty').textContent = '조건에 맞는 열교환기가 없습니다.';
@@ -346,4 +355,23 @@
     }
   }
   el('commentary-retry').addEventListener('click', () => { if (summaryToken) showCommentary(summaryToken, resultVersion); });
+  el('export').addEventListener('click', async () => {
+    if (!exportKey || busy) return;
+    el('export').disabled = true;
+    const version = resultVersion;
+    try {
+      const response = await fetch(root.dataset.exportUrl, {method:'POST', credentials:'same-origin',
+        headers:{'Content-Type':'application/json','X-CSRF-Token':root.dataset.csrf},body:JSON.stringify({key:exportKey})});
+      if (!response.ok || response.redirected || !response.headers.get('content-type')?.includes('spreadsheetml')) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || 'Excel 내보내기에 실패했습니다. 다시 조회하세요.');
+      }
+      const blob = await response.blob();
+      if (version !== resultVersion) return;
+      const url = URL.createObjectURL(blob), link = document.createElement('a');
+      link.href = url; link.download = 'text-to-sql.xlsx'; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (exc) { if (version === resultVersion) error(exc.message); }
+    finally { if (version === resultVersion) el('export').disabled = !exportKey; }
+  });
 })();

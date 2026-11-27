@@ -72,8 +72,13 @@ def parse(question):
     elif mode=='material':
         if re.search(r'Shell|Head|쉘',q,re.I) or not re.search(r'Cu\s*[-−–]?\s*Ni',q,re.I):
             raise QueryRejected('현재 지원하는 재질 조건은 Tube 재질 Cu-Ni입니다.')
-        if re.search(r'이상|이하|초과|미만|잔여',q):raise QueryRejected('재질 순위는 다른 수치 조건 없이 조회하세요.')
         options.update(material='CUNI',sort='loss',description='현재 승인 사양 Tube 재질 Cu-Ni · 현재 유효 최대 감육률 순위')
+        from .text_to_sql_equipment import options as basic_options
+        rest=re.sub(r'(?:Tube|튜브|전열관)?\s*재질(?:이|은|가|는)?\s*', '', q, flags=re.I)
+        rest=re.sub(r'Cu\s*[-−–]?\s*Ni', '', rest, flags=re.I)
+        basic=basic_options(rest, _advanced=False)
+        options['conditions']=basic['conditions']
+        return options
     elif mode=='overdue_iris':
         found=re.search(r'최근\s*(\d+)\s*년',q)
         if not found or not re.search(r'없|미검사|미실시',q):raise QueryRejected('IRIS 적용 대상 중 최근 5년간 검사 이력이 없는 설비처럼 질문하세요.')
