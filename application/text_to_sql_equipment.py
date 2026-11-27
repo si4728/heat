@@ -9,11 +9,13 @@ from iris2.hx_configuration import DB_PATH
 from iris2.llm_integration.text_to_sql import QueryRejected
 
 
-def options(question):
+def options(question, *, _advanced=True):
+    if re.search(r'또는|이거나|아닌|제외|아니고|\bOR\b|\bNOT\b', question, re.I):
+        raise QueryRejected('복합 조건은 모두 만족하는 AND 조건만 지원합니다. 또는·제외 조건은 지원하지 않습니다.')
     if not re.search(r'열교환기|교환기|설비|검사|잔여|감육|권고|분석',question):
         raise QueryRejected('열교환기 목록·잔여수명·차기 검사 권고일을 질문하세요.')
     from .text_to_sql_equipment_intents import parse
-    advanced=parse(question)
+    advanced=parse(question) if _advanced else None
     if advanced is not None:return advanced
     date_filter=re.search(r'차기\s*검사\s*권고일(?:이|은|가)?\s*(\d{4})\s*년\s*(이내|이전|이후)',question)
     remaining_question=question[:date_filter.start()]+question[date_filter.end():] if date_filter else question
@@ -30,6 +32,9 @@ def options(question):
             if field=='maximum_loss' and float(value)>100:
                 raise QueryRejected('감육률은 0~100%입니다.')
             conditions.append([field,op,float(value)])
+        elif re.search(r'(?:잔여\s*수명)' if field=='remaining_life_years' else r'감육률', question) and re.search(
+                (r'잔여\s*수명' if field=='remaining_life_years' else r'감육률')+r'(?:이|은|가|는)?\s*-?\d',question):
+            raise QueryRejected('수치 조건에 값·단위·비교 연산을 모두 입력하세요. 예: 감육률 30% 이상, 잔여수명 5년 이하')
     if date_filter:
         year,op=date_filter.groups()
         conditions.append(['recommendation_date',{'이내':'이하','이전':'미만','이후':'초과'}[op],
@@ -43,6 +48,17 @@ def options(question):
     if not 1<=limit<=100:
         raise QueryRejected('조회 개수는 1~100대입니다.')
     return dict(conditions=conditions,limit=limit,explicit_limit=bool(match),sort='loss' if re.search(r'감육.*(?:상위|심한|큰)|(?:상위|심한).*감육',question) else 'equipment')
+
+
+def describe(settings):
+    names={'remaining_life_years':'예상 잔여수명', 'maximum_loss':'최대 감육률', 'recommendation_date':'차기 검사 권고일'}
+    units={'remaining_life_years':'년', 'maximum_loss':'%', 'recommendation_date':''}
+    parts=[settings['description']] if settings.get('description') else []
+    parts += [f'{names[field]} {value}{units[field]} {op}' for field,op,value in settings['conditions']]
+    parts += ['모든 조건 동시 만족', f"최대 {settings['limit']}행"]
+    if settings.get('mode') in (None,'material'):
+        parts.append('최근 유효 검사·현재 기본 분석값')
+    return ' · '.join(parts)
 
 
 def proposal(ids):

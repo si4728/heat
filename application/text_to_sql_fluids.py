@@ -14,6 +14,11 @@ def normalized_fluid(value):
     return 'STEAM' if name == 'S:STEAM' else name or None
 
 
+def describe(settings):
+    unit='설비별 1행' if settings.get('listing') else '공정별 유체 집계' if settings['by_unit'] else '유체별 집계'
+    return f"현재 사양 · {' / '.join(settings['sides'])} · 유체 {settings.get('fluid') or '전체'} · {unit} · 최대 500행"
+
+
 def matches(question):
     return bool(re.search(r'유체|fluid', question, re.I))
 
@@ -28,8 +33,11 @@ def options(question):
     if not sides:
         sides = ['SHELL', 'TUBE']
     match = re.search(r'유체(?:명)?\s*(?:이|은|가|=|:)\s*[\'"]?([A-Za-z][A-Za-z0-9 .+/_():-]*?)(?:[\'"]|\s*인|\s+(?:교환기|열교환기|설비)|$)', question, re.I)
-    return dict(sides=sides, by_unit=bool(re.search(r'공정\s*별|라인\s*별|VCM1.*VCM2|구분', question, re.I)),
+    result=dict(sides=sides, by_unit=bool(re.search(r'공정\s*별|라인\s*별|VCM1.*VCM2|구분', question, re.I)),
                 fluid=normalized_fluid(match[1]) if match else None)
+    if re.search(r'목록|리스트',question) and not re.search(r'유체(?:명)?\s*별|측\s*별|집계|수량|개수|몇\s*대|대수',question):
+        result['listing']=True
+    return result
 
 
 def select_equipment(data, question):
@@ -82,7 +90,7 @@ def proposal(ids, settings):
                  'TUBE':"COALESCE(NULLIF(TRIM(s.tube_fluid),''), NULLIF(TRIM(ss.fluid),''))",
                  'HEAD':"NULLIF(TRIM(ss.fluid),'')"}[side]
         fluid = f"CASE WHEN UPPER({fluid})='S:STEAM' THEN 'STEAM' ELSE UPPER({fluid}) END"
-        parts.append(f'''SELECT hx.heat_exchanger_id, u.unit_code, e.equipment_tag,
+        parts.append(f'''SELECT hx.heat_exchanger_id, u.unit_code, e.equipment_tag, e.equipment_name,
             '{side}' AS side_code, COALESCE({fluid}, '미등록') AS fluid_name
             FROM heat_exchanger hx JOIN equipment e ON e.equipment_id=hx.equipment_id
             JOIN process_unit u ON u.unit_id=e.unit_id
@@ -98,6 +106,13 @@ def proposal(ids, settings):
         GROUP_CONCAT(DISTINCT CONCAT(unit_code, ':', equipment_tag) ORDER BY unit_code,equipment_tag SEPARATOR ', ') AS equipment_list
         FROM ({' UNION ALL '.join(parts)}) current_fluids {where}
         GROUP BY {unit}side_code, fluid_name ORDER BY {unit}side_code, exchanger_count DESC, fluid_name LIMIT 501'''
+    if settings.get('listing'):
+        sql=f'''SELECT heat_exchanger_id, unit_code, equipment_tag, equipment_name,
+            GROUP_CONCAT(DISTINCT side_code ORDER BY side_code SEPARATOR ', ') AS side_code,
+            GROUP_CONCAT(DISTINCT fluid_name ORDER BY fluid_name SEPARATOR ', ') AS fluid_name
+            FROM ({' UNION ALL '.join(parts)}) current_fluids {where}
+            GROUP BY heat_exchanger_id, unit_code, equipment_tag, equipment_name
+            ORDER BY unit_code, equipment_tag, heat_exchanger_id LIMIT 501'''
     return dict(sql=sql, parameters=parameters)
 
 
@@ -119,7 +134,7 @@ def execute(ids, settings, signed_proposal, allowed):
         connection.execute('START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY')
         cursor = connection.execute(expected['sql'], tuple(expected['parameters']))
         rows = [dict(row) for row in cursor.fetchmany(501)]
-        return dict(columns=[c[0] for c in cursor.description], rows=rows[:500], result_count=min(len(rows),500),
+        return dict(columns=[c[0] for c in cursor.description if c[0]!='heat_exchanger_id'], rows=rows[:500], result_count=min(len(rows),500),
                     limit_reached=len(rows)>500, query_kind='fluid_grouping', settings=settings,
                     query_sha256=hashlib.sha256(expected['sql'].encode()).hexdigest(),
                     generated_at=datetime.now(timezone.utc).isoformat())

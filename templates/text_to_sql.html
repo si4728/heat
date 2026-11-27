@@ -7,6 +7,7 @@
      data-inspections-url="{{ url_for('text_to_sql_inspections') }}"
      data-generate-url="{{ url_for('text_to_sql_generate') }}"
      data-execute-url="{{ url_for('text_to_sql_execute') }}"
+     data-export-url="{{ url_for('text_to_sql_export') }}"
      data-summary-url="{{ url_for('text_to_sql_summarize') }}"
      data-tube-url="{{ url_for('tube_detail', tube_id=0) }}"
      data-exchanger-url="{{ url_for('exchanger_detail', exchanger_id=0) }}"
@@ -44,6 +45,8 @@
           <label for="sql-question">질문 내용</label>
           <textarea id="sql-question" maxlength="500" rows="4" required placeholder="예: 최근 IRIS 검사 결과를 요약해 줘."></textarea>
           <div class="sql-examples" aria-label="예시 질문">
+            <button type="button" data-question="VCM1에서 Tube 재질이 Cu-Ni이고 최대 감육률 30% 이상이며 잔여수명 5년 이하인 열교환기 목록">재질·감육·수명 복합 조건</button>
+            <button type="button" data-question="Shell 유체명이 STEAM인 열교환기 목록">STEAM 설비 목록</button>
             <button type="button" data-question="잔여수명 5년 이하인 열교환기 목록을 보여줘.">잔여수명 5년 이하</button>
             <button type="button" data-question="열교환기별 잔여수명과 차기 검사 권고일을 보여줘.">수명·검사 권고일</button>
             <button type="button" data-question="도움말 알려줘">도움말</button>
@@ -64,7 +67,7 @@
           </div>
           <div class="sql-actions"><button id="sql-generate" class="button primary" type="submit" disabled><svg id="sql-generate-spinner" class="sql-wait-spinner" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" hidden><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="42 15"/></svg>SQL 생성</button><span id="sql-generate-status" role="status" aria-live="polite">교환기 또는 공정을 선택하세요.</span></div>
           <p class="sql-result-note">모델 요청은 접수 순서대로 1건씩 처리합니다. 최대 3건까지 대기하며, 대기열이 가득 차면 나중에 다시 이용해 주세요.</p>
-          <p class="sql-help">기본 수명·감육 조건 외에 최근 두 검사 비교, 감육속도·표본·Cu-Ni 재질 조건, 최근 무검사, 생산팀 집계와 회차별 추이를 지원합니다. 예시를 선택해 질문을 입력하세요. 판정할 수 없는 이력과 미기록 수량은 별도로 안내합니다.</p>
+          <p class="sql-help">공정·Cu-Ni 재질·최대 감육률·잔여수명 조건을 함께 지정할 수 있습니다. 실행 전에 해석한 조건을 확인하세요. 검사 비교·감육속도·표본·생산팀 집계·회차별 추이도 지원합니다. 결과는 Excel로 내보낼 수 있습니다.</p>
         </div>
       </section>
       <section class="panel sql-code-panel" aria-labelledby="sql-code-title">
@@ -73,6 +76,7 @@
           <label class="sr-only" for="sql-code">검증된 읽기 전용 SQL</label>
           <textarea id="sql-code" class="sql-code" readonly rows="7" spellcheck="false" placeholder="질문에서 생성한 SQL이 여기에 표시됩니다."></textarea>
           <p class="sql-parameters">바인딩 값 <code id="sql-parameters">—</code></p>
+          <p class="sql-result-scope" id="sql-interpretation" role="status" hidden></p>
           <div class="sql-actions"><button class="button" id="sql-execute" type="button" disabled>SQL 실행 · 결과 보기</button><span id="sql-execute-status" role="status" aria-live="polite">생성한 SQL을 확인한 뒤 실행하세요.</span></div>
         </div>
       </section>
@@ -84,7 +88,7 @@
   </section>
   <p class="sql-error" id="sql-error" role="alert" tabindex="-1" hidden></p>
   <section class="panel sql-results" aria-labelledby="sql-result-title" id="sql-result-panel">
-    <div class="panel-head"><h2 id="sql-result-title">실행 결과</h2><span id="sql-result-count">미실행</span></div>
+    <div class="panel-head"><h2 id="sql-result-title">실행 결과</h2><span id="sql-result-count">미실행</span><button class="button" id="sql-export" type="button" disabled>Excel 내보내기</button></div>
     <p class="sql-result-note">밑줄이 있는 Tube 번호·교환기 코드·검사 ID를 선택하면 상세 정보를 새 탭에서 조회합니다.</p>
     <p class="sql-result-scope" id="sql-result-scope">조회 결과는 선택한 검사 회차의 Tube 상세 데이터를 기준으로 표시됩니다.</p>
     <details class="sql-scope-details" id="sql-scope-details" hidden><summary>분석 대상·제외 설비 확인</summary><div id="sql-scope-list"></div></details>
@@ -111,4 +115,4 @@
   </section>
 </div>
 {% endblock %}
-{% block scripts %}<script defer src="{{ url_for('static', filename='text-to-sql-links.js', v='20261126-advanced-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql-charts.js', v='20261126-advanced-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql.js', v='20261126-steam-1') }}"></script>{% endblock %}
+{% block scripts %}<script defer src="{{ url_for('static', filename='text-to-sql-links.js', v='20261127-enhancements-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql-charts.js', v='20261126-advanced-1') }}"></script><script defer src="{{ url_for('static', filename='text-to-sql.js', v='20261127-enhancements-1') }}"></script>{% endblock %}

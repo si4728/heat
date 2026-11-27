@@ -15,6 +15,7 @@ TAIL=['remaining_display','recommendation_date']
 
 
 def assemble(rows,details,settings,*,data=None,as_of=None):
+    from .text_to_sql_equipment import describe
     as_of=as_of or services.remaining_life_as_of_date()
     mode=settings['mode'];diagnostics=Counter();matched=[]
     columns=IDENTITY+TAIL
@@ -53,6 +54,8 @@ def assemble(rows,details,settings,*,data=None,as_of=None):
                 diagnostics['재질 일치 · 최대 감육률 미산정 제외']+=1;continue
             row['tube_material']=material
             columns=IDENTITY+['tube_material','maximum_loss']+TAIL
+            if any(c[0]=='maximum_loss' for c in settings['conditions']):
+                columns.insert(len(IDENTITY)+1,'matching_tube_count')
         elif mode=='increase':
             pair,reason=history.latest_pair(data,identifier,as_of)
             if not pair:
@@ -133,7 +136,7 @@ def assemble(rows,details,settings,*,data=None,as_of=None):
         matched=groups;columns=['team_code','exchanger_count','earliest_remaining_life_years','earliest_limit_year','earliest_exchanger','equipment_list']
     result=dict(rows=matched[:settings['limit']],columns=columns,result_count=min(len(matched),settings['limit']),
         matched_count=len(matched),limit_reached=len(matched)>settings['limit'],result_unit=settings['result_unit'],
-        filter_description=settings['description'],query_mode=mode,diagnostics=dict(diagnostics),
+        filter_description=describe(settings),query_mode=mode,diagnostics=dict(diagnostics),
         calculation_date=as_of.isoformat(),matched_equipment_count=equipment_count,
         basis_note=basis_note(mode,settings))
     if mode=='history':result['matched_equipment_count']=1 if matched else 0

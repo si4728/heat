@@ -21,7 +21,11 @@ class FluidGroupingTests(unittest.TestCase):
         proposal = fluids.proposal([1,2],settings)
         self.assertIn('WHERE fluid_name=?', proposal['sql'])
         self.assertEqual(proposal['parameters'], [1,2,'STEAM'])
-        self.assertIn('COUNT(DISTINCT heat_exchanger_id)', proposal['sql'])
+        self.assertTrue(settings['listing'])
+        self.assertIn('GROUP BY heat_exchanger_id', proposal['sql'])
+        grouped=fluids.options('Shell 유체명이 steam인 열교환기 수량과 목록')
+        self.assertNotIn('listing',grouped)
+        self.assertIn('COUNT(DISTINCT heat_exchanger_id)',fluids.proposal([1,2],grouped)['sql'])
 
     def test_authorized_steam_alias_is_used_in_filters_without_merging_other_fluids(self):
         for name in ('STEAM', 'S:STEAM', ' s:steam '):

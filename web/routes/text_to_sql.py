@@ -7,7 +7,7 @@ from http import HTTPStatus
 from uuid import uuid4
 from iris2 import dbapi
 
-from flask import abort, copy_current_request_context, g, jsonify, render_template, request, session, url_for
+from flask import abort, copy_current_request_context, g, jsonify, render_template, request, session, url_for, send_file
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.exceptions import HTTPException
 
@@ -20,6 +20,7 @@ from iris2.application import text_to_sql_reports
 from iris2.application import text_to_sql_fluids as fluids
 from iris2.application import text_to_sql_equipment as equipment_query
 from iris2.application import text_to_sql_commentary as commentary
+from iris2.application.text_to_sql_export import ExportStore, workbook
 from iris2.application.text_to_sql_equipment_history import HistoryNotReady
 from iris2.llm_integration.question_language import normalize
 from iris2.application import text_to_sql_usage_log as usage_log
@@ -31,6 +32,33 @@ from iris2.llm_integration.text_to_sql import (
 
 
 def register_routes(app):
+    exports=ExportStore()
+    app.extensions['text_to_sql_exports']=exports
+
+    def completed(result, signed):
+        result['export_key']=exports.save(signed['actor'],dict(signed,export_scopes=usage_record()['scopes']),result)
+        return jsonify(result=result)
+
+    @app.post('/inspections/text-to-sql/export')
+    def text_to_sql_export():
+        profile=authorize()
+        try:
+            entry=exports.get(body().get('key'),profile['user_id'])
+            signed=entry['signed']
+            signed_usage(signed)
+            record_scopes(signed.get('export_scopes',[]))
+            if signed.get('query_kind')=='equipment_analysis' and not all(
+                    services.user_can(profile,key) for key in ('REMAINING_LIFE','EXCHANGERS')):
+                raise PermissionError('열교환기·잔여수명 조회 권한이 필요합니다.')
+            ids=set(signed.get('ids') or [pair[0] for pair in (signed.get('scopes') or [])])
+            if signed.get('exchanger_id'):ids.add(signed['exchanger_id'])
+            if not ids or not ids<={r['heat_exchanger_id'] for r in analysis.catalog()}:
+                raise PermissionError('조회 범위가 변경되었습니다. 다시 조회하세요.')
+            usage_record()['result']=dict(result_count=len(entry['result']['rows']),format='xlsx')
+            return send_file(workbook(entry),as_attachment=True,
+                download_name='text-to-sql.xlsx',mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        except Exception as exc:
+            return fail(exc)
     model_queue = ModelQueue()
     app.extensions['text_to_sql_model_queue'] = model_queue
 
@@ -143,7 +171,7 @@ def register_routes(app):
         return value
 
     def fail(exc):
-        if request.endpoint in ('text_to_sql_generate', 'text_to_sql_execute', 'text_to_sql_summarize'):
+        if request.endpoint in ('text_to_sql_generate', 'text_to_sql_execute', 'text_to_sql_summarize', 'text_to_sql_export'):
             usage_record()['error_type'] = type(exc).__name__
         if isinstance(exc,HistoryNotReady):
             return jsonify(error=str(exc)),503
@@ -212,15 +240,16 @@ def register_routes(app):
                 settings=advanced_settings or equipment_query.options(question)
                 selected=fluids.select_equipment(data,question)
                 ids=[r['heat_exchanger_id'] for r in selected]
+                interpretation='조회 공정 '+', '.join(sorted({r['unit_code'] for r in selected}))+' · '+equipment_query.describe(settings)
                 proposal=equipment_query.proposal(ids)
                 record['query_kind']='equipment_analysis'
                 record_scopes([dict(equipment=row,inspection=None) for row in selected])
                 usage_log.proposal_context(record,proposal)
                 token=serializer().dumps(dict(actor=profile['user_id'],query_kind='equipment_analysis',
-                    ids=ids,settings=settings,proposal=proposal,question=question,
+                    ids=ids,settings=settings,proposal=proposal,question=question,interpretation=interpretation,
                     usage_id=record['usage_id'],usage_input=record['input']))
                 return jsonify(query_kind='equipment_analysis',proposal=proposal,token=token,
-                    equipment_list=selected,settings=settings)
+                    equipment_list=selected,settings=settings,interpretation=interpretation)
             if fluids.matches(question):
                 record['query_kind'] = 'fluid_grouping'
                 settings = fluids.options(question)
@@ -230,10 +259,10 @@ def register_routes(app):
                 proposal = fluids.proposal(ids, settings)
                 usage_log.proposal_context(record, proposal)
                 token = serializer().dumps(dict(actor=profile['user_id'], query_kind='fluid_grouping',
-                    ids=ids, settings=settings, proposal=proposal, question=question,
+                    ids=ids, settings=settings, proposal=proposal, question=question,interpretation=fluids.describe(settings),
                     usage_id=record['usage_id'], usage_input=record['input']))
                 return jsonify(query_kind='fluid_grouping', proposal=proposal, token=token,
-                               equipment_list=selected, settings=settings)
+                               equipment_list=selected, settings=settings,interpretation=fluids.describe(settings))
             if text_to_sql_reports.matches(question):
                 record['query_kind'] = 'inspection_reports'
                 result = text_to_sql_reports.response(question, data)
@@ -372,7 +401,7 @@ def register_routes(app):
                 result['summary_token']=serializer().dumps(dict(actor=profile['user_id'],
                     kind='result_commentary',ids=signed['ids'],facts=facts))
                 record['result']={k:result.get(k) for k in ('result_count','query_sha256','limit_reached')}
-                return jsonify(result=result)
+                return completed(result,signed)
             if signed.get('query_kind') == 'fluid_grouping':
                 catalog = analysis.catalog()
                 record_scopes([dict(equipment=row, inspection=None) for row in catalog
@@ -380,7 +409,7 @@ def register_routes(app):
                 result = fluids.execute(signed['ids'], signed['settings'], signed['proposal'],
                                         {row['heat_exchanger_id'] for row in catalog})
                 record['result'] = {key: result.get(key) for key in ('result_count','query_sha256','limit_reached')}
-                return jsonify(result=result)
+                return completed(result,signed)
             if signed.get('period'):
                 record['period'] = signed['period']
             if signed.get('query_kind') == 'inspection_frequency':
@@ -391,7 +420,7 @@ def register_routes(app):
                 record['period'] = signed['period']
                 result = frequency.execute(signed['ids'],signed['period'],signed['proposal'],allowed)
                 record['result'] = {key: result.get(key) for key in ('result_count', 'query_sha256', 'limit_reached')}
-                return jsonify(result=result)
+                return completed(result,signed)
             pairs = signed.get('scopes')
             if pairs:
                 catalog = {row['heat_exchanger_id']: row for row in analysis.catalog()}
@@ -427,7 +456,7 @@ def register_routes(app):
             app.logger.info('Text-to-SQL executed actor=%s exchanger=%s inspection=%s query=%s rows=%s',
                 profile['user_id'], equipment['heat_exchanger_id'], inspection['iris_inspection_id'],
                 result['query_sha256'], result['result_count'])
-            return jsonify(result=result)
+            return completed(result,signed)
         except Exception as exc:
             return fail(exc)
 
@@ -461,7 +490,7 @@ def register_routes(app):
             response.headers['Cache-Control'] = 'no-store'
         if g.get('text_sql_queue_submission'):
             return response
-        if request.endpoint in ('text_to_sql_generate', 'text_to_sql_execute', 'text_to_sql_summarize'):
+        if request.endpoint in ('text_to_sql_generate', 'text_to_sql_execute', 'text_to_sql_summarize', 'text_to_sql_export'):
             try:
                 record = usage_record()
                 payload = response.get_json(silent=True) or {}
