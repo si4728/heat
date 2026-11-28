@@ -18,15 +18,19 @@ try{
     const result=await page.eval(()=>window.steamResult);
     assert.equal(result.query_kind,'fluid_grouping');
     if(question.includes('명이 ')){
+      assert.equal(result.settings.listing,true);
       assert.ok(result.rows.every(r=>r.fluid_name==='STEAM'));
-      assert.deepEqual(Object.fromEntries(result.rows.map(r=>[r.side_code,r.exchanger_count])),{SHELL:37,TUBE:2});
+      assert.equal(result.rows.length,new Set(result.rows.map(r=>r.heat_exchanger_id)).size);
+      const countSide=side=>result.rows.filter(r=>r.side_code.split(', ').includes(side)).length;
+      assert.deepEqual({SHELL:countSide('SHELL'),TUBE:countSide('TUBE')},{SHELL:37,TUBE:2});
+      assert.equal(await page.eval(()=>document.querySelectorAll('#sql-result-table tbody tr a[href*="exchanger_id="]').length>0),true);
       if(plain)assert.deepEqual(result.rows,plain);else plain=result.rows;
     }else{
       assert.ok(!result.rows.some(r=>r.fluid_name==='S:STEAM'));
       assert.equal(result.rows.find(r=>r.unit_code==='VCM1'&&r.side_code==='SHELL'&&r.fluid_name==='STEAM').exchanger_count,22);
     }
     assert.ok(await page.eval(()=>document.getElementById('sql-result-note').textContent.includes('S:STEAM은 STEAM으로 분류')));
-    checks.push({question,rows:result.rows.length,counts:result.rows.filter(r=>r.fluid_name==='STEAM')});
+    checks.push({question,rows:result.rows.length,steamRows:result.rows.filter(r=>r.fluid_name==='STEAM').length});
     for(const width of [1440,768,390]){
       await page.setViewport({width,height:1050});
       await page.eval(()=>document.getElementById('sql-result-table').scrollIntoView({block:'start'}));

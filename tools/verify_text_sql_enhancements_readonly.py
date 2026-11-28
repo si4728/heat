@@ -8,6 +8,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from openpyxl import load_workbook
 from sqlalchemy import text
 from iris2.app import create_app
+from iris2 import services
 from iris2.database import get_engine
 from iris2.application import text_to_sql_equipment as equipment, text_to_sql_fluids as fluids
 
@@ -43,7 +44,9 @@ def main():
         app=create_app(dict(TESTING=True,AUTH_DISABLED=False,CSRF_ENABLED=True))
         with get_engine().connect() as c:uid=c.scalar(text('SELECT MIN(user_id) FROM app_user WHERE is_admin=1 AND is_active=1'))
         client=app.test_client()
-        with client.session_transaction() as s:s.update(user_id=uid,last_activity_at=time.time(),csrf_token='readonly-check')
+        with client.session_transaction() as s:
+            s.update(user_id=uid, auth_stamp=services.user_access_profile(uid)['auth_stamp'],
+                     last_activity_at=time.time(), csrf_token='readonly-check')
         headers={'X-CSRF-Token':'readonly-check'}
         generated=client.post('/inspections/text-to-sql/generate',json=dict(question='Shell 유체명이 STEAM인 열교환기 목록',unit_codes=['VCM1']),headers=headers)
         assert generated.status_code==200

@@ -1,7 +1,7 @@
 import sys
 import unittest
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from types import SimpleNamespace as Obj
 from unittest.mock import patch
@@ -29,13 +29,12 @@ class PluggingCountTests(unittest.TestCase):
         self.assertEqual(counts['threshold_reached_count'],5)
         self.assertIsNone(counts['unregistered_tube_count'])
 
-    def test_missing_life_and_not_reached_have_separate_totals_and_filters(self):
+    def test_missing_life_and_not_reached_share_unknown_dashboard_band(self):
         rows=[dict(unit_code='VCM1',band=life_band(dict(status='LIMIT_NOT_REACHED',total_tube_count=10))),
               dict(unit_code='VCM2',band=life_band(dict(status='INSUFFICIENT_DATA',total_tube_count=10)))]
-        report=group_life_rows(rows,band='not_reached')
-        self.assertEqual(report['totals']['not_reached'],1)
-        self.assertEqual(report['totals']['unknown'],1)
-        self.assertEqual(len(report['rows']),1)
+        report=group_life_rows(rows,band='unknown')
+        self.assertEqual(report['totals']['unknown'],2)
+        self.assertEqual(len(report['rows']),2)
 
 
 class UiTemplateTests(unittest.TestCase):
@@ -48,7 +47,7 @@ class UiTemplateTests(unittest.TestCase):
         ctx=dict(can_screen=lambda *args:True,current_user=data.pop('current_user',dict(username='review',is_admin=True)),
             active_theme=dict(preset_key='DEFAULT',background_color='#f4f7f7',label_color='#52616a'),
             csrf_token='fixture',database_path='MariaDB / iris2',exchanger_display_code=lambda identifier:'E-131D',
-            get_flashed_messages=lambda **kw:[],**data)
+            get_flashed_messages=lambda **kw:[],now=datetime(2026,11,10),**data)
         with self.app.test_request_context('/'):
             from flask import request
             request.url_rule=next(rule for rule in self.app.url_map.iter_rules() if rule.endpoint==endpoint)
@@ -56,7 +55,7 @@ class UiTemplateTests(unittest.TestCase):
 
     def dashboard_fixture(self, admin=False):
         rows=[dict(unit_code='VCM1',band='short',heat_exchanger_id=1,exchanger_code='E-131D',equipment_name='VCM1 fixture',remaining_life_years=3,status='CALCULATED',latest_inspection_date='2026-01-01',projection_coverage_percent=80),
-              dict(unit_code='VCM2',band='not_reached',heat_exchanger_id=2,exchanger_code='E-106',equipment_name='VCM2 fixture',remaining_life_years=None,status='LIMIT_NOT_REACHED',latest_inspection_date='2026-01-01',projection_coverage_percent=30)]
+              dict(unit_code='VCM2',band='unknown',heat_exchanger_id=2,exchanger_code='E-106',equipment_name='VCM2 fixture',remaining_life_years=None,status='LIMIT_NOT_REACHED',remaining_display='산정 불가',uncalculable_reason='가용 데이터에서 한도 미도달',latest_inspection_date='2026-01-01',projection_coverage_percent=30)]
         return self.render('dashboard.html',current_user=dict(username='review',is_admin=admin),counts=defaultdict(int,exchangers=2),life_dashboard=dict(group_life_rows(rows),as_of_date='2026-11-10'),yearly_rows=[],recent=[],units=[],upcoming_plans=[])
 
     def precision_fixture(self):

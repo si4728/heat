@@ -309,7 +309,7 @@
       if (result.query_kind === 'fluid_grouping') {
         el('empty').textContent = '조건에 맞는 유체 사양이 없습니다.';
         el('result-note').textContent = `${result.limit_reached ? '최대 500행입니다. 범위를 좁혀 주세요. · ' : ''}현재 사양 기준 · 공백·대소문자 정규화 · S:STEAM은 STEAM으로 분류 · 미등록 별도 표시 · 같은 설비는 유체·측·공정 그룹 안에서 1대 · Shell과 Tube 양쪽에 해당하면 각각 집계`;
-        if (result.settings?.listing) el('result-note').textContent = '설비별 1행 · 같은 설비의 해당 측·유체는 한 행에 표시 · 설비 링크에서 분석 확인 · 현재 사양 기준 · 최대 500행';
+        if (result.settings?.listing) el('result-note').textContent = '설비별 1행 · 같은 설비의 해당 측·유체는 한 행에 표시 · 설비 링크에서 분석 확인 · S:STEAM은 STEAM으로 분류 · 현재 사양 기준 · 최대 500행';
       }
       if (result.query_kind === 'equipment_analysis') {
         el('empty').textContent = '조건에 맞는 열교환기가 없습니다.';

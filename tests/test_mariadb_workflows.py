@@ -1,7 +1,7 @@
-import os,re,sys,time,unittest,uuid
+import os,re,secrets,sys,time,unittest,uuid
 from pathlib import Path
 from unittest.mock import patch
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from iris2.db_config import load_database_config
 from iris2 import database,dbapi,services
@@ -21,6 +21,14 @@ class MariaDBWorkflowTests(unittest.TestCase):
                 raise unittest.SkipTest('Prepare an isolated MariaDB snapshot before writable workflow tests')
             for host in ['localhost','127.0.0.1']:
                 conn.exec_driver_sql(f"GRANT SELECT,INSERT,UPDATE,DELETE ON `{cls.schema}`.* TO %s@%s",(settings['user'],host))
+        from iris2.migration.plugging_operations import apply_migration
+        fixture_engine = engine_for(config, cls.schema)
+        try:
+            fixture_tables = set(inspect(fixture_engine).get_table_names())
+            if not {'tube_plugging_event', 'customer_correction_event'} <= fixture_tables:
+                apply_migration(fixture_engine)
+        finally:
+            fixture_engine.dispose()
         settings['name']=cls.schema
         cls.patch=patch('iris2.database.load_database_config',return_value=settings);cls.patch.start()
         def isolated_config(*,admin=False,path=None):
@@ -194,11 +202,29 @@ class MariaDBWorkflowTests(unittest.TestCase):
         self.assertGreater(second,first)
         latest=latest_review_feedback(ML_REVIEW_DB_PATH,run)
         self.assertEqual(latest[1]['label'],'CONFIRMED_SOURCE_ERROR')
-        connection=dbapi.connect(ML_REVIEW_DB_PATH,readonly=True)
+        from iris2.migration.migrate_all import engine_for
+        schema = 'iris2_ml' + self.schema[len('iris2'):]
+        admin = load_database_config(admin=True)
+        reader = 'iris2_test_ml_' + uuid.uuid4().hex[:12]
+        password = secrets.token_urlsafe(32)
+        controller = engine_for(admin, 'mysql')
         try:
-            self.assertEqual(connection.schema,'iris2_ml'+self.schema[len('iris2'):])
-            self.assertEqual(connection.execute('SELECT COUNT(*) FROM ml_review_feedback WHERE run_id=?',(run,)).fetchone()[0],2)
-        finally:connection.close()
+            with controller.begin() as conn:
+                conn.exec_driver_sql('CREATE USER %s@%s IDENTIFIED BY %s', (reader, 'localhost', password))
+                conn.exec_driver_sql(f'GRANT SELECT ON `{schema}`.* TO %s@%s', (reader, 'localhost'))
+            settings = dict(admin, user=reader, password=password)
+            with patch('iris2.dbapi.load_database_config', return_value=settings):
+                connection = dbapi.connect(ML_REVIEW_DB_PATH, readonly=True)
+                try:
+                    self.assertEqual(connection.schema, schema)
+                    self.assertEqual(connection.execute(
+                        'SELECT COUNT(*) FROM ml_review_feedback WHERE run_id=?', (run,)).fetchone()[0], 2)
+                finally:
+                    connection.close()
+        finally:
+            with controller.begin() as conn:
+                conn.exec_driver_sql('DROP USER IF EXISTS %s@%s', (reader, 'localhost'))
+            controller.dispose()
     def test_stale_edit_is_rejected(self):
         with self.engine.connect() as conn:
             code=conn.exec_driver_sql('SELECT equipment_code FROM equipment WHERE equipment_id=1').scalar()

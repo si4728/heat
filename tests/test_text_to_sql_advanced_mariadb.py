@@ -12,7 +12,6 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 from iris2 import services
 from iris2.app import create_app
-from iris2.application.text_to_sql_help import ADVANCED_EXAMPLES
 from iris2.iris_v2_models import (Equipment,HeatExchanger,ProcessUnit,HeatExchangerSpecRevision,
     TubeBundle,HeatExchangerTube,IrisInspection,IrisTubeResult,IrisInspectionSummaryHistory,TubePluggingEvent)
 
@@ -77,24 +76,24 @@ class AdvancedMariaDBTests(unittest.TestCase):
         return response.json['result']
 
     def test_01_increase_and_rate_match_original_measurements_and_analysis(self):
-        delta=self.query(ADVANCED_EXAMPLES[0])
+        delta=self.query('최근 두 번의 검사 사이 최대 감육률이 5%p 이상 증가한 열교환기는?')
         self.assertEqual(delta['rows'][0]['previous_maximum_loss'],55)
         self.assertEqual(delta['rows'][0]['latest_maximum_loss'],60)
         self.assertEqual(delta['rows'][0]['wall_loss_increase_percent_points'],5)
-        result=self.query(ADVANCED_EXAMPLES[1])
+        result=self.query('감육속도가 0.1 mm/년 이상인 튜브가 있는 열교환기를 알려줘')
         life=services.exchanger_detail(self.identifier)['remaining_life']
         expected=sum((r.get('corrosion_rate_mm_per_year') or 0)>=.1 for r in life['analysis_tube_rows'])
         self.assertEqual(result['rows'][0]['matching_tube_count'],expected)
 
     def test_02_team_and_sample_and_material(self):
-        team=self.query(ADVANCED_EXAMPLES[2])
+        team=self.query('Plugging 20% 도달까지 10년 이내인 열교환기를 생산팀별로 세어줘')
         self.assertEqual(team['result_unit'],'team')
         self.assertEqual(team['rows'][0]['exchanger_count'],1)
         self.assertEqual(team['matched_equipment_count'],1)
-        sample=self.query(ADVANCED_EXAMPLES[3])
+        sample=self.query('검사 표본이 10본 미만이라 재검사 범위를 늘려야 하는 열교환기는?')
         self.assertEqual(sample['rows'][0]['sample_count'],9)
         self.assertEqual(sample['rows'][0]['total_tube_count'],20)
-        material=self.query(ADVANCED_EXAMPLES[5])
+        material=self.query('Tube 재질이 Cu-Ni인 열교환기 중 최대 감육률 상위 10대')
         self.assertEqual(material['rows'][0]['tube_material'],'Cu-Ni')
         self.assertEqual(material['rows'][0]['maximum_loss'],60)
 
@@ -116,7 +115,7 @@ class AdvancedMariaDBTests(unittest.TestCase):
         with Session(self.engine) as s:
             latest=s.get(IrisInspection,self.rounds[-1]);latest.superseded_by_inspection_id=self.rounds[0];s.commit()
         try:
-            result=self.query(ADVANCED_EXAMPLES[4])
+            result=self.query('IRIS 적용 대상인데 최근 5년간 검사 이력이 없는 열교환기는?')
             self.assertEqual(result['rows'][0]['latest_inspection_date'],'2020-01-01')
             self.assertEqual(result['rows'][0]['iris_applicability'],'REQUIRED')
         finally:

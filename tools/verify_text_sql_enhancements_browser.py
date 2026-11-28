@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import threading
@@ -24,6 +25,7 @@ def main():
     out=root/'reports/text-sql-enhancements-20261127';out.mkdir(parents=True,exist_ok=True)
     master=dict(heat_exchanger_id=1,unit_code='VCM1',equipment_tag='E-TEST-1',equipment_code='TEST-1',equipment_name='브라우저 검증용 설비')
     profile=dict(user_id=1,username='검증 계정',is_admin=True,is_active=True)
+    profile['auth_stamp'] = 'enhancement-test-profile'
     row=dict(master,exchanger_code='E-TEST-1',maximum_loss=35,remaining_display='4.0년',remaining_life_years=4,
              tube_material='Cu-Ni',recommendation_date='2027-01-01',matching_tube_count=2,calculation_date='2026-11-27')
     def equipment_result(*args):
@@ -44,13 +46,22 @@ def main():
         stack.enter_context(patch.object(fluids,'execute',side_effect=fluid_result))
         stack.enter_context(patch('iris2.application.text_to_sql_commentary.generate',return_value=dict(text='시험용 해설',model='TEST_STUB',status='generated')))
         app=create_app(dict(TESTING=True,AUTH_DISABLED=False,CSRF_ENABLED=True))
-        cookie=app.session_interface.get_signing_serializer(app).dumps(dict(user_id=1,last_activity_at=time.time(),csrf_token='enhancement-test'))
+        cookie=app.session_interface.get_signing_serializer(app).dumps(dict(
+            user_id=1, auth_stamp=profile['auth_stamp'], last_activity_at=time.time(), csrf_token='enhancement-test'))
         server=make_server('127.0.0.1',0,app,threaded=True,request_handler=QuietHandler)
         thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
         try:
-            result=subprocess.run(['node','tools/verify_text_sql_enhancements_browser.mjs'],
+            node = shutil.which('node')
+            env = os.environ.copy()
+            if node is None:
+                vscode = Path(env.get('LOCALAPPDATA', '')) / 'Programs/Microsoft VS Code/Code.exe'
+                if not vscode.is_file():
+                    raise RuntimeError('Node.js or VS Code is required for the browser check')
+                node = str(vscode)
+                env['ELECTRON_RUN_AS_NODE'] = '1'
+            result=subprocess.run([node,'tools/verify_text_sql_enhancements_browser.mjs'],
                 input=json.dumps(dict(base=f'http://127.0.0.1:{server.server_port}',cookie=cookie,out=str(out))),
-                capture_output=True,text=True,encoding='utf-8',timeout=120)
+                capture_output=True,text=True,encoding='utf-8',env=env,timeout=120)
             (out/'browser.log').write_text(result.stdout+'\n'+result.stderr,encoding='utf-8')
             if result.returncode:raise RuntimeError('Browser check failed; see local report')
             print(result.stdout)

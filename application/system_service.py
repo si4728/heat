@@ -57,9 +57,14 @@ def database_health() -> dict[str, Any]:
 
 def database_readiness() -> bool:
     """Cheap public readiness probe; full integrity diagnostics stay authenticated."""
+    query = text("""
+        SELECT EXISTS (SELECT 1 FROM schema_version WHERE version = :version)
+           AND (SELECT COUNT(*) FROM information_schema.tables
+                WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'
+                  AND table_name IN ('tube_plugging_event', 'customer_correction_event')) = 2
+    """)
     with database.get_engine().connect() as connection:
-        return connection.scalar(text('SELECT 1 FROM schema_version WHERE version=:version LIMIT 1'),
-            {'version': SCHEMA_VERSION}) == 1
+        return connection.scalar(query, {'version': SCHEMA_VERSION}) == 1
 
 
 def database_monitor_data() -> dict[str, Any]:

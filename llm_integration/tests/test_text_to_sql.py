@@ -120,7 +120,7 @@ class ValidationTests(unittest.TestCase):
         connection.execute.return_value.description = [('tube_id',)]
         result = module.execute_proposal(TOP, exchanger_id=7, authorized_exchanger_ids={7})
         sql, bindings = connection.execute.call_args.args
-        self.assertIn("u.unit_code IN ('VCM1', 'VCM2')", sql)
+        self.assertIn("u.unit_code IN ('PE', 'VCM1', 'VCM2')", sql)
         self.assertEqual(bindings, (7, 9, 30))
         self.assertEqual(result["rows"], [{"tube_id":3,'heat_exchanger_id':7,'equipment_code':'E-107'}])
         self.assertEqual(result['columns'][:2], ['equipment_code','heat_exchanger_id'])

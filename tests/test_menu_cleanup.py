@@ -1,6 +1,6 @@
 import re
 import unittest
-from . import test_ui_usability
+from tests import test_ui_usability
 
 
 class MenuCleanupTests(unittest.TestCase):
